@@ -1,21 +1,16 @@
-// src/App.tsx
-import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import Home from "./pages/Home";
 import DayView from "./pages/DayView";
 
 export default function App() {
   return (
     <Routes>
-      {/* Redirect “/” to today’s day view */}
-      <Route
-        index
-        element={<Navigate to={`/day/${new Date().toISOString().slice(0, 10)}`} replace />}
-      />
+      <Route index element={<Home />} />
 
-      {/* Show the DayView for any /day/:day */}
+      {/* Specific day */}
       <Route path="/day/:day" element={<DayView />} />
 
-      {/* Fallback: redirect to home */}
+      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
