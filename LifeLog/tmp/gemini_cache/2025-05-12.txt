@@ -2,230 +2,491 @@
 [
   {
     "start": "2024-01-01T00:00:00Z",
-    "end": "2024-01-01T00:22:10Z",
-    "activity": "Work on 3D Model & Rendering",
-    "project": "Energy Project",
-    "notes": "Worked on the 'city.blend' model, rendered, organized project files, and researched HDRI and resolution settings in Blender."
+    "end": "2024-01-01T00:02:18Z",
+    "activity": "Work on 3D Scene and Research",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Worked on the Blender scene ('city.blend'), including rendering and checking render output, and performed brief research on HDRI."
   },
   {
-    "start": "2024-01-01T00:22:10Z",
-    "end": "2024-01-01T00:22:21Z",
-    "activity": "Research 3D Techniques",
-    "project": "Energy Project",
-    "notes": "Researched how to load HDRI in Blender and techniques for realistic water and grass."
+    "start": "2024-01-01T00:02:18Z",
+    "end": "2024-01-01T00:02:26Z",
+    "activity": "Manage files",
+    "project": null,
+    "location": null,
+    "notes": "Browsed files in Finder."
   },
   {
-    "start": "2024-01-01T00:22:21Z",
-    "end": "2024-01-01T00:28:00Z",
-    "activity": "Work on Project Report & Research",
+    "start": "2024-01-01T00:02:26Z",
+    "end": "2024-01-01T00:04:05Z",
+    "activity": "Work on 3D Scene and Research",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Returned to the Blender scene, performed renders, and researched resolution settings in Arc. Includes brief checks in Finder."
+  },
+  {
+    "start": "2024-01-01T00:04:05Z",
+    "end": "2024-01-01T00:04:22Z",
+    "activity": "Review image",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Reviewed a rendered image (0060.png)."
+  },
+  {
+    "start": "2024-01-01T00:04:22Z",
+    "end": "2024-01-01T00:06:17Z",
+    "activity": "Work on 3D Scene and Research",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Researched resolutions and worked on the Blender scene, performing renders."
+  },
+  {
+    "start": "2024-01-01T00:06:17Z",
+    "end": "2024-01-01T00:14:04Z",
+    "activity": "Work on 3D Scene and Review Images",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Continued intensive work on the Blender scene, performing renders and reviewing outputs in Preview, with brief file browsing."
+  },
+  {
+    "start": "2024-01-01T00:14:04Z",
+    "end": "2024-01-01T00:22:14Z",
+    "activity": "Render 3D Scene",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Performed renders and brief adjustments on the Blender scene."
+  },
+  {
+    "start": "2024-01-01T00:22:14Z",
+    "end": "2024-01-01T00:27:55Z",
+    "activity": "Work on Project Document and Research",
     "project": "Renewable Energy Project",
-    "notes": "Wrote and researched for the project report, consulted the research guide, checked email briefly, and performed related online searches."
+    "location": null,
+    "notes": "Conducted research using the Energy Source Research Guide, edited the Renewable Energy Project document, performed related searches, and briefly checked email."
+  },
+  {
+    "start": "2024-01-01T00:27:55Z",
+    "end": "2024-01-01T00:28:10Z",
+    "activity": "Render 3D Scene",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Performed a render in Blender."
   },
   {
     "start": "2024-01-01T00:28:10Z",
-    "end": "2024-01-01T00:28:53Z",
-    "activity": "Review Renders",
-    "project": "Energy Project",
-    "notes": "Reviewed rendered image files in Preview and Finder."
+    "end": "2024-01-01T00:28:56Z",
+    "activity": "Review Images",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Reviewed rendered images in Preview and browsed files in Finder."
   },
   {
     "start": "2024-01-01T00:28:56Z",
-    "end": "2024-01-01T00:28:58Z",
-    "activity": "Render 3D Model",
-    "project": "Energy Project",
-    "notes": "Initiated a render in Blender."
+    "end": "2024-01-01T00:28:59Z",
+    "activity": "Render 3D Scene",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Performed a brief render in Blender."
   },
   {
-    "start": "2024-01-01T00:28:58Z",
-    "end": "2024-01-01T00:57:11Z",
-    "activity": "Work on Project Report & Research",
+    "start": "2024-01-01T00:28:59Z",
+    "end": "2024-01-01T00:57:17Z",
+    "activity": "Work on Project Document, Research, and Email",
     "project": "Renewable Energy Project",
-    "notes": "Continued writing and researching for the report, consulting the research guide and performing searches on topics like underground cable costs and city power sales."
+    "location": null,
+    "notes": "Focused on editing the Renewable Energy Project document and researching using the guide. Performed related searches, used ChatGPT, looked up words in Dictionary, and managed personal email (dentist appointment)."
+  },
+  {
+    "start": "2024-01-01T00:57:17Z",
+    "end": "2024-01-01T01:19:41Z",
+    "activity": "Inactive",
+    "project": null,
+    "location": null,
+    "notes": "Computer was inactive or screen was locked."
   },
   {
     "start": "2024-01-01T01:19:41Z",
+    "end": "2024-01-01T01:19:49Z",
+    "activity": "Review Document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Briefly reviewed the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-01T01:19:49Z",
     "end": "2024-01-01T01:20:12Z",
-    "activity": "Prepare Project Files",
+    "activity": "Manage files",
     "project": "Energy Project",
-    "notes": "Accessed project documents and folders containing video and render output files."
+    "location": null,
+    "notes": "Navigated project files in Finder, including video and render output directories."
   },
   {
     "start": "2024-01-01T01:20:12Z",
     "end": "2024-01-01T01:22:37Z",
-    "activity": "Edit Video",
+    "activity": "Edit video",
     "project": "Energy Project",
-    "notes": "Worked on an untitled project in DaVinci Resolve."
+    "location": null,
+    "notes": "Worked on video editing in DaVinci Resolve."
   },
   {
     "start": "2024-01-01T01:22:37Z",
-    "end": "2024-01-01T01:38:18Z",
-    "activity": "Browse Jokes",
-    "notes": "Browsed Reddit's r/AntiJokes subreddit and performed related searches."
+    "end": "2024-01-01T01:38:20Z",
+    "activity": "Browse internet",
+    "project": null,
+    "location": null,
+    "notes": "Spent time browsing the internet, primarily reading anti-jokes on Reddit, with brief switches back to project documents and unrelated searches."
+  },
+  {
+    "start": "2024-01-01T01:38:20Z",
+    "end": "2024-01-01T01:38:33Z",
+    "activity": "Work on 3D Scene",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Briefly worked on the Blender scene."
   },
   {
     "start": "2024-01-01T01:38:33Z",
+    "end": "2024-01-01T01:38:37Z",
+    "activity": "Inactive",
+    "project": null,
+    "location": null,
+    "notes": "Computer was inactive or screen was locked."
+  },
+  {
+    "start": "2024-01-01T01:38:37Z",
     "end": "2024-01-01T01:38:40Z",
-    "activity": "Work on 3D Model",
-    "project": "Energy Project",
-    "notes": "Briefly worked on the 'city.blend' file."
+    "activity": "Work on 3D Scene",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Briefly returned to the Blender scene."
   },
   {
     "start": "2024-01-01T01:38:40Z",
-    "end": "2024-01-01T01:40:23Z",
-    "activity": "Browse Online",
-    "notes": "Performed general online searches on philosophical topics."
+    "end": "2024-01-01T01:40:25Z",
+    "activity": "Browse internet and review document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Performed general philosophical searches and briefly reviewed the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-01T01:40:25Z",
+    "end": "2024-01-01T01:50:12Z",
+    "activity": "Inactive",
+    "project": null,
+    "location": null,
+    "notes": "Computer was inactive or screen was locked."
   },
   {
     "start": "2024-01-01T01:50:12Z",
-    "end": "2024-01-01T02:32:20Z",
-    "activity": "Browse Jokes",
-    "notes": "Browsed Reddit's r/Jokes subreddit, searched for specific jokes, and used ChatGPT."
+    "end": "2024-01-01T01:50:34Z",
+    "activity": "Review document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Briefly reviewed the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-01T01:50:35Z",
+    "end": "2024-01-01T02:34:36Z",
+    "activity": "Browse internet and inactive",
+    "project": null,
+    "location": null,
+    "notes": "Browsed for jokes online, primarily on Reddit, and used ChatGPT briefly, followed by a long period of inactivity or being away from the computer."
   },
   {
     "start": "2024-01-01T02:34:36Z",
     "end": "2024-01-01T02:34:41Z",
-    "activity": "Transitioning Projects",
-    "notes": "Accessed project files and online resources, likely transitioning between tasks."
+    "activity": "Task switching",
+    "project": null,
+    "location": null,
+    "notes": "Briefly switched between various browser tabs, including project documents and YouTube."
   },
   {
     "start": "2024-01-01T02:34:41Z",
-    "end": "2024-01-01T02:44:20Z",
-    "activity": "Work on 3D Model & Video",
+    "end": "2024-01-01T02:34:48Z",
+    "activity": "Work on 3D Scene",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Returned to working on the 'city.blend' scene in Blender."
+  },
+  {
+    "start": "2024-01-01T02:34:48Z",
+    "end": "2024-01-01T02:34:50Z",
+    "activity": "Edit video",
     "project": "Energy Project",
-    "notes": "Worked on the 3D model, edited related video content in DaVinci Resolve, and reviewed output in QuickTime Player and Blender's Image Editor."
+    "location": null,
+    "notes": "Briefly switched to DaVinci Resolve."
+  },
+  {
+    "start": "2024-01-01T02:34:50Z",
+    "end": "2024-01-01T02:35:17Z",
+    "activity": "Manage files and review video",
+    "project": "Energy Project",
+    "location": null,
+    "notes": "Navigated project folders in Finder and viewed a video asset ('pipe') in QuickTime Player."
+  },
+  {
+    "start": "2024-01-01T02:35:17Z",
+    "end": "2024-01-01T02:35:58Z",
+    "activity": "Edit video",
+    "project": "Energy Project",
+    "location": null,
+    "notes": "Continued video editing in DaVinci Resolve."
+  },
+  {
+    "start": "2024-01-01T02:35:58Z",
+    "end": "2024-01-01T02:44:22Z",
+    "activity": "Work on 3D Scene",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Worked on the 'city.blend' scene in Blender, including using the image editor."
   },
   {
     "start": "2024-01-01T02:44:22Z",
-    "end": "2024-01-01T02:53:17Z",
-    "activity": "Review Project Media & Browse",
+    "end": "2024-01-01T02:44:41Z",
+    "activity": "Browse and file check",
+    "project": null,
+    "location": null,
+    "notes": "Briefly browsed YouTube, viewed an image in Preview, and navigated files in Finder."
+  },
+  {
+    "start": "2024-01-01T02:44:41Z",
+    "end": "2024-01-01T02:50:44Z",
+    "activity": "Review images and manage files",
     "project": "Energy Project",
-    "notes": "Reviewed project renders/images, researched Blender help online, and dealt with network connection issues via Captive Network Assistant."
+    "location": null,
+    "notes": "Reviewed multiple image files in Preview and managed files within the Energy Project directory in Finder."
+  },
+  {
+    "start": "2024-01-01T02:50:44Z",
+    "end": "2024-01-01T02:53:21Z",
+    "activity": "Email and network",
+    "project": null,
+    "location": null,
+    "notes": "Checked email in Outlook web client and dealt with a network connection issue using the Captive Network Assistant."
   },
   {
     "start": "2024-01-01T02:53:21Z",
     "end": "2024-01-01T02:59:42Z",
-    "activity": "Manage Email",
-    "notes": "Sent an email regarding a dentist appointment absence request via Outlook."
+    "activity": "Manage email and research",
+    "project": null,
+    "location": null,
+    "notes": "Focused on using the Outlook web client for email, including drafting an absence request. Looked up words in Dictionary and performed a related search."
+  },
+  {
+    "start": "2024-01-01T02:59:42Z",
+    "end": "2024-01-01T04:15:41Z",
+    "activity": "Inactive",
+    "project": null,
+    "location": null,
+    "notes": "Computer was inactive or screen was locked."
   },
   {
     "start": "2024-01-01T04:15:41Z",
     "end": "2024-01-01T04:16:01Z",
-    "activity": "Check System Settings",
-    "notes": "Accessed system settings, including software update and screen time, and briefly used Terminal."
+    "activity": "Adjust system settings and brief activity",
+    "project": null,
+    "location": null,
+    "notes": "Adjusted system settings related to updates and screen time, with brief switches to Arc and Terminal."
   },
   {
     "start": "2024-01-01T04:16:01Z",
-    "end": "2024-01-01T04:17:01Z",
-    "activity": "Communicate & Email",
-    "notes": "Exchanged messages and checked/sent emails, likely related to the dentist appointment."
+    "end": "2024-01-01T04:17:07Z",
+    "activity": "Email and messaging",
+    "project": null,
+    "location": null,
+    "notes": "Checked email in Arc and exchanged messages using the Messages app, with brief task switching."
   },
   {
-    "start": "2024-01-01T04:17:01Z",
-    "end": "2024-01-01T04:17:06Z",
-    "activity": "Research 3D Techniques",
-    "notes": "Searched for help on what to do if lost in Blender."
-  },
-  {
-    "start": "2024-01-01T04:17:06Z",
+    "start": "2024-01-01T04:17:07Z",
     "end": "2024-01-01T05:08:12Z",
-    "activity": "Watch Videos Online",
-    "notes": "Watched various videos on YouTube and browsed related content, including anime information on MyAnimeList."
+    "activity": "Watch YouTube and browse web",
+    "project": null,
+    "location": null,
+    "notes": "Watched various videos on YouTube and browsed related sites like MyAnimeList and Dropout, including searches for anime details."
   },
   {
     "start": "2024-01-01T05:08:12Z",
     "end": "2024-01-01T05:08:18Z",
-    "activity": "Watch Anime",
-    "notes": "Used the Miru app, likely to watch anime."
+    "activity": "Use application",
+    "project": null,
+    "location": null,
+    "notes": "Used the Miru application."
   },
   {
     "start": "2024-01-01T05:08:18Z",
-    "end": "2024-01-01T05:15:11Z",
-    "activity": "Watch Videos Online",
-    "notes": "Watched a video on YouTube."
+    "end": "2024-01-01T05:15:13Z",
+    "activity": "Watch YouTube and use application",
+    "project": null,
+    "location": null,
+    "notes": "Watched a YouTube video, with a brief switch to Miru."
   },
   {
     "start": "2024-01-01T05:15:13Z",
     "end": "2024-01-01T05:15:22Z",
-    "activity": "Watch Anime",
-    "notes": "Used the Miru app, likely to watch anime."
+    "activity": "Use application",
+    "project": null,
+    "location": null,
+    "notes": "Used the Miru application."
   },
   {
     "start": "2024-01-01T05:15:22Z",
     "end": "2024-01-01T05:15:35Z",
-    "activity": "Message",
-    "notes": "Sent messages via Messages and Discord."
+    "activity": "Messaging and chat",
+    "project": null,
+    "location": null,
+    "notes": "Exchanged messages and used Discord briefly."
   },
   {
     "start": "2024-01-01T05:15:35Z",
+    "end": "2024-01-01T05:16:15Z",
+    "activity": "Chat on Discord",
+    "project": null,
+    "location": null,
+    "notes": "Chatted on Discord."
+  },
+  {
+    "start": "2024-01-01T05:16:15Z",
+    "end": "2024-01-01T05:20:49Z",
+    "activity": "Use application and chat",
+    "project": null,
+    "location": null,
+    "notes": "Used the Miru application, interspersed with chatting on Discord."
+  },
+  {
+    "start": "2024-01-01T05:20:49Z",
+    "end": "2024-01-01T05:40:47Z",
+    "activity": "Use application",
+    "project": null,
+    "location": null,
+    "notes": "Used the Miru application for an extended period."
+  },
+  {
+    "start": "2024-01-01T05:40:47Z",
+    "end": "2024-01-01T05:41:01Z",
+    "activity": "Chat and brief browsing",
+    "project": null,
+    "location": null,
+    "notes": "Briefly used Discord and a chat window, with a quick switch to an Untitled browser tab."
+  },
+  {
+    "start": "2024-01-01T05:41:01Z",
+    "end": "2024-01-01T05:41:49Z",
+    "activity": "Research anime",
+    "project": null,
+    "location": null,
+    "notes": "Searched for information about the anime 'Lycoris Recoil' and a voice actor using Arc browser and MyAnimeList."
+  },
+  {
+    "start": "2024-01-01T05:41:49Z",
     "end": "2024-01-01T05:42:28Z",
-    "activity": "Watch Anime & Communicate",
-    "notes": "Watched anime in Miru while chatting on Discord and possibly contacting someone via Arc."
+    "activity": "Chat and application use",
+    "project": null,
+    "location": null,
+    "notes": "Brief interactions in a chat window, used Miru, and chatted on Discord."
   },
   {
-    "start": "2024-01-01T05:42:28Z",
-    "end": "2024-01-01T05:42:38Z",
-    "activity": "Brief Communication & Watching Anime",
-    "notes": "Briefly contacted someone via Arc, checked YouTube, and watched anime in Miru."
-  },
-  {
-    "start": "2024-01-01T05:42:38Z",
+    "start": "2024-01-01T05:42:29Z",
     "end": "2024-01-01T05:55:17Z",
-    "activity": "Watch Videos Online",
-    "notes": "Watched videos on YouTube."
+    "activity": "Watch YouTube and use application",
+    "project": null,
+    "location": null,
+    "notes": "Browsed and watched YouTube videos, with brief switches to Miru and a chat window."
   },
   {
-    "start": "2024-01-01T05:55:29Z",
-    "end": "2024-01-01T05:55:31Z",
-    "activity": "Watch Anime",
-    "notes": "Used the Miru app, likely to watch anime."
+    "start": "2024-01-01T05:55:21Z",
+    "end": "2024-01-01T05:55:28Z",
+    "activity": "Work on 3D Scene",
+    "project": "Blender Project",
+    "location": null,
+    "notes": "Briefly worked on the 'city.blend' scene in Blender."
+  },
+  {
+    "start": "2024-01-01T05:55:31Z",
+    "end": "2024-01-01T06:41:54Z",
+    "activity": "Inactive",
+    "project": null,
+    "location": null,
+    "notes": "Computer was inactive or screen was locked."
   },
   {
     "start": "2024-01-01T06:41:54Z",
     "end": "2024-01-01T07:26:24Z",
-    "activity": "Watch Anime & Communicate",
-    "notes": "Watched anime in Miru while periodically checking Discord and possibly contacting someone via Arc."
+    "activity": "Use application and chat",
+    "project": null,
+    "location": null,
+    "notes": "Used the Miru application for an extended period, with brief interruptions to chat on Discord and in a chat window."
   },
-  {
+    {
     "start": "2024-01-01T07:26:24Z",
     "end": "2024-01-01T08:29:01Z",
-    "activity": "Watch Anime",
-    "notes": "Used the Miru app, likely to watch anime."
+    "activity": "Use application",
+    "project": null,
+    "location": null,
+    "notes": "Used the Miru application for an extended period."
+  },
+  {
+    "start": "2024-01-01T08:29:01Z",
+    "end": "2024-01-01T15:08:53Z",
+    "activity": "Inactive",
+    "project": null,
+    "location": null,
+    "notes": "Computer was inactive or screen was locked for a significant duration."
   },
   {
     "start": "2024-01-01T15:08:53Z",
     "end": "2024-01-01T15:08:55Z",
-    "activity": "Watch Anime",
-    "notes": "Used the Miru app, likely to watch anime."
+    "activity": "Use application",
+    "project": null,
+    "location": null,
+    "notes": "Briefly used the Miru application."
   },
   {
     "start": "2024-01-01T15:08:55Z",
-    "end": "2024-01-01T15:10:38Z",
-    "activity": "Manage Email & Browse",
-    "notes": "Checked email, potentially contacted someone via Arc, and used ChatGPT."
+    "end": "2024-01-01T15:09:08Z",
+    "activity": "Chat",
+    "project": null,
+    "location": null,
+    "notes": "Briefly used a chat window in the browser."
   },
   {
-    "start": "2024-01-01T15:10:49Z",
-    "end": "2024-01-01T15:10:53Z",
-    "activity": "Manage Email",
-    "notes": "Checked email in Outlook."
+    "start": "2024-01-01T15:09:08Z",
+    "end": "2024-01-01T15:10:49Z",
+    "activity": "Manage email and use ChatGPT",
+    "project": null,
+    "location": null,
+    "notes": "Checked email in Outlook web client and used ChatGPT, with a brief period of inactivity."
   },
   {
     "start": "2024-01-01T15:10:53Z",
     "end": "2024-01-01T15:12:37Z",
-    "activity": "Watch Anime",
-    "notes": "Used the Miru app, likely to watch anime."
+    "activity": "Use application",
+    "project": null,
+    "location": null,
+    "notes": "Used the Miru application."
   },
   {
     "start": "2024-01-01T15:12:37Z",
     "end": "2024-01-01T15:12:39Z",
-    "activity": "Manage Email",
-    "notes": "Checked email in Outlook."
+    "activity": "Check email",
+    "project": null,
+    "location": null,
+    "notes": "Briefly checked email in Outlook web client."
   },
   {
     "start": "2024-01-01T15:12:39Z",
     "end": "2024-01-01T15:19:47Z",
-    "activity": "Watch Anime",
-    "notes": "Used the Miru app, likely to watch anime."
+    "activity": "Use application",
+    "project": null,
+    "location": null,
+    "notes": "Used the Miru application for an extended period."
+  },
+  {
+    "start": "2024-01-01T15:19:47Z",
+    "end": "2024-01-01T15:23:05Z",
+    "activity": "Inactive",
+    "project": null,
+    "location": null,
+    "notes": "Computer was inactive or screen was locked."
   }
 ]
 ```

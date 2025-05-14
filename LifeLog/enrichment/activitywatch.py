@@ -154,6 +154,51 @@ def _safe_generate(client, contents: str, retries=5) -> str:
             log.warning("⚠️ Gemini error (%s), retrying in %ds", e, 2**attempt)
             time.sleep(2**attempt)
 
+# ---------- postprocessing (Layer 1b) --------------------------------------
+
+# Map known project aliases to a single canonical name
+PROJECT_ALIASES: dict[str, str] = {
+    "city.blend": "Energy Project",
+    "Renewable Energy Project": "Energy Project",
+    # add more aliases here as needed
+}
+
+def _normalize_projects(entries: List[TimelineEntry]) -> List[TimelineEntry]:
+    """Map known aliases to a single canonical project name."""
+    for e in entries:
+        if e.project in PROJECT_ALIASES:
+            e.project = PROJECT_ALIASES[e.project]
+    return entries
+
+def _can_merge(a: TimelineEntry, b: TimelineEntry, tol_s: int = 15) -> bool:
+    """
+    Return True if entries a & b should be collapsed:
+      - same activity
+      - same project
+      - same notes
+      - gap between them ≤ tol_s seconds
+    """
+    gap = (b.start - a.end).total_seconds()
+    return (
+        a.activity == b.activity
+        and a.project  == b.project
+        and a.notes    == b.notes
+        and 0 <= gap <= tol_s
+    )
+
+def _postprocess(entries: List[TimelineEntry]) -> List[TimelineEntry]:
+    """
+    Sort + merge any adjacent entries that pass `_can_merge`.
+    """
+    entries = sorted(entries, key=lambda e: e.start)
+    merged: List[TimelineEntry] = []
+    for e in entries:
+        if merged and _can_merge(merged[-1], e):
+            merged[-1].end = e.end
+        else:
+            merged.append(e)
+    return merged
+
 # ---------- public API ------------------------------------------------------
 
 def enrich(day: date, force: bool = False) -> Path:
@@ -163,17 +208,19 @@ def enrich(day: date, force: bool = False) -> Path:
       2) convert to Markdown & call Gemini
       3) extract JSON → Pydantic → Parquet
       4) cache responses
+      5) postprocess (Layer 1b)
     """
     settings = Settings()
     cache_dir   = settings.cache_dir
     curated_dir = settings.curated_dir
 
+    # 1) Load & filter raw events
     df = _load_events(day)
     md = _events_to_markdown(df)
 
+    # 2) Cache / call Gemini
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_file = cache_dir / f"{day}.txt"
-
     if cache_file.exists() and not force:
         log.info("⚠️ Using cached Gemini response.")
         raw = cache_file.read_text()
@@ -187,13 +234,20 @@ def enrich(day: date, force: bool = False) -> Path:
         cache_file.write_text(raw)
         log.info("💾 Cached Gemini output to %s", cache_file)
 
-    objs = _extract_json(raw)
-    entries: List[TimelineEntry] = [TimelineEntry(**o) for o in objs]
+    # 3) Parse & validate JSON
+    objs    = _extract_json(raw)
+    entries = [TimelineEntry(**o) for o in objs]
 
+    # 4) Layer 1b: postprocess
+    entries = _normalize_projects(entries)
+    entries = _postprocess(entries)
+
+    # 5) Write curated Parquet
     curated_dir.mkdir(parents=True, exist_ok=True)
     out = curated_dir / f"{day}.parquet"
     pl.DataFrame([e.model_dump() for e in entries]).write_parquet(out)
     log.info("✅ Enriched %d entries → %s", len(entries), out)
+
     return out
 
 # ---------- CLI entrypoint -------------------------------------------------
@@ -202,11 +256,13 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Enrich AW events with Gemini")
     parser.add_argument(
-        "--day",   type=lambda s: date.fromisoformat(s),
+        "--day",
+        type=lambda s: date.fromisoformat(s),
         help="YYYY-MM-DD (default yesterday)"
     )
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Ignore cache and re-prompt Gemini"
     )
     args = parser.parse_args()
