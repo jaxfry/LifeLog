@@ -12,5 +12,8 @@ class Settings(BaseSettings):
     min_duration_ms: int = 5000
     drop_idle: bool = True
 
+    summary_dir: Path = Path("LifeLog/storage/summary/daily")
+
+
     class Config:
         env_prefix = "LIFELOG_"

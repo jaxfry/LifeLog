@@ -3,6 +3,7 @@ import logging
 import sys
 from datetime import date, timedelta
 from pathlib import Path
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -12,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from LifeLog.config import Settings
 from LifeLog.ingestion.activitywatch import ingest as ingest_aw
 from LifeLog.enrichment.activitywatch import enrich as enrich_aw
+from LifeLog.summary.daily import summarize_day
 
 # Configure a simple root logger
 logging.basicConfig(
@@ -44,6 +46,15 @@ def main():
         help="Ignore cache and re-prompt Gemini"
     )
     p_enr.set_defaults(func=lambda ns: enrich_aw(
+        ns.day or (date.today() - timedelta(days=1)),
+        force=ns.force
+    ))
+
+    # Summarize daily activity (Layer 2)
+    p_sum = sub.add_parser("summarize-day", help="Generate Layer-2 daily summary")
+    p_sum.add_argument("--day", type=lambda s: date.fromisoformat(s), help="YYYY-MM-DD")
+    p_sum.add_argument("--force", action="store_true")
+    p_sum.set_defaults(func=lambda ns: summarize_day(
         ns.day or (date.today() - timedelta(days=1)),
         force=ns.force
     ))
