@@ -1,0 +1,1760 @@
+```json
+[
+  {
+    "start": "2024-07-18T00:00:00Z",
+    "end": "2024-07-18T00:00:22Z",
+    "activity": "render in Blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Rendering a scene in Blender."
+  },
+  {
+    "start": "2024-07-18T00:00:22Z",
+    "end": "2024-07-18T00:00:25Z",
+    "activity": "browse in Finder",
+    "project": null,
+    "location": null,
+    "notes": "Browsing files in Finder."
+  },
+  {
+    "start": "2024-07-18T00:00:27Z",
+    "end": "2024-07-18T00:00:33Z",
+    "activity": "work in Blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Working on the city.blend project in Blender."
+  },
+  {
+    "start": "2024-07-18T00:00:33Z",
+    "end": "2024-07-18T00:00:44Z",
+    "activity": "browse in Finder",
+    "project": null,
+    "location": null,
+    "notes": "Browsing files in Finder, likely related to render output and the project."
+  },
+  {
+    "start": "2024-07-18T00:00:44Z",
+    "end": "2024-07-18T00:00:58Z",
+    "activity": "work in Blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Working on the city.blend project in Blender."
+  },
+  {
+    "start": "2024-07-18T00:00:58Z",
+    "end": "2024-07-18T00:00:58Z",
+    "activity": "browse webpage",
+    "project": null,
+    "location": null,
+    "notes": "Browsing Poly Haven website for sky HDRI."
+  },
+  {
+    "start": "2024-07-18T00:00:58Z",
+    "end": "2024-07-18T00:01:22Z",
+    "activity": "render in Blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Rendering a scene in Blender."
+  },
+  {
+    "start": "2024-07-18T00:01:22Z",
+    "end": "2024-07-18T00:01:22Z",
+    "activity": "work in Blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Working on the city.blend project in Blender."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-07-03T00:01:34Z",
+    "end": "2024-07-03T00:01:34Z",
+    "activity": "render scene",
+    "project": null,
+    "location": null,
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "2024-07-03T00:02:09Z",
+    "end": "2024-07-03T00:02:09Z",
+    "activity": "use finder",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:02:19Z",
+    "end": "2024-07-03T00:02:26Z",
+    "activity": "render scene",
+    "project": null,
+    "location": null,
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "2024-07-03T00:02:26Z",
+    "end": "2024-07-03T00:02:26Z",
+    "activity": "work on city model",
+    "project": null,
+    "location": null,
+    "notes": "Working on city.blend in Blender."
+  },
+  {
+    "start": "2024-07-03T00:02:37Z",
+    "end": "2024-07-03T00:02:38Z",
+    "activity": "browse Poly Haven",
+    "project": null,
+    "location": null,
+    "notes": "Looking at HDRI images."
+  },
+  {
+    "start": "2024-07-03T00:02:38Z",
+    "end": "2024-07-03T00:02:44Z",
+    "activity": "search how to load hdri",
+    "project": null,
+    "location": null,
+    "notes": "Searching for instructions on loading HDRI images in Blender."
+  },
+  {
+    "start": "2024-07-03T00:02:47Z",
+    "end": "2024-07-03T00:02:47Z",
+    "activity": "work on city model",
+    "project": null,
+    "location": null,
+    "notes": "Working on city.blend in Blender."
+  },
+  {
+    "start": "2024-07-03T00:02:49Z",
+    "end": "2024-07-03T00:02:51Z",
+    "activity": "search resolution size",
+    "project": null,
+    "location": null,
+    "notes": "Searching for information on 2k resolution size."
+  },
+  {
+    "start": "2024-07-03T00:02:51Z",
+    "end": "2024-07-03T00:03:07Z",
+    "activity": "work on city model",
+    "project": null,
+    "location": null,
+    "notes": "Working on city.blend in Blender."
+  },
+  {
+    "start": "2024-07-03T00:03:07Z",
+    "end": "2024-07-03T00:03:07Z",
+    "activity": "render scene",
+    "project": null,
+    "location": null,
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "2024-07-03T00:04:00Z",
+    "end": "2024-07-03T00:04:00Z",
+    "activity": "use finder",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:04:02Z",
+    "end": "2024-07-03T00:04:02Z",
+    "activity": "render scene",
+    "project": null,
+    "location": null,
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "2024-07-03T00:04:03Z",
+    "end": "2024-07-03T00:04:03Z",
+    "activity": "use finder",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:04:04Z",
+    "end": "2024-07-03T00:04:04Z",
+    "activity": "render scene",
+    "project": null,
+    "location": null,
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "2024-07-03T00:04:05Z",
+    "end": "2024-07-03T00:04:09Z",
+    "activity": "use finder",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:04:09Z",
+    "end": "2024-07-03T00:05:09Z",
+    "activity": "search resolution size",
+    "project": null,
+    "location": null,
+    "notes": "Searching for information on 2k resolution size."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-07-23T00:04:11Z",
+    "end": "2024-07-23T00:04:22Z",
+    "activity": "view image",
+    "project": null,
+    "location": null,
+    "notes": "Previewed an image."
+  },
+  {
+    "start": "2024-07-23T00:04:22Z",
+    "end": "2024-07-23T00:04:31Z",
+    "activity": "browse in arc",
+    "project": null,
+    "location": null,
+    "notes": "Browsed the web in Arc browser, looking at resolution sizes."
+  },
+  {
+    "start": "2024-07-23T00:04:31Z",
+    "end": "2024-07-23T00:04:38Z",
+    "activity": "work in blender",
+    "project": "city",
+    "location": null,
+    "notes": "Worked on the city project in Blender."
+  },
+  {
+    "start": "2024-07-23T00:04:48Z",
+    "end": "2024-07-23T00:04:51Z",
+    "activity": "browse in arc",
+    "project": null,
+    "location": null,
+    "notes": "Browsed the web in Arc browser, looking at resolution sizes."
+  },
+  {
+    "start": "2024-07-23T00:04:49Z",
+    "end": "2024-07-23T00:04:55Z",
+    "activity": "work in blender",
+    "project": "city",
+    "location": null,
+    "notes": "Worked on the city project in Blender."
+  },
+  {
+    "start": "2024-07-23T00:04:55Z",
+    "end": "2024-07-23T00:05:10Z",
+    "activity": "browse in arc",
+    "project": null,
+    "location": null,
+    "notes": "Browsed the web in Arc browser, looking at resolution sizes."
+  },
+  {
+    "start": "2024-07-23T00:05:10Z",
+    "end": "2024-07-23T00:05:47Z",
+    "activity": "search the web",
+    "project": null,
+    "location": null,
+    "notes": "Googled '4k resolution'."
+  },
+  {
+    "start": "2024-07-23T00:05:47Z",
+    "end": "2024-07-23T00:05:54Z",
+    "activity": "work in blender",
+    "project": "city",
+    "location": null,
+    "notes": "Worked on the city project in Blender."
+  },
+  {
+    "start": "2024-07-23T00:05:54Z",
+    "end": "2024-07-23T00:05:56Z",
+    "activity": "browse in arc",
+    "project": null,
+    "location": null,
+    "notes": "Browsed the web in Arc browser, looking at resolution sizes."
+  },
+  {
+    "start": "2024-07-23T00:05:56Z",
+    "end": "2024-07-23T00:06:00Z",
+    "activity": "work in blender",
+    "project": "city",
+    "location": null,
+    "notes": "Worked on the city project in Blender."
+  },
+  {
+    "start": "2024-07-23T00:06:00Z",
+    "end": "2024-07-23T00:06:01Z",
+    "activity": "browse in arc",
+    "project": null,
+    "location": null,
+    "notes": "Browsed the web in Arc browser, looking at resolution sizes."
+  },
+  {
+    "start": "2024-07-23T00:06:01Z",
+    "end": "2024-07-23T00:06:03Z",
+    "activity": "work in blender",
+    "project": "city",
+    "location": null,
+    "notes": "Worked on the city project in Blender."
+  },
+  {
+    "start": "2024-07-23T00:06:03Z",
+    "end": "2024-07-23T00:06:09Z",
+    "activity": "browse in arc",
+    "project": null,
+    "location": null,
+    "notes": "Browsed the web in Arc browser, looking at resolution sizes."
+  },
+  {
+    "start": "2024-07-23T00:06:09Z",
+    "end": "2024-07-23T00:06:10Z",
+    "activity": "work in blender",
+    "project": "city",
+    "location": null,
+    "notes": "Worked on the city project in Blender."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-01-01T00:06:11Z",
+    "end": "2024-01-01T00:06:11Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Searching for 4k resolution information."
+  },
+  {
+    "start": "2024-01-01T00:06:11Z",
+    "end": "2024-01-01T00:06:17Z",
+    "activity": "work in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Working on the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:06:17Z",
+    "end": "2024-01-01T00:06:40Z",
+    "activity": "render in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Rendering the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:06:40Z",
+    "end": "2024-01-01T00:06:48Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Searching for 4k resolution information."
+  },
+  {
+    "start": "2024-01-01T00:06:48Z",
+    "end": "2024-01-01T00:06:54Z",
+    "activity": "work in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Working on the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:06:54Z",
+    "end": "2024-01-01T00:06:56Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Searching for 4k resolution information."
+  },
+  {
+    "start": "2024-01-01T00:06:56Z",
+    "end": "2024-01-01T00:07:02Z",
+    "activity": "work in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Working on the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:07:02Z",
+    "end": "2024-01-01T00:07:19Z",
+    "activity": "render in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Rendering the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:07:19Z",
+    "end": "2024-01-01T00:07:36Z",
+    "activity": "render in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Rendering the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:07:36Z",
+    "end": "2024-01-01T00:07:49Z",
+    "activity": "render in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Rendering the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:07:49Z",
+    "end": "2024-01-01T00:07:58Z",
+    "activity": "render in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Rendering the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:07:58Z",
+    "end": "2024-01-01T00:08:00Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Searching for 4k resolution information."
+  },
+  {
+    "start": "2024-01-01T00:08:00Z",
+    "end": "2024-01-01T00:08:05Z",
+    "activity": "work in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Working on the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:08:05Z",
+    "end": "2024-01-01T00:08:06Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Searching for 4k resolution information."
+  },
+  {
+    "start": "2024-01-01T00:08:06Z",
+    "end": "2024-01-01T00:08:12Z",
+    "activity": "work in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Working on the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:08:12Z",
+    "end": "2024-01-01T00:08:13Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Searching for 4k resolution information."
+  },
+  {
+    "start": "2024-01-01T00:08:13Z",
+    "end": "2024-01-01T00:08:16Z",
+    "activity": "work in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Working on the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:08:16Z",
+    "end": "2024-01-01T00:09:10Z",
+    "activity": "render in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": "Rendering the city.blend project in Blender."
+  },
+  {
+    "start": "2024-01-01T00:09:10Z",
+    "end": "2024-01-01T00:10:13Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Searching for 4k resolution information."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-07-03T00:10:44Z",
+    "end": "2024-07-03T00:10:47Z",
+    "activity": "model in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:10:47Z",
+    "end": "2024-07-03T00:10:50Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Browsing for 4k resolution information."
+  },
+  {
+    "start": "2024-07-03T00:10:50Z",
+    "end": "2024-07-03T00:10:54Z",
+    "activity": "model in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:10:54Z",
+    "end": "2024-07-03T00:10:56Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Browsing for 4k resolution information."
+  },
+  {
+    "start": "2024-07-03T00:10:56Z",
+    "end": "2024-07-03T00:10:58Z",
+    "activity": "model in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:10:58Z",
+    "end": "2024-07-03T00:11:11Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Browsing for 4k resolution information."
+  },
+  {
+    "start": "2024-07-03T00:11:11Z",
+    "end": "2024-07-03T00:11:35Z",
+    "activity": "model in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:11:35Z",
+    "end": "2024-07-03T00:11:42Z",
+    "activity": "render in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:11:42Z",
+    "end": "2024-07-03T00:11:50Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Searching Google for 4k resolution."
+  },
+  {
+    "start": "2024-07-03T00:11:50Z",
+    "end": "2024-07-03T00:11:58Z",
+    "activity": "model in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:11:58Z",
+    "end": "2024-07-03T00:12:09Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Browsing for 4k and 2k resolution information."
+  },
+  {
+    "start": "2024-07-03T00:12:09Z",
+    "end": "2024-07-03T00:12:14Z",
+    "activity": "model in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:12:14Z",
+    "end": "2024-07-03T00:12:44Z",
+    "activity": "model in blender",
+    "project": "city.blend",
+    "location": null,
+    "notes": null
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-07-03T00:12:48Z",
+    "end": "2024-07-03T00:12:48Z",
+    "activity": "render in blender",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:13:41Z",
+    "end": "2024-07-03T00:13:53Z",
+    "activity": "view image",
+    "project": null,
+    "location": null,
+    "notes": "Previewing rendered image 0060.png."
+  },
+  {
+    "start": "2024-07-03T00:13:50Z",
+    "end": "2024-07-03T00:14:03Z",
+    "activity": "use finder",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:14:04Z",
+    "end": "2024-07-03T00:14:04Z",
+    "activity": "render in blender",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:14:09Z",
+    "end": "2024-07-03T00:20:16Z",
+    "activity": "search the web",
+    "project": null,
+    "location": null,
+    "notes": "Searching for information on 2k resolution."
+  },
+  {
+    "start": "2024-07-03T00:21:54Z",
+    "end": "2024-07-03T00:21:54Z",
+    "activity": "work in blender",
+    "project": null,
+    "location": null,
+    "notes": "Working on the city.blend file."
+  },
+  {
+    "start": "2024-07-03T00:22:10Z",
+    "end": "2024-07-03T00:22:10Z",
+    "activity": "render in blender",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-07-03T00:22:14Z",
+    "end": "2024-07-03T00:22:17Z",
+    "activity": "search the web",
+    "project": null,
+    "location": null,
+    "notes": "Searching for 2k resolution size."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-01-04T00:22:17Z",
+    "end": "2024-01-04T00:22:17Z",
+    "activity": "search the web",
+    "project": null,
+    "location": null,
+    "notes": "Searched for how to load hdri in blender."
+  },
+  {
+    "start": "2024-01-04T00:22:18Z",
+    "end": "2024-01-04T00:22:18Z",
+    "activity": "search the web",
+    "project": null,
+    "location": null,
+    "notes": "Searched for ior of grass."
+  },
+  {
+    "start": "2024-01-04T00:22:19Z",
+    "end": "2024-01-04T00:22:19Z",
+    "activity": "search the web",
+    "project": null,
+    "location": null,
+    "notes": "Searched for river color."
+  },
+  {
+    "start": "2024-01-04T00:22:19Z",
+    "end": "2024-01-04T00:22:19Z",
+    "activity": "browse Poly Haven",
+    "project": null,
+    "location": null,
+    "notes": "Browsed Autumn Field (Pure Sky) HDRI on Poly Haven."
+  },
+  {
+    "start": "2024-01-04T00:22:20Z",
+    "end": "2024-01-04T00:22:44Z",
+    "activity": "watch YouTube video",
+    "project": null,
+    "location": null,
+    "notes": "Watched videos about creating realistic water in Blender."
+  },
+  {
+    "start": "2024-01-04T00:22:44Z",
+    "end": "2024-01-04T00:22:45Z",
+    "activity": "search the web",
+    "project": null,
+    "location": null,
+    "notes": "Searched for coral."
+  },
+  {
+    "start": "2024-01-04T00:22:47Z",
+    "end": "2024-01-04T00:22:47Z",
+    "activity": "research energy source",
+    "project": null,
+    "location": null,
+    "notes": "Viewed energy source research guide."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-05-09T00:22:47Z",
+    "end": "2024-05-09T00:23:07Z",
+    "activity": "check email",
+    "project": null,
+    "location": null,
+    "notes": "Checked Outlook for new emails."
+  },
+  {
+    "start": "2024-05-09T00:23:07Z",
+    "end": "2024-05-09T00:23:26Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Edited the 'Renewable Energy Project' document in Microsoft Word."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-29T00:23:27Z",
+    "end": "2024-02-29T00:25:09Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Worked on Renewabe Energy Project.docx and Energy Source Research Guide documents."
+  },
+  {
+    "start": "2024-02-29T00:25:09Z",
+    "end": "2024-02-29T00:25:10Z",
+    "activity": "render in blender",
+    "project": null,
+    "location": null,
+    "notes": "Rendered something in Blender."
+  },
+  {
+    "start": "2024-02-29T00:25:10Z",
+    "end": "2024-02-29T00:25:25Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Worked on Renewabe Energy Project.docx and Energy Source Research Guide documents."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-27T00:25:11Z",
+    "end": "2024-02-27T00:25:25Z",
+    "activity": "research information",
+    "project": "Energy Source Research",
+    "location": null,
+    "notes": "Researched energy sources for project."
+  },
+  {
+    "start": "2024-02-27T00:25:25Z",
+    "end": "2024-02-27T00:25:47Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Edited the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-02-27T00:25:47Z",
+    "end": "2024-02-27T00:26:02Z",
+    "activity": "research information",
+    "project": "Energy Source Research",
+    "location": null,
+    "notes": "Researched energy sources for project."
+  },
+  {
+    "start": "2024-02-27T00:26:02Z",
+    "end": "2024-02-27T00:26:06Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Edited the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-02-27T00:26:06Z",
+    "end": "2024-02-27T00:26:08Z",
+    "activity": "research information",
+    "project": "Energy Source Research",
+    "location": null,
+    "notes": "Researched energy sources for project."
+  },
+  {
+    "start": "2024-02-27T00:26:08Z",
+    "end": "2024-02-27T00:26:08Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Edited the Renewable Energy Project document."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-22T00:26:17Z",
+    "end": "2024-02-22T00:26:20Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Researched energy sources for the renewable energy project."
+  },
+  {
+    "start": "2024-02-22T00:26:19Z",
+    "end": "2024-02-22T00:26:19Z",
+    "activity": "edit document",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Edited the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-02-22T00:26:20Z",
+    "end": "2024-02-22T00:26:24Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Researched energy sources for the renewable energy project."
+  },
+  {
+    "start": "2024-02-22T00:26:21Z",
+    "end": "2024-02-22T00:26:25Z",
+    "activity": "edit document",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Edited the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-02-22T00:26:30Z",
+    "end": "2024-02-22T00:26:30Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Researched energy sources for the renewable energy project."
+  },
+  {
+    "start": "2024-02-22T00:26:56Z",
+    "end": "2024-02-22T00:26:56Z",
+    "activity": "edit document",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Edited the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-02-22T00:27:35Z",
+    "end": "2024-02-22T00:27:35Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Researched energy sources for the renewable energy project."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-01-01T00:27:43Z",
+    "end": "2024-01-01T00:27:44Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Working on the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-01T00:27:44Z",
+    "end": "2024-01-01T00:27:52Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Working on the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-01T00:27:52Z",
+    "end": "2024-01-01T00:27:55Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Researching energy sources for the renewable energy project."
+  },
+  {
+    "start": "2024-01-01T00:27:55Z",
+    "end": "2024-01-01T00:28:10Z",
+    "activity": "render in Blender",
+    "project": null,
+    "location": null,
+    "notes": "Rendering a scene in Blender."
+  },
+  {
+    "start": "2024-01-01T00:28:10Z",
+    "end": "2024-01-01T00:28:14Z",
+    "activity": "browse files",
+    "project": null,
+    "location": null,
+    "notes": "Browsing files in Finder."
+  },
+  {
+    "start": "2024-01-01T00:28:14Z",
+    "end": "2024-01-01T00:28:17Z",
+    "activity": "preview image",
+    "project": null,
+    "location": null,
+    "notes": "Previewing images."
+  },
+  {
+    "start": "2024-01-01T00:28:17Z",
+    "end": "2024-01-01T00:28:18Z",
+    "activity": "preview image",
+    "project": null,
+    "location": null,
+    "notes": "Previewing images."
+  },
+  {
+    "start": "2024-01-01T00:28:18Z",
+    "end": "2024-01-01T00:28:19Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Researching energy sources for the renewable energy project."
+  },
+  {
+    "start": "2024-01-01T00:28:19Z",
+    "end": "2024-01-01T00:28:24Z",
+    "activity": "preview image",
+    "project": null,
+    "location": null,
+    "notes": "Previewing images."
+  },
+  {
+    "start": "2024-01-01T00:28:24Z",
+    "end": "2024-01-01T00:28:24Z",
+    "activity": "preview image",
+    "project": null,
+    "location": null,
+    "notes": "Previewing images."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-01-01T00:28:26Z",
+    "end": "2024-01-01T00:28:32Z",
+    "activity": "view image files",
+    "project": null,
+    "location": null,
+    "notes": "Previewing a series of PNG images."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-22T00:28:33Z",
+    "end": "2024-02-22T00:28:40Z",
+    "activity": "view images",
+    "project": null,
+    "location": null,
+    "notes": "Previewing a series of PNG images, likely part of a document or set of related files."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-22T00:28:41Z",
+    "end": "2024-02-22T00:28:44Z",
+    "activity": "view images",
+    "project": null,
+    "location": null,
+    "notes": "Previewing a series of PNG images."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-22T00:28:45Z",
+    "end": "2024-02-22T00:28:48Z",
+    "activity": "view images",
+    "project": null,
+    "location": null,
+    "notes": "Looking at a series of images."
+  },
+  {
+    "start": "2024-02-22T00:28:53Z",
+    "end": "2024-02-22T00:28:53Z",
+    "activity": "use finder",
+    "project": null,
+    "location": null,
+    "notes": "Navigating files."
+  },
+  {
+    "start": "2024-02-22T00:28:56Z",
+    "end": "2024-02-22T00:28:56Z",
+    "activity": "render in blender",
+    "project": null,
+    "location": null,
+    "notes": "Rendering a project in Blender."
+  },
+  {
+    "start": "2024-02-22T00:28:58Z",
+    "end": "2024-02-22T00:29:53Z",
+    "activity": "research document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Working on a research paper about renewable energy."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-05-10T00:30:07Z",
+    "end": "2024-05-10T00:30:24Z",
+    "activity": "researching cable prices",
+    "project": null,
+    "location": null,
+    "notes": "Searched for the price of underground cables on Google."
+  },
+  {
+    "start": "2024-05-10T00:30:24Z",
+    "end": "2024-05-10T00:30:24Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Opened a Word document for the Renewable Energy Project."
+  },
+  {
+    "start": "2024-05-10T00:30:25Z",
+    "end": "2024-05-10T00:30:25Z",
+    "activity": "watching video",
+    "project": null,
+    "location": null,
+    "notes": "Watched a video on YouTube."
+  },
+  {
+    "start": "2024-05-10T00:30:27Z",
+    "end": "2024-05-10T00:30:27Z",
+    "activity": "viewing document",
+    "project": "Energy Source Research Guide",
+    "location": null,
+    "notes": "Opened a document titled Energy Source Research Guide."
+  },
+  {
+    "start": "2024-05-10T00:30:29Z",
+    "end": "2024-05-10T00:30:42Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Continued working on the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-05-10T00:30:39Z",
+    "end": "2024-05-10T00:30:39Z",
+    "activity": "viewing document",
+    "project": "Energy Source Research Guide",
+    "location": null,
+    "notes": "Opened a document titled Energy Source Research Guide."
+  },
+  {
+    "start": "2024-05-10T00:31:10Z",
+    "end": "2024-05-10T00:31:10Z",
+    "activity": "viewing document",
+    "project": "Energy Source Research Guide",
+    "location": null,
+    "notes": "Opened a document titled Energy Source Research Guide."
+  },
+  {
+    "start": "2024-05-10T00:31:12Z",
+    "end": "2024-05-10T00:31:12Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Continued working on the Renewable Energy Project document."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-23T00:31:13Z",
+    "end": "2024-02-23T00:31:16Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Researched energy sources and reviewed a document for the renewable energy project."
+  },
+  {
+    "start": "2024-02-23T00:31:32Z",
+    "end": "2024-02-23T00:31:46Z",
+    "activity": "research selling electricity",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Investigated the possibility of cities selling electricity, likely as part of the renewable energy project."
+  },
+  {
+    "start": "2024-02-23T00:31:46Z",
+    "end": "2024-02-23T00:31:46Z",
+    "activity": "watch YouTube",
+    "project": null,
+    "location": null,
+    "notes": "Watched a YouTube video."
+  },
+  {
+    "start": "2024-02-23T00:31:47Z",
+    "end": "2024-02-23T00:31:47Z",
+    "activity": "create untitled document",
+    "project": null,
+    "location": null,
+    "notes": "Created an untitled document."
+  },
+  {
+    "start": "2024-02-23T00:31:48Z",
+    "end": "2024-02-23T00:31:48Z",
+    "activity": "use ChatGPT",
+    "project": null,
+    "location": null,
+    "notes": "Used ChatGPT."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-01-01T00:31:48Z",
+    "end": "2024-01-01T00:31:52Z",
+    "activity": "use ChatGPT",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-01-01T00:31:52Z",
+    "end": "2024-01-01T00:32:20Z",
+    "activity": "work on renewable energy project",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Worked on a document and researched cities selling electricity."
+  },
+  {
+    "start": "2024-01-01T00:32:22Z",
+    "end": "2024-01-01T00:32:22Z",
+    "activity": "render in Blender",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-01-01T00:32:23Z",
+    "end": "2024-01-01T00:33:45Z",
+    "activity": "work on renewable energy project",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Continued to work on the renewable energy project, including research and document editing."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-01-02T00:33:55Z",
+    "end": "2024-01-02T00:34:09Z",
+    "activity": "researching energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Looking at an energy source research guide in preparation for the Renewable Energy project."
+  },
+  {
+    "start": "2024-01-02T00:34:09Z",
+    "end": "2024-01-02T00:34:10Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Viewing the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-02T00:34:10Z",
+    "end": "2024-01-02T00:34:17Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Viewing the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-02T00:34:17Z",
+    "end": "2024-01-02T00:34:20Z",
+    "activity": "searching files",
+    "project": null,
+    "location": null,
+    "notes": "Searching files in Finder."
+  },
+  {
+    "start": "2024-01-02T00:34:20Z",
+    "end": "2024-01-02T00:34:29Z",
+    "activity": "searching files",
+    "project": null,
+    "location": null,
+    "notes": "Searching files in Finder."
+  },
+  {
+    "start": "2024-01-02T00:34:29Z",
+    "end": "2024-01-02T00:35:15Z",
+    "activity": "viewing image",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Looking at image IMG_3749.jpeg, presumably for the energy project."
+  },
+  {
+    "start": "2024-01-02T00:35:14Z",
+    "end": "2024-01-02T00:35:15Z",
+    "activity": "searching files",
+    "project": null,
+    "location": null,
+    "notes": "Searching files in Finder."
+  },
+  {
+    "start": "2024-01-02T00:36:32Z",
+    "end": "2024-01-02T00:36:32Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Viewing the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-02T00:36:32Z",
+    "end": "2024-01-02T00:36:37Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Viewing the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-02T00:36:37Z",
+    "end": "2024-01-02T00:37:01Z",
+    "activity": "viewing image",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Looking at image IMG_3749.jpeg, presumably for the energy project."
+  },
+  {
+    "start": "2024-01-02T00:37:01Z",
+    "end": "2024-01-02T00:38:52Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Viewing the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-02T00:38:52Z",
+    "end": "2024-01-02T00:38:52Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Viewing the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-02T00:38:58Z",
+    "end": "2024-01-02T00:39:03Z",
+    "activity": "viewing image",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Looking at image IMG_3749.jpeg, presumably for the energy project."
+  },
+  {
+    "start": "2024-01-02T00:39:03Z",
+    "end": "2024-01-02T00:39:32Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Viewing the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-02T00:39:32Z",
+    "end": "2024-01-02T00:39:36Z",
+    "activity": "viewing document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Viewing the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-02T00:39:36Z",
+    "end": "2024-01-02T00:39:36Z",
+    "activity": "researching energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Looking at an energy source research guide in preparation for the Renewable Energy project."
+  },
+  {
+    "start": "2024-01-02T00:39:36Z",
+    "end": "2024-01-02T00:39:36Z",
+    "activity": "researching energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Looking at an energy source research guide in preparation for the Renewable Energy project."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-01-01T00:40:22Z",
+    "end": "2024-01-01T00:40:22Z",
+    "activity": "open document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Opened the 'Renewable Energy Project.docx' document."
+  },
+  {
+    "start": "2024-01-01T00:40:22Z",
+    "end": "2024-01-01T00:41:54Z",
+    "activity": "research document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Researched 'Energy Source Research Guide'."
+  },
+  {
+    "start": "2024-01-01T00:41:50Z",
+    "end": "2024-01-01T00:42:46Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Edited the 'Renewable Energy Project.docx' document."
+  },
+  {
+    "start": "2024-01-01T00:42:05Z",
+    "end": "2024-01-01T00:42:05Z",
+    "activity": "preview image",
+    "project": null,
+    "location": null,
+    "notes": "Previewed the 'IMG_3749.jpeg' image."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-29T00:42:48Z",
+    "end": "2024-02-29T00:43:12Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Worked on the Renewable Energy Project document in Microsoft Word."
+  },
+  {
+    "start": "2024-02-29T00:42:49Z",
+    "end": "2024-02-29T00:43:20Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Researched different energy sources for the Renewable Energy Project using an online research guide."
+  },
+  {
+    "start": "2024-02-29T00:43:18Z",
+    "end": "2024-02-29T00:43:18Z",
+    "activity": "use Microsoft Copilot",
+    "project": null,
+    "location": null,
+    "notes": "Briefly used Microsoft 365 Copilot in Word."
+  },
+  {
+    "start": "2024-02-29T00:43:28Z",
+    "end": "2024-02-29T00:48:34Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Continued editing the Renewable Energy Project document."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-23T00:48:35Z",
+    "end": "2024-02-23T00:50:28Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Worked on the renewable energy project, focusing on energy source research and editing the project document."
+  },
+  {
+    "start": "2024-02-23T00:50:35Z",
+    "end": "2024-02-23T00:50:35Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Worked on the renewable energy project document."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-01-01T00:51:24Z",
+    "end": "2024-01-01T00:51:34Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Researched energy sources and reviewed a Word document."
+  },
+  {
+    "start": "2024-01-01T00:52:00Z",
+    "end": "2024-01-01T00:52:01Z",
+    "activity": "view image",
+    "project": null,
+    "location": null,
+    "notes": "Viewed an image file."
+  },
+  {
+    "start": "2024-01-01T00:52:01Z",
+    "end": "2024-01-01T00:52:39Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Researched energy sources and reviewed a Word document."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-29T00:52:33Z",
+    "end": "2024-02-29T00:53:05Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Editing and reviewing the Renewabe Energy Project document."
+  },
+  {
+    "start": "2024-02-29T00:52:40Z",
+    "end": "2024-02-29T00:53:27Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Consulting the Energy Source Research Guide."
+  },
+  {
+    "start": "2024-02-29T00:53:06Z",
+    "end": "2024-02-29T00:54:10Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Editing and reviewing the Renewabe Energy Project document."
+  },
+  {
+    "start": "2024-02-29T00:54:13Z",
+    "end": "2024-02-29T00:54:16Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Final edits to the Renewabe Energy Project document."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-27T00:54:17Z",
+    "end": "2024-02-27T00:57:07Z",
+    "activity": "research energy sources",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Researched energy sources and worked on the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-02-27T00:57:11Z",
+    "end": "2024-02-27T00:57:13Z",
+    "activity": "use dictionary",
+    "project": null,
+    "location": null,
+    "notes": "Looked up a word in the dictionary."
+  },
+  {
+    "start": "2024-02-27T00:57:13Z",
+    "end": "2024-02-27T00:57:14Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Worked on the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-02-27T00:57:17Z",
+    "end": "2024-02-27T00:59:15Z",
+    "activity": "login to system",
+    "project": null,
+    "location": null,
+    "notes": "Logged back into the system after a brief period of inactivity."
+  },
+  {
+    "start": "2024-02-27T00:59:15Z",
+    "end": "2024-02-27T01:04:16Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Worked on the Renewable Energy Project document."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-01-07T01:06:46Z",
+    "end": "2024-01-07T01:19:16Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Working on the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-07T01:19:41Z",
+    "end": "2024-01-07T01:19:41Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Briefly editing the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-07T01:19:42Z",
+    "end": "2024-01-07T01:19:42Z",
+    "activity": "null",
+    "project": null,
+    "location": null,
+    "notes": null
+  },
+  {
+    "start": "2024-01-07T01:19:49Z",
+    "end": "2024-01-07T01:19:56Z",
+    "activity": "browse files",
+    "project": "Energy Project",
+    "location": null,
+    "notes": "Browsing files related to the Energy Project."
+  },
+  {
+    "start": "2024-01-07T01:20:12Z",
+    "end": "2024-01-07T01:22:37Z",
+    "activity": "edit video",
+    "project": "Energy Project",
+    "location": null,
+    "notes": "Working in DaVinci Resolve."
+  },
+  {
+    "start": "2024-01-07T01:21:46Z",
+    "end": "2024-01-07T01:21:46Z",
+    "activity": "edit document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Working on the Renewable Energy Project document."
+  },
+  {
+    "start": "2024-01-07T01:22:42Z",
+    "end": "2024-01-07T01:22:42Z",
+    "activity": "browse web",
+    "project": null,
+    "location": null,
+    "notes": "Browsing the web."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-27T01:22:43Z",
+    "end": "2024-02-27T01:23:07Z",
+    "activity": "browse anti-jokes",
+    "project": null,
+    "location": null,
+    "notes": "Searched for and browsed anti-jokes on Google and Reddit."
+  },
+  {
+    "start": "2024-02-27T01:23:07Z",
+    "end": "2024-02-27T01:23:12Z",
+    "activity": "work in untitled document",
+    "project": null,
+    "location": null,
+    "notes": "Worked in an untitled document."
+  },
+  {
+    "start": "2024-02-27T01:23:12Z",
+    "end": "2024-02-27T01:23:12Z",
+    "activity": "search square root",
+    "project": null,
+    "location": null,
+    "notes": "Googled the square root of 81."
+  },
+  {
+    "start": "2024-02-27T01:23:12Z",
+    "end": "2024-02-27T01:23:23Z",
+    "activity": "browse anti-jokes",
+    "project": null,
+    "location": null,
+    "notes": "Browsed more anti-jokes and watched YouTube videos."
+  },
+  {
+    "start": "2024-02-27T01:23:23Z",
+    "end": "2024-02-27T01:23:31Z",
+    "activity": "work in untitled document",
+    "project": null,
+    "location": null,
+    "notes": "Worked in an untitled document."
+  },
+  {
+    "start": "2024-02-27T01:23:31Z",
+    "end": "2024-02-27T01:23:43Z",
+    "activity": "translate nine",
+    "project": null,
+    "location": null,
+    "notes": "Looked up the German translation of 'nine'."
+  },
+  {
+    "start": "2024-02-27T01:23:56Z",
+    "end": "2024-02-27T01:23:56Z",
+    "activity": "browse anti-jokes",
+    "project": null,
+    "location": null,
+    "notes": "Browsed anti-jokes."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-22T01:23:56Z",
+    "end": "2024-02-22T01:28:45Z",
+    "activity": "browse reddit",
+    "project": "antijokes",
+    "location": null,
+    "notes": "Browsed the r/antijokes subreddit."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-29T01:29:11Z",
+    "end": "2024-02-29T01:29:11Z",
+    "activity": "work on document",
+    "project": "Renewable Energy Project",
+    "location": null,
+    "notes": "Edited a .docx file related to a renewable energy project."
+  },
+  {
+    "start": "2024-02-29T01:29:11Z",
+    "end": "2024-02-29T01:32:14Z",
+    "activity": "browse Reddit",
+    "project": null,
+    "location": null,
+    "notes": "Browsed the r/AntiJokes subreddit and other miscellaneous content on Reddit."
+  },
+  {
+    "start": "2024-02-29T01:32:43Z",
+    "end": "2024-02-29T01:32:48Z",
+    "activity": "browse webpage",
+    "project": null,
+    "location": null,
+    "notes": "Browsed an article titled '12 secrets McDonald's employees won't tell you'."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-02-14T01:32:48Z",
+    "end": "2024-02-14T01:38:05Z",
+    "activity": "browse reddit",
+    "project": null,
+    "location": null,
+    "notes": "Browsing the r/AntiJokes subreddit."
+  },
+  {
+    "start": "2024-02-14T01:38:13Z",
+    "end": "2024-02-14T01:38:13Z",
+    "activity": "use word",
+    "project": "Microsoft 365 Copilot",
+    "location": null,
+    "notes": "Using Microsoft Word with Copilot."
+  },
+  {
+    "start": "2024-02-14T01:38:15Z",
+    "end": "2024-02-14T01:38:17Z",
+    "activity": "research energy sources",
+    "project": "Renewabe Energy Project",
+    "location": null,
+    "notes": "Working on a renewable energy project, possibly researching energy sources."
+  }
+]
+```
+```json
+[
+  {
+    "start": "2024-07-24T01:38:18Z",
+    "end": "2024-07-24T01:38:18Z",
+    "activity": "edit document",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Edited the Renewabe Energy Project document."
+  },
+  {
+    "start": "2024-07-24T01:38:20Z",
+    "end": "2024-07-24T01:38:20Z",
+    "activity": "render in blender",
+    "project": null,
+    "location": null,
+    "notes": "Rendered in Blender."
+  },
+  {
+    "start": "2024-07-24T01:38:22Z",
+    "end": "2024-07-24T01:38:22Z",
+    "activity": "use finder",
+    "project": null,
+    "location": null,
+    "notes": "Used Finder."
+  },
+  {
+    "start": "2024-07-24T01:38:27Z",
+    "end": "2024-07-24T01:38:30Z",
+    "activity": "edit in blender",
+    "project": null,
+    "location": null,
+    "notes": "Edited in Blender."
+  },
+  {
+    "start": "2024-07-24T01:38:33Z",
+    "end": "2024-07-24T01:38:33Z",
+    "activity": "login",
+    "project": null,
+    "location": null,
+    "notes": "Logged in."
+  },
+  {
+    "start": "2024-07-24T01:38:37Z",
+    "end": "2024-07-24T01:38:37Z",
+    "activity": "edit in blender",
+    "project": null,
+    "location": null,
+    "notes": "Edited in Blender."
+  },
+  {
+    "start": "2024-07-24T01:38:40Z",
+    "end": "2024-07-24T01:38:40Z",
+    "activity": "edit document",
+    "project": "Renewable Energy",
+    "location": null,
+    "notes": "Edited the Renewabe Energy Project document in Arc."
+  }
+]
+```
