@@ -1,3 +1,4 @@
+/*  frontend/src/types.ts  */
 export interface TimelineEntry {
   start: string;
   end: string;
