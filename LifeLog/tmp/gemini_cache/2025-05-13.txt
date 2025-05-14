@@ -1,0 +1,756 @@
+```json
+[
+  {
+    "start": "1970-01-01T00:00:00Z",
+    "end": "1970-01-01T00:00:41Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T00:00:41Z",
+    "end": "1970-01-01T01:52:02Z",
+    "activity": "work on app",
+    "project": "LifeLog",
+    "notes": "Alternating between planning in Arc browser and coding in VS Code."
+  },
+  {
+    "start": "1970-01-01T01:52:02Z",
+    "end": "1970-01-01T01:52:06Z",
+    "activity": "browse web",
+    "notes": "Quick browsing, including YouTube."
+  },
+  {
+    "start": "1970-01-01T01:52:06Z",
+    "end": "1970-01-01T01:52:20Z",
+    "activity": "work on 3d print",
+    "notes": "Checking Bambu Studio for 3D printing activity."
+  },
+  {
+    "start": "1970-01-01T01:52:20Z",
+    "end": "1970-01-01T01:52:35Z",
+    "activity": "work on app",
+    "project": "LifeLog",
+    "notes": "Reviewing LifeLog app plan."
+  },
+  {
+    "start": "1970-01-01T01:52:35Z",
+    "end": "1970-01-01T01:52:51Z",
+    "activity": "research",
+    "notes": "Researching fleas on dogs and chatting."
+  },
+  {
+    "start": "1970-01-01T01:52:51Z",
+    "end": "1970-01-01T01:53:46Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T01:53:46Z",
+    "end": "1970-01-01T01:55:24Z",
+    "activity": "research",
+    "notes": "Researching fleas on dogs."
+  },
+  {
+    "start": "1970-01-01T01:55:24Z",
+    "end": "1970-01-01T02:07:05Z",
+    "activity": "watch media",
+    "notes": "Watching YouTube videos."
+  },
+  {
+    "start": "1970-01-01T02:07:05Z",
+    "end": "1970-01-01T02:09:24Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T02:09:24Z",
+    "end": "1970-01-01T02:11:44Z",
+    "activity": "watch media",
+    "notes": "Watching YouTube videos and browsing."
+  },
+  {
+    "start": "1970-01-01T02:11:44Z",
+    "end": "1970-01-01T02:21:41Z",
+    "activity": "watch media",
+    "notes": "Watching YouTube videos."
+  },
+  {
+    "start": "1970-01-01T02:21:41Z",
+    "end": "1970-01-01T02:21:54Z",
+    "activity": "chat",
+    "notes": "Chatting in Arc browser."
+  },
+  {
+    "start": "1970-01-01T02:21:54Z",
+    "end": "1970-01-01T02:28:22Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T02:28:22Z",
+    "end": "1970-01-01T02:28:23Z",
+    "activity": "chat",
+    "notes": "Briefly chatting in Arc browser."
+  },
+  {
+    "start": "1970-01-01T02:28:23Z",
+    "end": "1970-01-01T02:30:40Z",
+    "activity": "research",
+    "notes": "Researching fleas on dogs."
+  },
+  {
+    "start": "1970-01-01T02:30:39Z",
+    "end": "1970-01-01T02:33:57Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T02:33:57Z",
+    "end": "1970-01-01T02:42:16Z",
+    "activity": "research and shop",
+    "notes": "Researching and shopping for flea treatment, including using ChatGPT."
+  },
+  {
+    "start": "1970-01-01T02:42:16Z",
+    "end": "1970-01-01T02:44:00Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle with intermittent brief checks on flea treatment."
+  },
+  {
+    "start": "1970-01-01T02:44:00Z",
+    "end": "1970-01-01T03:07:39Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru, with brief checks of Bambu Studio and YouTube."
+  },
+  {
+    "start": "1970-01-01T03:07:39Z",
+    "end": "1970-01-01T03:07:54Z",
+    "activity": "watch media",
+    "notes": "Watching YouTube."
+  },
+  {
+    "start": "1970-01-01T03:07:54Z",
+    "end": "1970-01-01T03:09:14Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T03:09:14Z",
+    "end": "1970-01-01T03:09:24Z",
+    "activity": "chat",
+    "notes": "Chatting in Messages."
+  },
+  {
+    "start": "1970-01-01T03:09:24Z",
+    "end": "1970-01-01T03:13:10Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T03:13:10Z",
+    "end": "1970-01-01T03:49:38Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T03:49:38Z",
+    "end": "1970-01-01T04:00:02Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T04:00:02Z",
+    "end": "1970-01-01T04:00:24Z",
+    "activity": "configure system",
+    "notes": "Adjusting system settings."
+  },
+  {
+    "start": "1970-01-01T04:00:24Z",
+    "end": "1970-01-01T04:00:29Z",
+    "activity": "quick browse and utility",
+    "notes": "Brief browsing and using webcam utility."
+  },
+  {
+    "start": "1970-01-01T04:00:29Z",
+    "end": "1970-01-01T04:06:08Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T04:06:08Z",
+    "end": "1970-01-01T04:07:20Z",
+    "activity": "work on 3d print",
+    "notes": "Checking Bambu Studio for 3D printing activity."
+  },
+  {
+    "start": "1970-01-01T04:07:20Z",
+    "end": "1970-01-01T04:09:08Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T04:09:08Z",
+    "end": "1970-01-01T04:10:20Z",
+    "activity": "chat",
+    "notes": "Chatting on Discord."
+  },
+  {
+    "start": "1970-01-01T04:10:20Z",
+    "end": "1970-01-01T04:19:27Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T04:19:27Z",
+    "end": "1970-01-01T04:21:43Z",
+    "activity": "chat and watch media",
+    "notes": "Chatting on Discord and watching YouTube."
+  },
+  {
+    "start": "1970-01-01T04:21:43Z",
+    "end": "1970-01-01T04:21:50Z",
+    "activity": "configure system",
+    "notes": "Adjusting system settings."
+  },
+  {
+    "start": "1970-01-01T04:21:50Z",
+    "end": "1970-01-01T04:23:24Z",
+    "activity": "watch media and 3d print check",
+    "notes": "Watching YouTube and briefly checking Bambu Studio."
+  },
+  {
+    "start": "1970-01-01T04:23:24Z",
+    "end": "1970-01-01T04:26:05Z",
+    "activity": "work on 3d print",
+    "notes": "Checking Bambu Studio for 3D printing activity."
+  },
+  {
+    "start": "1970-01-01T04:26:05Z",
+    "end": "1970-01-01T04:26:14Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T04:26:14Z",
+    "end": "1970-01-01T04:44:37Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T04:44:37Z",
+    "end": "1970-01-01T04:46:51Z",
+    "activity": "troubleshoot 3d printer",
+    "notes": "Dealing with an error in Bambu Studio."
+  },
+  {
+    "start": "1970-01-01T04:46:51Z",
+    "end": "1970-01-01T04:48:37Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T04:48:37Z",
+    "end": "1970-01-01T04:49:09Z",
+    "activity": "troubleshoot 3d printer",
+    "notes": "Dealing with an error in Bambu Studio."
+  },
+  {
+    "start": "1970-01-01T04:49:09Z",
+    "end": "1970-01-01T04:52:39Z",
+    "activity": "school administration",
+    "notes": "Accessing MyEducation BC and school websites, also chatting."
+  },
+  {
+    "start": "1970-01-01T04:52:39Z",
+    "end": "1970-01-01T05:05:03Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T05:05:03Z",
+    "end": "1970-01-01T05:05:11Z",
+    "activity": "quick checks and chat",
+    "notes": "Briefly checking various apps and chatting."
+  },
+  {
+    "start": "1970-01-01T05:05:11Z",
+    "end": "1970-01-01T05:08:02Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T05:08:02Z",
+    "end": "1970-01-01T05:08:08Z",
+    "activity": "troubleshoot 3d printer",
+    "notes": "Addressing warnings or errors in Bambu Studio."
+  },
+  {
+    "start": "1970-01-01T05:08:08Z",
+    "end": "1970-01-01T05:18:18Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T05:18:18Z",
+    "end": "1970-01-01T05:45:36Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T05:45:36Z",
+    "end": "1970-01-01T05:45:39Z",
+    "activity": "watch media",
+    "notes": "Briefly watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T05:45:39Z",
+    "end": "1970-01-01T05:46:39Z",
+    "activity": "work on 3d print",
+    "notes": "Checking Bambu Studio for 3D printing activity."
+  },
+  {
+    "start": "1970-01-01T05:46:39Z",
+    "end": "1970-01-01T05:47:15Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T05:47:15Z",
+    "end": "1970-01-01T05:49:56Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T05:49:56Z",
+    "end": "1970-01-01T05:50:50Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T05:50:50Z",
+    "end": "1970-01-01T05:51:02Z",
+    "activity": "watch media",
+    "notes": "Watching YouTube."
+  },
+  {
+    "start": "1970-01-01T05:51:02Z",
+    "end": "1970-01-01T05:51:38Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T05:51:38Z",
+    "end": "1970-01-01T05:52:41Z",
+    "activity": "chat and 3d print check",
+    "notes": "Chatting in Arc and Discord, and checking Bambu Studio."
+  },
+  {
+    "start": "1970-01-01T05:52:41Z",
+    "end": "1970-01-01T06:44:34Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T06:44:34Z",
+    "end": "1970-01-01T06:44:38Z",
+    "activity": "manage files",
+    "notes": "Accessing files in Finder."
+  },
+  {
+    "start": "1970-01-01T06:44:38Z",
+    "end": "1970-01-01T06:45:51Z",
+    "activity": "browse and research",
+    "notes": "Browsing, researching anime, and using ChatGPT."
+  },
+  {
+    "start": "1970-01-01T06:45:51Z",
+    "end": "1970-01-01T06:45:53Z",
+    "activity": "manage files",
+    "notes": "Accessing files in Finder."
+  },
+  {
+    "start": "1970-01-01T06:45:53Z",
+    "end": "1970-01-01T06:59:07Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T06:59:07Z",
+    "end": "1970-01-01T06:59:40Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T06:59:40Z",
+    "end": "1970-01-01T07:24:29Z",
+    "activity": "watch media and chat",
+    "notes": "Watching media in Miru with brief chatting in Arc."
+  },
+  {
+    "start": "1970-01-01T07:24:29Z",
+    "end": "1970-01-01T07:35:31Z",
+    "activity": "watch media and chat",
+    "notes": "Watching YouTube and chatting in Arc."
+  },
+  {
+    "start": "1970-01-01T07:35:31Z",
+    "end": "1970-01-01T07:36:44Z",
+    "activity": "research",
+    "notes": "Researching torrent download tracking."
+  },
+  {
+    "start": "1970-01-01T07:36:44Z",
+    "end": "1970-01-01T07:37:14Z",
+    "activity": "browse web and watch media",
+    "notes": "Briefly browsing and watching media."
+  },
+  {
+    "start": "1970-01-01T07:37:14Z",
+    "end": "1970-01-01T07:38:37Z",
+    "activity": "configure system",
+    "notes": "Adjusting display settings."
+  },
+  {
+    "start": "1970-01-01T07:38:37Z",
+    "end": "1970-01-01T07:50:09Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T07:50:09Z",
+    "end": "1970-01-01T08:04:28Z",
+    "activity": "watch media",
+    "notes": "Watching YouTube videos."
+  },
+  {
+    "start": "1970-01-01T08:04:28Z",
+    "end": "1970-01-01T08:13:15Z",
+    "activity": "watch media",
+    "notes": "Watching media in Miru."
+  },
+  {
+    "start": "1970-01-01T08:13:15Z",
+    "end": "1970-01-01T08:13:21Z",
+    "activity": "chat",
+    "notes": "Chatting in Arc browser."
+  },
+  {
+    "start": "1970-01-01T08:13:21Z",
+    "end": "1970-01-01T14:55:56Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T14:55:56Z",
+    "end": "1970-01-01T14:56:03Z",
+    "activity": "chat",
+    "notes": "Chatting in Arc browser."
+  },
+  {
+    "start": "1970-01-01T14:56:03Z",
+    "end": "1970-01-01T14:57:21Z",
+    "activity": "work on 3d print",
+    "notes": "Checking Bambu Studio for 3D printing activity."
+  },
+  {
+    "start": "1970-01-01T14:57:21Z",
+    "end": "1970-01-01T15:17:29Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T15:17:29Z",
+    "end": "1970-01-01T15:18:55Z",
+    "activity": "work on 3d print",
+    "notes": "Checking Bambu Studio for 3D printing activity."
+  },
+  {
+    "start": "1970-01-01T15:18:55Z",
+    "end": "1970-01-01T15:43:57Z",
+    "activity": "idle",
+    "notes": "Computer was locked or idle."
+  },
+  {
+    "start": "1970-01-01T15:43:57Z",
+    "end": "1970-01-01T15:44:05Z",
+    "activity": "work on 3d print",
+    "notes": "Checking Bambu Studio for 3D printing activity."
+  },
+  {
+    "start": "1970-01-01T15:44:05Z",
+    "end": "1970-01-01T16:19:09Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Working on the city scene in Blender, including rendering."
+  },
+  {
+    "start": "1970-01-01T16:19:09Z",
+    "end": "1970-01-01T16:31:18Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Working in Blender's image editor, managing files, and reviewing renders."
+  },
+  {
+    "start": "1970-01-01T16:31:18Z",
+    "end": "1970-01-01T16:36:50Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Rendering in Blender, managing files, and reviewing renders."
+  },
+  {
+    "start": "1970-01-01T16:36:50Z",
+    "end": "1970-01-01T16:38:29Z",
+    "activity": "research",
+    "notes": "Researching graphics card prices."
+  },
+  {
+    "start": "1970-01-01T16:38:29Z",
+    "end": "1970-01-01T16:39:08Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "1970-01-01T16:39:08Z",
+    "end": "1970-01-01T16:47:49Z",
+    "activity": "review project assets",
+    "project": "Energy Project",
+    "notes": "Managing project files and reviewing renders and video assets."
+  },
+  {
+    "start": "1970-01-01T16:47:49Z",
+    "end": "1970-01-01T16:48:31Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Managing project files and rendering in Blender."
+  },
+  {
+    "start": "1970-01-01T16:48:31Z",
+    "end": "1970-01-01T16:48:40Z",
+    "activity": "chat",
+    "notes": "Chatting in Arc browser."
+  },
+  {
+    "start": "1970-01-01T16:48:40Z",
+    "end": "1970-01-01T16:52:56Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Working in DaVinci Resolve, managing project files, and reviewing renders."
+  },
+  {
+    "start": "1970-01-01T16:52:56Z",
+    "end": "1970-01-01T17:08:59Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Managing project files and reviewing renders."
+  },
+  {
+    "start": "1970-01-01T17:08:59Z",
+    "end": "1970-01-01T17:10:27Z",
+    "activity": "chat and browse school website",
+    "notes": "Chatting and accessing school website and calculator."
+  },
+  {
+    "start": "1970-01-01T17:10:27Z",
+    "end": "1970-01-01T17:10:41Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "1970-01-01T17:10:41Z",
+    "end": "1970-01-01T17:12:14Z",
+    "activity": "study math",
+    "notes": "Accessing school math resources."
+  },
+  {
+    "start": "1970-01-01T17:12:14Z",
+    "end": "1970-01-01T17:12:21Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "1970-01-01T17:12:21Z",
+    "end": "1970-01-01T17:20:59Z",
+    "activity": "study math",
+    "notes": "Studying from a math PDF and using Google for calculations."
+  },
+  {
+    "start": "1970-01-01T17:20:59Z",
+    "end": "1970-01-01T17:21:11Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "1970-01-01T17:21:11Z",
+    "end": "1970-01-01T17:25:31Z",
+    "activity": "study math",
+    "notes": "Studying from a math PDF."
+  },
+  {
+    "start": "1970-01-01T17:25:31Z",
+    "end": "1970-01-01T17:28:29Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "1970-01-01T17:28:29Z",
+    "end": "1970-01-01T17:28:34Z",
+    "activity": "work on app",
+    "project": "LifeLog",
+    "notes": "Briefly checking code."
+  },
+  {
+    "start": "1970-01-01T17:28:34Z",
+    "end": "1970-01-01T17:28:38Z",
+    "activity": "study math",
+    "notes": "Briefly returning to a math PDF."
+  },
+  {
+    "start": "1970-01-01T17:28:38Z",
+    "end": "1970-01-01T17:29:28Z",
+    "activity": "work on app with ai assist",
+    "project": "LifeLog",
+    "notes": "Coding for LifeLog app while using ChatGPT for assistance."
+  },
+  {
+    "start": "1970-01-01T17:29:28Z",
+    "end": "1970-01-01T17:29:53Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "1970-01-01T17:29:53Z",
+    "end": "1970-01-01T17:31:16Z",
+    "activity": "work on app with ai assist",
+    "project": "LifeLog",
+    "notes": "Coding for LifeLog app while using ChatGPT, briefly checking a math PDF."
+  },
+  {
+    "start": "1970-01-01T17:31:16Z",
+    "end": "1970-01-01T17:32:04Z",
+    "activity": "work on app with ai assist and terminal",
+    "project": "LifeLog",
+    "notes": "Using ChatGPT and interacting with the terminal for the LifeLog project."
+  },
+  {
+    "start": "1970-01-01T17:32:04Z",
+    "end": "1970-01-01T17:33:44Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "1970-01-01T17:33:44Z",
+    "end": "1970-01-01T17:34:07Z",
+    "activity": "work on app and chat",
+    "project": "LifeLog",
+    "notes": "Using ChatGPT for LifeLog project and chatting."
+  },
+  {
+    "start": "1970-01-01T17:34:07Z",
+    "end": "1970-01-01T18:51:06Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Rendering in Blender."
+  },
+  {
+    "start": "1970-01-01T18:51:06Z",
+    "end": "1970-01-01T18:51:08Z",
+    "activity": "work on app",
+    "project": "LifeLog",
+    "notes": "Briefly checking code."
+  },
+  {
+    "start": "1970-01-01T18:51:08Z",
+    "end": "1970-01-01T18:51:16Z",
+    "activity": "chat and browse",
+    "notes": "Chatting and brief web browsing."
+  },
+  {
+    "start": "1970-01-01T18:51:16Z",
+    "end": "1970-01-01T18:52:37Z",
+    "activity": "work on app with ai assist and terminal",
+    "project": "LifeLog",
+    "notes": "Using ChatGPT and interacting with the terminal for the LifeLog project."
+  },
+  {
+    "start": "1970-01-01T18:52:37Z",
+    "end": "1970-01-01T18:54:00Z",
+    "activity": "work on app with ai assist and planning",
+    "project": "LifeLog",
+    "notes": "Using ChatGPT and reviewing LifeLog app plan."
+  },
+  {
+    "start": "1970-01-01T18:54:00Z",
+    "end": "1970-01-01T18:54:15Z",
+    "activity": "check email",
+    "notes": "Checking email."
+  },
+  {
+    "start": "1970-01-01T18:54:15Z",
+    "end": "1970-01-01T18:55:22Z",
+    "activity": "work on app",
+    "project": "LifeLog",
+    "notes": "Coding in VS Code."
+  },
+  {
+    "start": "1970-01-01T18:55:22Z",
+    "end": "1970-01-01T18:56:05Z",
+    "activity": "work on 3d/video project",
+    "project": "Energy Project",
+    "notes": "Working in Blender."
+  },
+  {
+    "start": "1970-01-01T18:56:05Z",
+    "end": "1970-01-01T19:02:19Z",
+    "activity": "work on app and planning",
+    "project": "LifeLog",
+    "notes": "Coding in VS Code and reviewing the app plan in Arc."
+  },
+  {
+    "start": "1970-01-01T19:02:19Z",
+    "end": "1970-01-01T19:02:29Z",
+    "activity": "use utility",
+    "notes": "Using a system utility app."
+  },
+  {
+    "start": "1970-01-01T19:02:29Z",
+    "end": "1970-01-01T19:06:11Z",
+    "activity": "work on app and planning",
+    "project": "LifeLog",
+    "notes": "Coding and planning for the LifeLog app, including research."
+  },
+  {
+    "start": "1970-01-01T19:06:11Z",
+    "end": "1970-01-01T19:07:08Z",
+    "activity": "research",
+    "notes": "Researching GPU prices online."
+  },
+  {
+    "start": "1970-01-01T19:07:08Z",
+    "end": "1970-01-01T19:09:09Z",
+    "activity": "work on app and planning",
+    "project": "LifeLog",
+    "notes": "Coding in VS Code and reviewing the app plan in Arc."
+  },
+  {
+    "start": "1970-01-01T19:09:09Z",
+    "end": "1970-01-01T19:10:38Z",
+    "activity": "work on app and review project assets",
+    "project": "LifeLog & Energy Project",
+    "notes": "Coding LifeLog app while reviewing assets (renders, videos) for the Energy Project."
+  },
+  {
+    "start": "1970-01-01T19:10:38Z",
+    "end": "1970-01-01T19:11:57Z",
+    "activity": "work on app and planning",
+    "project": "LifeLog",
+    "notes": "Coding in VS Code and reviewing the app plan in Arc."
+  }
+]
+```
