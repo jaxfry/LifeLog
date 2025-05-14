@@ -9,25 +9,61 @@ from pathlib import Path
 from typing import List
 
 import polars as pl
+import sys
+from pathlib import Path as _Path
+# Allow running as script: add project root to PYTHONPATH
+sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 from google import genai
 # Retry on any exception (since google-genai has no specific GoogleAPIError class)
 from LifeLog.models import TimelineEntry
 
+# --------------------------------------------------------------------------- #
+# Configuration & filtering thresholds
+# --------------------------------------------------------------------------- #
 RAW_DIR = Path("LifeLog/storage/raw/activitywatch")
 CURATED_DIR = Path("LifeLog/storage/curated/timeline")
 CACHE_DIR = Path("LifeLog/tmp/gemini_cache")
 MODEL_NAME = "gemini-2.0-flash"
 MAX_EVENTS = 600
+MIN_DURATION_MS = int(os.getenv("LIFELOG_MIN_MS", 5000))  # milliseconds threshold
+DROP_IDLE = os.getenv("LIFELOG_DROP_IDLE", "1") == "1"
 
+# --------------------------------------------------------------------------- #
+# Data loading & pre-AI filtering
+# --------------------------------------------------------------------------- #
 
 def _load_events(day: date) -> pl.DataFrame:
+    """
+    Load raw events for a day, apply pre-AI filtering:
+    - Remove events shorter than MIN_DURATION_MS
+    - Optionally drop idle/AFK events
+    """
     p = RAW_DIR / f"{day}.parquet"
     if not p.exists():
         raise FileNotFoundError(p)
-    return pl.read_parquet(p).sort("timestamp")
 
+    df = pl.read_parquet(p)
+
+    # Filter out very short events
+    df = df.filter(pl.col("duration") >= MIN_DURATION_MS)
+
+    # Optionally drop idle/AFK
+    if DROP_IDLE and "app" in df.columns:
+        df = df.filter(~pl.col("app")
+                        .str.to_lowercase()
+                        .str.contains(r"idle|afk", literal=False))
+
+    return df.sort("timestamp")
+
+# --------------------------------------------------------------------------- #
+# Markdown conversion
+# --------------------------------------------------------------------------- #
 
 def _events_to_markdown(df: pl.DataFrame) -> str:
+    """
+    Convert a DataFrame slice to a markdown table for prompting.
+    """
     show = (
         df.select(
             pl.col("timestamp").dt.strftime("%H:%M:%S").alias("time"),
@@ -41,6 +77,9 @@ def _events_to_markdown(df: pl.DataFrame) -> str:
     )
     return show
 
+# --------------------------------------------------------------------------- #
+# JSON extraction
+# --------------------------------------------------------------------------- #
 
 def _extract_json(txt: str):
     txt = txt.strip()
@@ -51,33 +90,20 @@ def _extract_json(txt: str):
         return json.loads(txt)
     except json.JSONDecodeError as e:
         print(f"⚠️ Initial JSON decode error: {e}")
+        match = re.search(r"\[.*?\]", txt, re.DOTALL)
+        if not match:
+            raise ValueError("No JSON array found in Gemini response")
+        json_str = match.group(0)
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            print(f"⚠️ Regex-extracted JSON decode error: {e}")
+            print(f"Extracted JSON string: {json_str[:500]}... (truncated)")
+            raise ValueError("Failed to parse JSON from extracted string") from e
 
-        # Multiple JSON arrays might be present (one per chunk)
-        # Extract all JSON arrays and combine them
-        all_matches = re.finditer(r"\[.*?\]", txt, re.DOTALL)
-        combined_entries = []
-        
-        for match in all_matches:
-            json_str = match.group(0)
-            try:
-                entries = json.loads(json_str)
-                if isinstance(entries, list):
-                    combined_entries.extend(entries)
-                    print(f"✅ Successfully extracted {len(entries)} entries from JSON array")
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Skipping invalid JSON array: {e}")
-                print(f"Invalid JSON string: {json_str[:200]}... (truncated)")
-        
-        if combined_entries:
-            print(f"✅ Total entries combined: {len(combined_entries)}")
-            # Sanitize data - replace null notes with empty string to match model requirements
-            for entry in combined_entries:
-                if entry.get("notes") is None:
-                    entry["notes"] = "No description available."
-            return combined_entries
-        else:
-            raise ValueError("No valid JSON arrays found in Gemini response")
-
+# --------------------------------------------------------------------------- #
+# Prompt template
+# --------------------------------------------------------------------------- #
 
 def _prompt(markdown_table: str) -> str:
     return f"""
@@ -107,6 +133,9 @@ Raw events (max {MAX_EVENTS} shown):
 {markdown_table}
 """
 
+# --------------------------------------------------------------------------- #
+# Safe generation with retry
+# --------------------------------------------------------------------------- #
 
 def _safe_generate(client, chunk: str, retries=5) -> str:
     for attempt in range(1, retries + 1):
@@ -122,9 +151,22 @@ def _safe_generate(client, chunk: str, retries=5) -> str:
             print(f"⚠️ Gemini error: {e} — retrying in {2 ** attempt}s...")
             time.sleep(2 ** attempt)
 
+# --------------------------------------------------------------------------- #
+# Enrichment entry point
+# --------------------------------------------------------------------------- #
 
 def enrich(day: date, force: bool = False) -> Path:
+    # Load raw and filtered events to measure filter impact
+    raw_df = pl.read_parquet(RAW_DIR / f"{day}.parquet")
+    raw_count = raw_df.height
     df = _load_events(day)
+    filtered_count = df.height
+    # Report shrink stats
+    if raw_count > 0:
+        pct = filtered_count / raw_count * 100
+        print(f"🔍 Raw events: {raw_count}, After filter: {filtered_count} ({pct:.1f}% kept)")
+    else:
+        print("🔍 No raw events to process today.")
     md = _events_to_markdown(df)
 
     cache_file = CACHE_DIR / f"{day}.txt"
@@ -167,12 +209,16 @@ def enrich(day: date, force: bool = False) -> Path:
     print(f"✅ Enriched {len(entries)} entries → {out_p}")
     return out_p
 
+# --------------------------------------------------------------------------- #
+# CLI runner
+# --------------------------------------------------------------------------- #
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Enrich ActivityWatch day with Gemini")
     parser.add_argument("--day", type=lambda s: date.fromisoformat(s), help="YYYY-MM-DD (default: yesterday)")
+    parser.add_argument("--force", action="store_true", help="Ignore cached responses and re-prompt Gemini")
     args = parser.parse_args()
     target_day = args.day or (date.today() - timedelta(days=1))
-    enrich(target_day, force=False)
+    enrich(target_day, force=args.force)
