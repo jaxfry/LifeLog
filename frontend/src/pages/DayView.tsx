@@ -1,34 +1,47 @@
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
 import { useDayData } from "../hooks/useDayData";
 import SummaryPanel from "../components/SummaryPanel";
 import Timeline from "../components/Timeline";
 
-/* Tags you want to filter by – extend as needed */
-const TAGS = ["All", "Work", "Entertainment", "Research", "Social", "Creative"];
-
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Main component                                                           */
+/* ────────────────────────────────────────────────────────────────────────── */
 export default function DayView() {
-  /* --- routing + data ---------------------------------------------------- */
+  /* ----- routing & fetch ------------------------------------------------- */
   const { day = "" } = useParams<{ day: string }>();
   const navigate = useNavigate();
   const { data, loading, error } = useDayData(day);
 
-  /* --- UI state ---------------------------------------------------------- */
+  /* ----- build tag list from data --------------------------------------- */
+  const tagOptions = useMemo(() => {
+    const set = new Set<string>();
+    data?.entries.forEach((e) => e.tags?.forEach((t) => set.add(t)));
+    return ["All", ...Array.from(set).sort()];
+  }, [data]);
+
+  /* ----- UI state: active tag ------------------------------------------- */
   const [activeTag, setActiveTag] = useState<string>("All");
+  useEffect(() => {
+    if (!tagOptions.includes(activeTag)) setActiveTag("All");
+  }, [tagOptions, activeTag]);
 
-  /* --- helpers ----------------------------------------------------------- */
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /* ----- navigate on date change ---------------------------------------- */
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     navigate(`/day/${e.target.value}`);
-  };
 
+  /* ----- filter + SORT entries ------------------------------------------ */
   const filteredEntries =
     activeTag === "All"
       ? data?.entries || []
       : (data?.entries || []).filter((e) => e.tags?.includes(activeTag));
 
-  /* --- loading / error / empty states ------------------------------------ */
-  if (loading)
-    return <div className="p-6 text-center text-gray-500">Loading…</div>;
+  const sortedEntries = [...filteredEntries].sort(
+    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
+
+  /* ----- loading / error / empty states --------------------------------- */
+  if (loading) return <CenteredMessage>Loading…</CenteredMessage>;
 
   if (error)
     return (
@@ -48,11 +61,11 @@ export default function DayView() {
       />
     );
 
-  /* --- main layout ------------------------------------------------------- */
+  /* ----- main layout ----------------------------------------------------- */
   return (
     <div className="h-screen w-full bg-gray-50 text-gray-900 overflow-hidden">
       <div className="flex h-full">
-        {/* ───── Sidebar ─────────────────────────────────────────────── */}
+        {/* ───────── Sidebar ─────────────────────────────────────────────── */}
         <aside className="w-full max-w-md p-6 border-r overflow-y-auto bg-white shadow-lg space-y-6">
           {/* Date picker */}
           <div>
@@ -69,7 +82,7 @@ export default function DayView() {
           <div>
             <h2 className="text-sm font-medium mb-2">Filter by tag</h2>
             <div className="flex flex-wrap gap-2">
-              {TAGS.map((tag) => (
+              {tagOptions.map((tag) => (
                 <button
                   key={tag}
                   onClick={() => setActiveTag(tag)}
@@ -85,21 +98,31 @@ export default function DayView() {
             </div>
           </div>
 
-          {/* Summary card */}
+          {/* Summary */}
           <SummaryPanel summary={data.summary} />
         </aside>
 
-        {/* ───── Timeline column ─────────────────────────────────────── */}
+        {/* ───────── Timeline column ─────────────────────────────────────── */}
         <main className="flex-1 p-6 overflow-y-auto">
-          <Timeline entries={filteredEntries} />
+            {}
+          <Timeline entries={sortedEntries} />
         </main>
       </div>
     </div>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Small reusable empty/error component                                       */
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Helper components                                                         */
+/* ────────────────────────────────────────────────────────────────────────── */
+function CenteredMessage({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <p className="text-gray-500">{children}</p>
+    </div>
+  );
+}
+
 function EmptyState(props: {
   message: string;
   actionLabel: string;
