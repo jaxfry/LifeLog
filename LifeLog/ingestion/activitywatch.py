@@ -1,124 +1,144 @@
 # LifeLog/ingestion/activitywatch.py
-
 from __future__ import annotations
 
+import argparse
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List, Sequence
 
 import polars as pl
 from aw_client import ActivityWatchClient
+from zoneinfo import ZoneInfo  # stdlib ≥ 3.9
 
 from LifeLog.config import Settings
 
-# ---------- constants -------------------------------------------------------
-REQUIRED_COLS = ["timestamp", "duration", "app", "title", "url"]
-
-# ---------- logging ---------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
+# Logging
+# ────────────────────────────────────────────────────────────────────────────
 log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
-# ---------- helpers ---------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
+# Constants / schema
+# ────────────────────────────────────────────────────────────────────────────
+REQUIRED_COLS = ["timestamp", "duration", "app", "title", "url"]
+EMPTY_SCHEMA = [(col, pl.Null) for col in REQUIRED_COLS]  # for empty DataFrames
 
-def _iso_bounds(day: date) -> tuple[datetime, datetime]:
-    """Return UTC start & end datetimes for a calendar day."""
-    start = datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc)
-    end   = datetime.combine(day, datetime.max.time(), tzinfo=timezone.utc)
-    return start, end
 
-def _flatten(events: List[Dict[str, Any]]) -> pl.DataFrame:
+# ────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ────────────────────────────────────────────────────────────────────────────
+def _iso_bounds(day: date, *, tz: timezone | None = None) -> tuple[datetime, datetime]:
     """
-    Flatten AW event dicts to the canonical schema.
-    Compatible with Polars ≤ 1.x via map_elements.
+    Return (UTC_start, UTC_end) for a local calendar day.
+
+    The end-instant is the *next* midnight (half-open interval [start, end) ),
+    which is easier to reason about than 23:59:59.999999.
     """
+    if tz is None:  # platform-independent local TZ
+        tz = datetime.now().astimezone().tzinfo or ZoneInfo("UTC")
+
+    start_local = datetime.combine(day, time.min, tzinfo=tz)
+    end_local   = start_local + timedelta(days=1)          # next midnight
+    return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
+
+
+def _flatten(events: Sequence[dict[str, Any]]) -> pl.DataFrame:
     if not events:
-        return pl.DataFrame(schema=REQUIRED_COLS)
+        return pl.DataFrame(schema=EMPTY_SCHEMA)
 
-    df = pl.DataFrame(events).with_columns([
-        pl.col("data")
-          .map_elements(lambda d: d.get("app"), return_dtype=pl.Utf8)
-          .alias("app"),
-        pl.col("data")
-          .map_elements(lambda d: d.get("title"), return_dtype=pl.Utf8)
-          .alias("title"),
-        pl.col("data")
-          .map_elements(lambda d: d.get("url"), return_dtype=pl.Utf8)
-          .alias("url"),
-    ])
+    df = pl.DataFrame(events)
 
-    # pad any missing columns
+    # safe key-lookup (returns None when the key is absent)
+    def _get(key: str) -> pl.Expr:
+        return (
+            pl.col("data")
+            .map_elements(lambda d: d.get(key), return_dtype=pl.Utf8)
+            .alias(key)
+        )
+
+    df = (
+        df.with_columns(
+            _get("app"),
+            _get("title"),
+            _get("url"),
+        )
+        .drop("data")            # no longer needed
+    )
+
+    # make sure every required column exists & is ordered
     for col in REQUIRED_COLS:
         if col not in df.columns:
             df = df.with_columns(pl.lit(None).alias(col))
 
     return df.select(REQUIRED_COLS)
 
-# ---------- public API ------------------------------------------------------
 
-def fetch_day(day: date) -> pl.DataFrame:
+# ────────────────────────────────────────────────────────────────────────────
+# Public API
+# ────────────────────────────────────────────────────────────────────────────
+def fetch_day(day: date, *, client: ActivityWatchClient | None = None) -> pl.DataFrame:
     """
-    Pull *all* AW watcher buckets for `day`, flatten, filter (Layer 1),
-    and return a tidy DataFrame.
+    Pull all AW watcher buckets for `day`, flatten, filter, and return a DF.
     """
     settings = Settings()
-    start, end = _iso_bounds(day)
-    client = ActivityWatchClient()
-    buckets = client.get_buckets()  # dict[bucket_id → meta]
+    start_utc, end_utc = _iso_bounds(day)
 
-    dfs: List[pl.DataFrame] = []
-    for bucket_id in buckets:
+    client = client or ActivityWatchClient()
+    bucket_meta = client.get_buckets()  # id ➜ meta
+
+    dfs: list[pl.DataFrame] = []
+    for bucket_id in bucket_meta:
         if not bucket_id.startswith("aw-watcher-"):
             continue
-        events = client.get_events(bucket_id=bucket_id, start=start, end=end)
+
+        events = client.get_events(bucket_id=bucket_id, start=start_utc, end=end_utc)
         dfs.append(_flatten(events))
 
-    df = pl.concat(dfs) if dfs else pl.DataFrame(schema=REQUIRED_COLS)
+    if not dfs:
+        log.warning("No ActivityWatch events found for %s", day)
+        return pl.DataFrame(schema=EMPTY_SCHEMA)
 
-    # ---------- Layer 1 filtering --------------------------------------------
-    df = df.filter(pl.col("duration") >= settings.min_duration_ms)
-    if settings.drop_idle:
-        df = df.filter(
-            ~pl.col("app")
-                .str.to_lowercase()
-                .str.contains("idle|afk")
+    df_all   = pl.concat(dfs, how="vertical")
+    raw_rows = df_all.height
+
+    # ───── Layer-1 filtering ───────────────────────────────────────────────
+    if settings.min_duration_ms is not None:
+        df_all = df_all.filter(
+            pl.col("duration") >= settings.min_duration_ms / 1_000  # AW uses seconds
         )
 
-    total_rows = sum(d.height for d in dfs)
-    log.info(
-        "🔍 Fetched & flattened rows: %d → after filter: %d",
-        total_rows,
-        df.height,
-    )
-    return df
+    if settings.drop_idle:
+        df_all = df_all.filter(~pl.col("app").str.to_lowercase().str.contains("idle|afk"))
+
+    log.info("🔍 Raw rows: %d  →  after filter: %d", raw_rows, df_all.height)
+    return df_all
+
 
 def ingest(day: date | None = None) -> Path:
     """
-    Ingest raw events for `day` (default: yesterday), write Parquet,
+    Ingest raw events for `day` (default: *yesterday*), write them to Parquet,
     and return the output path.
     """
     settings = Settings()
-    raw_dir = settings.raw_dir
-
-    if day is None:
-        day = date.today() - timedelta(days=1)
+    day = day or (date.today() - timedelta(days=1))
 
     df = fetch_day(day)
-    out_path = raw_dir / f"{day}.parquet"
+    out_path = settings.raw_dir / f"{day}.parquet"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     df.write_parquet(out_path)
 
-    log.info("✅ Saved %d raw rows to %s", df.height, out_path)
+    log.info("✅ Saved %d rows to %s", df.height, out_path)
     return out_path
 
-# ---------- stand-alone usage ---------------------------------------------
 
+# ────────────────────────────────────────────────────────────────────────────
+# CLI entry-point
+# ────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import argparse
-    p = argparse.ArgumentParser(description="Ingest AW raw events")
-    p.add_argument(
-        "--day",
-        type=lambda s: date.fromisoformat(s),
-        help="YYYY-MM-DD (default: yesterday)"
-    )
-    args = p.parse_args()
+    parser = argparse.ArgumentParser(description="Ingest ActivityWatch raw events")
+    parser.add_argument("--day", type=date.fromisoformat, help="YYYY-MM-DD (default: yesterday)")
+    args = parser.parse_args()
+
     ingest(args.day)

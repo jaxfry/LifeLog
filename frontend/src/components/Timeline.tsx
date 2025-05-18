@@ -1,4 +1,17 @@
+import React from "react";
 import type { TimelineEntry } from "../types";
+
+/**
+ * Formats an ISO-8601 string or epoch-ms number into local HH:MM AM/PM.
+ */
+function formatTime(raw: string | number): string {
+  const d = typeof raw === "number" ? new Date(raw) : new Date(raw);
+  return d.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
 
 export default function Timeline({ entries }: { entries: TimelineEntry[] }) {
   let lastDate = "";
@@ -6,14 +19,21 @@ export default function Timeline({ entries }: { entries: TimelineEntry[] }) {
   return (
     <div className="space-y-6">
       {entries.map((e, idx) => {
-        const d = new Date(e.start).toLocaleDateString();
-        const showDate = d !== lastDate;
-        lastDate = d;
+        // Render local date heading, e.g. "May 13, 2025"
+        const dateStr = new Date(e.start).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+        const showDate = dateStr !== lastDate;
+        lastDate = dateStr;
 
         return (
           <div key={idx}>
             {showDate && (
-              <h3 className="mb-2 mt-6 text-sm font-bold text-gray-500">{d}</h3>
+              <h3 className="mb-2 mt-6 text-sm font-bold text-gray-500">
+                {dateStr}
+              </h3>
             )}
 
             <div className="bg-white rounded-xl shadow p-4 border border-gray-100">
@@ -48,14 +68,4 @@ export default function Timeline({ entries }: { entries: TimelineEntry[] }) {
       })}
     </div>
   );
-}
-
-
-function formatTime(raw: string): string {
-  try {
-    const date = new Date(raw);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return raw;
-  }
 }
