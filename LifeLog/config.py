@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     assets_dir: Path = Path("LifeLog/assets")
 
     # --- ActivityWatch Ingestion Specific Settings ---
+
+    afk_app_name_override: str = "SystemActivity" # Name for AFK/not-AFK events
+    min_duration_s_post_afk: Optional[int] = 1 # Optional: filter very short 
+    
     local_tz: str = "America/Vancouver"
     min_duration_s: int = 5
 
