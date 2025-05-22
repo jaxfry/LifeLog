@@ -5,7 +5,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-import LifeLog.enrichment.activitywatch as aw
+import LifeLog.enrichment.example as aw
 
 def test_filtering(tmp_path, monkeypatch):
     # 1) point the raw_dir to our tmp directory via environment

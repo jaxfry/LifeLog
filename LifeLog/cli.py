@@ -12,7 +12,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from LifeLog.config import Settings
 from LifeLog.ingestion.activitywatch import ingest as ingest_aw
-from LifeLog.enrichment.activitywatch import enrich as enrich_aw
 from LifeLog.summary.daily import summarize_day
 
 # Configure a simple root logger

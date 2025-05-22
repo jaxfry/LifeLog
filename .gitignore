@@ -225,3 +225,6 @@ pip-selfcheck.json
 
 storage/
 tmp/
+test_segmentation.py
+example.py
+test.py

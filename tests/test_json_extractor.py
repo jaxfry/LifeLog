@@ -1,5 +1,5 @@
 import pytest
-from LifeLog.enrichment.activitywatch import _extract_json
+from LifeLog.enrichment.example import _extract_json
 
 @pytest.mark.parametrize("input_txt, expected_len", [
     ("[ {\"a\":1} ]", 1),
