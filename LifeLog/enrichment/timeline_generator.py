@@ -121,12 +121,12 @@ def _load_and_prepare_input_df(day: date, settings: Settings) -> pl.DataFrame:
 def _build_llm_prompt(day: date, events_df: pl.DataFrame, settings: Settings) -> str:
     if events_df.is_empty(): return ""
     max_events_for_prompt = settings.enrichment_max_events
+    # Ensure events_table_md is defined using events_df, not events_md
     events_table_md = events_df.head(max_events_for_prompt).to_pandas().to_markdown(index=False)
+    
     schema_description = """[{"start": "YYYY-MM-DDTHH:MM:SSZ","end": "YYYY-MM-DDTHH:MM:SSZ","activity": "string","project": "string | null","notes": "string | null"}]"""
-    prompt = f"You are a meticulous LifeLog assistant..." # Keep your detailed prompt structure
-    # (Shortened here for brevity, but use your full detailed prompt from before)
-    prompt = f"""
-You are a meticulous LifeLog assistant. Your task is to analyze a list of raw computer activity events for the date {day.isoformat()}
+
+    PROMPT_PREAMBLE = f"""You are a meticulous LifeLog assistant. Your task is to analyze a list of raw computer activity events for the date {day.isoformat()}
 and group them into meaningful, consolidated timeline entries.
 
 The raw events are provided in a table with columns: time_utc, duration_s, app, title, url.
@@ -137,25 +137,112 @@ Your goal is to output a JSON list of "EnrichedTimelineEntry" objects.
 Each EnrichedTimelineEntry represents a distinct, user-perceived activity or task.
 The JSON output MUST be a list of objects, strictly adhering to this schema for each object:
 {schema_description}
+"""
 
-Key Instructions:
+    PROMPT_TASK_INSTRUCTIONS = """Key Instructions for Generating EnrichedTimelineEntry objects:
+1.  Analyze the raw events to identify distinct user activities.
+2.  Group consecutive or related raw events into a single EnrichedTimelineEntry.
+3.  'start' and 'end' times should span the entire grouped activity. Convert event start times (which are HH:MM:SS for the given day) to full ISO 8601 UTC timestamps (YYYY-MM-DDTHH:MM:SSZ).
+4.  'activity': A short, descriptive verb phrase for the consolidated activity (e.g., "Reviewed pull request", "Wrote documentation", "Attended team meeting").
+5.  'project': If identifiable from app, title, or url, specify the project name (e.g., "LifeLog Development", "CS101 Homework"). Use known project aliases if applicable. If no specific project, use null.
+6.  'notes': CRITICAL: Generate a 1-2 sentence summary that is **highly specific and informative, directly extracting details from the raw event's 'title' and 'url' fields.**
+    - **Mandatory Detail Extraction:** You MUST incorporate specific entities like document names, video titles, email subjects, specific URLs or parts of URLs, project IDs, file names, etc., if they appear in the raw event data.
+    - **Emails:** State the inbox name (e.g., "primary inbox," "work inbox") and include message counts (total, unread) if present in the raw data. E.g., "Checked primary inbox with 2,336 messages, 204 unread".
+    - **Videos/Articles:** List the full titles of videos watched or articles read. E.g., "Watched 'Video Title 1' and 'Another Video Title'".
+    - **Coding/Development:** Mention specific file names or key entities from the title/URL. E.g., "Worked on activitywatch.py and models.py".
+    - **Specific App Usage:** If an app's title field contains specific identifiers (e.g., "Project ID 12345", "Document 'MyReport'"), these MUST be in the notes. E.g., "Used Stitch AI design tool on project with ID 14750739344070134768".
+    - **Avoid Vague Notes:** Do NOT use generic phrases like "Used [App name]", "Browsed website", or "Watched videos" if specific details are available in the raw data. The notes must reflect those specifics. Even for general app usage, try to infer a more descriptive note than just the app name if possible (e.g. "Extended session in Miru" instead of "Used Miru").
+    - **Summarize Multiple Items:** If an activity involves multiple distinct items (e.g., several files, multiple short videos), list the key items or provide a concise summary that includes them.
+    - The goal is to make the notes as rich as the original data allows, not to oversimplify.
+7.  Consolidate aggressively: If a user is clearly working on the same task across multiple raw events (even with small interruptions or app switches that are part of the same workflow), group them.
+8.  Accuracy: Ensure times, activity descriptions, and notes accurately reflect the raw data.
+9.  Output Format: Strictly JSON list. No markdown, no commentary.
+"""
+
+    PROMPT_EXAMPLE_INPUT_OUTPUT = """Example Input (Raw Usage Events Table):
+| time_utc | duration_s | app        | title                  | url                     |
+|----------|------------|-------------|------------------------|-------------------------|
+| 08:00:00 | 300        | Chrome      | Gmail - Inbox          | https://mail.google.com |
+| 08:05:00 | 600        | Chrome      | Google Docs - Report   | https://docs.google.com |
+| 09:00:00 | 1200       | VSCode      | activitywatch.py, models.py | N/A                     |
+| 10:00:00 | 3600       | YouTube     | Video Title 1          | https://youtube.com     |
+| 10:30:00 | 1800       | YouTube     | Another Video Title    | https://youtube.com     |
+| 11:00:00 | 900        | Gmail       | Sent: Project Update   | https://mail.google.com |
+| 11:15:00 | 45         | Slack       | Team Standup           | N/A                     |
+
+Example Output (EnrichedTimelineEntry JSON List):
+[
+  {
+    "start": "2023-10-01T08:00:00Z",
+    "end": "2023-10-01T08:05:00Z",
+    "activity": "Checked emails",
+    "project": null,
+    "notes": "Checked primary inbox with 2,336 messages, 204 unread."
+  },
+  {
+    "start": "2023-10-01T08:05:00Z",
+    "end": "2023-10-01T09:00:00Z",
+    "activity": "Worked on Google Docs",
+    "project": null,
+    "notes": "Edited 'Report' in Google Docs."
+  },
+  {
+    "start": "2023-10-01T09:00:00Z",
+    "end": "2023-10-01T10:00:00Z",
+    "activity": "Coding in VSCode",
+    "project": "LifeLog Development",
+    "notes": "Developed features in activitywatch.py and models.py."
+  },
+  {
+    "start": "2023-10-01T10:00:00Z",
+    "end": "2023-10-01T11:00:00Z",
+    "activity": "Watched educational videos",
+    "project": null,
+    "notes": "Watched 'Video Title 1' and 'Another Video Title' on YouTube."
+  },
+  {
+    "start": "2023-10-01T11:00:00Z",
+    "end": "2023-10-01T11:15:00Z",
+    "activity": "Sent email",
+    "project": null,
+    "notes": "Sent project update email with 5 recipients."
+  },
+  {
+    "start": "2023-10-01T11:15:00Z",
+    "end": "2023-10-01T11:16:45Z",
+    "activity": "Team Standup",
+    "project": null,
+    "notes": "Participated in team standup meeting."
+  }
+]
+"""
+
+    GUIDELINES = """Key Instructions:
 1.  Merge Logically: Combine consecutive raw events that clearly belong to the same overarching activity and project.
 2.  Determine Start/End (UTC): "start" is UTC start of earliest event, "end" is UTC end of latest event in group. Format: "YYYY-MM-DDTHH:MM:SSZ".
 3.  Activity Description ("activity"): Be specific and concise. e.g., "Editing 'script.py' in VS Code".
 4.  Project Identification ("project"): Infer project. Null if not clear.
-5.  Notes ("notes"): Summarize key details.
-6.  Context is Key: Use app, title, and url.
-7.  Chronological Order: Output list must be chronological.
-8.  Handle Short Activities: Short, distinct activities are separate entries.
-9.  Focus on User Intent.
-
-Respond ONLY with a single, valid JSON list. Do not include any other text, explanations, or markdown formatting.
-
-Raw Events for {day.isoformat()} (UTC times, up to {max_events_for_prompt} shown):
-{events_table_md}
-
-JSON Output:
+    -   `project`: Assign a project name if clearly identifiable from `app`, `title`, or `url` (e.g., "LifeLog Development", "Course XYZ"). Use `null` if no specific project.
+5.  Notes ("notes"): This field is critical for providing rich, contextual information. Aim for a 1-2 sentence summary.
+    -   **PRIORITY: Extract and include specific, meaningful details from the `title` and `url` columns of the raw events.** Do not just repeat the application name or a generic activity if more detail is present.
+    -   **Examples of GOOD notes (incorporating details from `title`/`url`):**
+        - For "Checked emails": "Checked primary inbox (Gmail) which had 2,336 messages, 204 unread." (assuming 'primary inbox', 'Gmail', counts are in `title`)
+        - For "Watched YouTube video": "Watched 'Google I/O Keynote Highlights' and 'Advanced Python Tips' on YouTube." (video titles from `title`)
+        - For "Used Stitch AI": "Worked on design project ID 12345 in Stitch AI." (ID from `title` or `url`)
+        - For "Read documentation": "Read ActivityWatch docs on 'buckets and events'." (topic from `title` or `url`)
+        - For "Coding": "Worked on `feature_x.py` and `utils.js` for LifeLog project." (filenames from `title`)
+    -   **Examples of BAD notes (AVOID these if details are available):**
+        - "Email checking." (too brief, no detail)
+        - "Used Miru." (generic, repeats app name)
+        - "Watched some videos." (lacks specificity)
+        - "Coding activity." (uninformative)
+    -   **Synthesize from Merged Events**: If multiple raw events are merged, the notes should summarize the combined specifics. For instance, if multiple videos are watched, list their titles if possible.
+    -   **Fallback**: If, after careful inspection of `title` and `url`, no specific details can be extracted, then a more general summary (like "General browsing on Chrome") or `null` is acceptable. Prefer informative notes over `null` if any detail can be gleaned.
+6.  **Focus on Meaningful Activities**: Filter out very short, insignificant events if they don't contribute to a larger activity block, unless they are distinct actions like "Sent email". The input data is already somewhat filtered, but use your judgment to create a *useful* timeline.
 """
+
+    # Construct the final prompt using events_table_md
+    prompt = f"{PROMPT_PREAMBLE}\\n\\n{GUIDELINES}\\n\\nRaw Usage Events for {day.isoformat()}:\\n{events_table_md}\\n\\nJSON Output (Strictly Adhering to Schema):\\n"
     return prompt
 
 def _invoke_llm_and_parse(day: date, prompt_text: str, settings: Settings) -> List[EnrichedTimelineEntry]:

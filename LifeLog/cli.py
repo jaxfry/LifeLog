@@ -130,6 +130,55 @@ def main():
     parser_summarize_daily.set_defaults(func=handle_summarize_daily)
     # --- End Summarize Subcommand ---
 
+    # --- Full Process Subcommand ---
+    parser_process = subparsers.add_parser("process-day", help="Run the full ingestion, enrichment, and summarization pipeline for a day.")
+    parser_process.add_argument("--day", type=lambda s: date.fromisoformat(s) if s else None, help="Day YYYY-MM-DD (default: yesterday).")
+    parser_process.add_argument("--days-ago", type=int, default=None, help="Days ago (overrides --day).")
+    parser_process.add_argument("--force-all", action="store_true", help="Force re-processing for all steps (ingest, enrich, summarize) and force LLM re-queries.")
+    parser_process.add_argument("--force-enrich-llm", action="store_true", help="Force LLM re-query for enrichment, ignoring cache (if --force-all is not used).")
+    parser_process.add_argument("--force-summary-llm", action="store_true", help="Force LLM re-query for summary, ignoring cache (if --force-all is not used).")
+
+    def handle_process_day(args_ns, current_settings: Settings):
+        target_day = (date.today() - timedelta(days=args_ns.days_ago)) if args_ns.days_ago is not None else (args_ns.day or (date.today() - timedelta(days=1)))
+        log.info(f"CLI: Initiating full processing for {target_day}...")
+
+        # Determine force flags
+        force_enrich_processing = args_ns.force_all
+        force_enrich_llm_query = args_ns.force_all or args_ns.force_enrich_llm
+        force_summary_output_regen = args_ns.force_all
+        force_summary_llm_query = args_ns.force_all or args_ns.force_summary_llm
+
+        # Update settings based on force flags
+        if force_enrich_llm_query: current_settings.enrichment_force_llm = True
+        if force_enrich_processing: current_settings.enrichment_force_processing_all = True # Assuming this forces the enrichment step itself
+        if force_summary_llm_query: current_settings.summary_force_llm = True
+        
+        # 1. Ingest
+        log.info(f"Step 1: Ingesting data for {target_day}...")
+        # Ingestion doesn't have a specific 'force' flag in its current CLI implementation,
+        # it typically overwrites or errors if data exists. We'll assume it runs as is.
+        # If `ingest_activitywatch_data` needs a force mechanism, that would be an addition to that function.
+        ingest_activitywatch_data(day=target_day, out_path=None) # Assuming default out_path
+        log.info(f"Ingestion for {target_day} complete.")
+
+        # 2. Enrich
+        log.info(f"Step 2: Enriching timeline for {target_day} (Force LLM: {current_settings.enrichment_force_llm}, Force Processing: {current_settings.enrichment_force_processing_all})...")
+        run_enrichment_for_day(target_day, current_settings)
+        log.info(f"Enrichment for {target_day} complete.")
+
+        # 3. Summarize
+        log.info(f"Step 3: Summarizing day for {target_day} (Force Output: {force_summary_output_regen}, Force LLM: {current_settings.summary_force_llm})...")
+        summarize_day_activities(
+            day=target_day,
+            settings=current_settings,
+            force_regenerate=force_summary_output_regen # This handles ignoring existing summary file
+        )
+        log.info(f"Summarization for {target_day} complete.")
+        log.info(f"Full processing for {target_day} finished successfully.")
+
+    parser_process.set_defaults(func=handle_process_day)
+    # --- End Full Process Subcommand ---
+
     args = parser.parse_args()
 
     if args.debug:

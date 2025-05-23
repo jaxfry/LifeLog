@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     merge_tolerance_s: int = 5
 
     # --- Enrichment (Timeline Generation) Settings ---
-    model_name: str = "gemini-1.5-flash-latest" # Default model for enrichment, can be overridden for summary
+    model_name: str = "gemini-2.5-flash-preview-05-20" # Default model for enrichment, can be overridden for summary
     enrichment_max_events: int = 300 
     enrichment_prompt_truncate_limit: int = 120 
     enrichment_min_duration_s: int = 10 
