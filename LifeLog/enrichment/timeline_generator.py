@@ -1,18 +1,24 @@
 from __future__ import annotations
-
-import json
-import logging
-import os
-import time 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, time # Added time
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Union
-
-import polars as pl
+import logging # Added logging
+import polars as pl # Added polars
+import os # Added os
+import sys # Added sys
 from pydantic import BaseModel, Field, field_validator, model_validator, RootModel
 from google import genai # Main SDK import
 from google.genai import types as genai_types # For type hints like GenerationConfig
 from google.auth.exceptions import DefaultCredentialsError # For auth errors
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError # Python 3.9+
+
+# Ensure LifeLog can be imported when run as a script
+# This assumes the script is located at /Users/jaxon/Coding/LifeLog/LifeLog/enrichment/timeline_generator.py
+# The project root /Users/jaxon/Coding/LifeLog needs to be in sys.path for `from LifeLog.config import Settings` to work.
+_project_root = Path(__file__).resolve().parents[2] # Go up two levels from LifeLog/enrichment/ to LifeLog/
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 
 from LifeLog.config import Settings
 
@@ -70,9 +76,12 @@ class EnrichedTimelineEntry(BaseModel):
 
 class TimelineResponse(RootModel[List[EnrichedTimelineEntry]]):
     root: List[EnrichedTimelineEntry]
-    def __iter__(self): return iter(self.root)
-    def __getitem__(self, item): return self.root[item]
-    def __len__(self): return len(self.root)
+    def __iter__(self):
+        return iter(self.root)
+    def __getitem__(self, item):
+        return self.root[item]
+    def __len__(self):
+        return len(self.root)
 
 class ProjectResolver:
     def __init__(self, settings: Settings):
@@ -94,28 +103,144 @@ class ProjectResolver:
         return None
 
 # --- Core Logic ---
-def _load_and_prepare_input_df(day: date, settings: Settings) -> pl.DataFrame:
-    ingested_file_path = settings.raw_dir / f"{day}.parquet"
-    if not ingested_file_path.exists():
-        log.error(f"Ingested data file not found for {day}: {ingested_file_path}")
-        raise FileNotFoundError(f"Ingested data file not found for {day}")
-    df_raw_ingested = pl.read_parquet(ingested_file_path)
-    log.info(f"Loaded {df_raw_ingested.height} raw ingested events for {day}.")
-    df_activities = df_raw_ingested.filter(pl.col("app") != settings.afk_app_name_override)
-    if df_activities.is_empty(): return df_activities
-    df_activities = df_activities.with_columns(((pl.col("end") - pl.col("start")).dt.total_seconds()).alias("duration_s"))
+
+# Helper to get local timezone
+def _get_local_tz(settings: Settings) -> ZoneInfo:
+    try:
+        return ZoneInfo(settings.local_tz)
+    except ZoneInfoNotFoundError:
+        log.warning(f"Timezone '{settings.local_tz}' not found in system database. Defaulting to UTC.")
+        return timezone.utc
+    except Exception as e: # Catch other potential errors like invalid string format
+        log.error(f"Error initializing ZoneInfo with '{settings.local_tz}': {e}. Defaulting to UTC.")
+        return timezone.utc
+
+def _load_raw_data_for_local_day(local_day: date, settings: Settings) -> pl.DataFrame:
+    target_tz = _get_local_tz(settings)
+
+    local_dt_start = datetime.combine(local_day, time.min, tzinfo=target_tz)
+    local_dt_end = datetime.combine(local_day, time.max, tzinfo=target_tz)
+
+    utc_dt_start = local_dt_start.astimezone(timezone.utc)
+    utc_dt_end = local_dt_end.astimezone(timezone.utc)
+
+    utc_date_for_start = utc_dt_start.date()
+    utc_date_for_end = utc_dt_end.date()
+
+    files_to_read_paths = set()
+    files_to_read_paths.add(settings.raw_dir / f"{utc_date_for_start}.parquet")
+    if utc_date_for_start != utc_date_for_end:
+        files_to_read_paths.add(settings.raw_dir / f"{utc_date_for_end}.parquet")
+
+    all_dfs = []
+    # Define expected raw schema for empty DataFrame case and for ensuring consistency
+    raw_file_schema = {
+        "start": pl.Datetime("ms", time_zone="UTC"), "end": pl.Datetime("ms", time_zone="UTC"),
+        "app": pl.Utf8, "title": pl.Utf8, "url": pl.Utf8, "browser": pl.Utf8,
+    }
+
+    for raw_file_path in sorted(list(files_to_read_paths)): # Sort for deterministic order
+        if raw_file_path.exists():
+            try:
+                df_single_utc_day = pl.read_parquet(raw_file_path)
+                if not df_single_utc_day.is_empty():
+                    # Ensure DataFrame conforms to the expected schema, selecting only necessary columns
+                    # and casting if necessary. This helps prevent issues with unexpected columns/dtypes.
+                    # For now, we assume read_parquet handles dtypes well if source is consistent.
+                    # A more robust version might explicitly select and cast columns.
+                    all_dfs.append(df_single_utc_day.select(list(raw_file_schema.keys())))
+            except Exception as e:
+                log.error(f"Error reading or processing raw parquet file {raw_file_path}: {e}")
+        else:
+            log.warning(f"Raw data file not found: {raw_file_path}")
+
+    if not all_dfs:
+        log.warning(f"No raw data found for local day {local_day} (UTC range: {utc_dt_start} to {utc_dt_end})")
+        return pl.DataFrame(schema=raw_file_schema)
+
+    df_combined = pl.concat(all_dfs, how="diagonal_relaxed") # Use diagonal_relaxed for schema evolution if necessary
+    
+    # Deduplicate events that might span across UTC day file boundaries if read twice
+    # or if source data had exact duplicates. Based on 'start' as primary key for an event.
+    df_combined = df_combined.unique(subset=["start", "app", "title"], keep="first", maintain_order=True)
+
+    # Filter events to be strictly within the local day's UTC range
+    # Ensure 'start' and 'end' columns are present and are of datetime type
+    if "start" not in df_combined.columns or "end" not in df_combined.columns or \
+       not isinstance(df_combined["start"].dtype, pl.Datetime) or \
+       not isinstance(df_combined["end"].dtype, pl.Datetime):
+        log.error(f"Combined raw DataFrame missing or has incorrect type for 'start' or 'end' columns for {local_day}. Schema: {df_combined.schema}")
+        return pl.DataFrame(schema=raw_file_schema)
+
+    # Ensure datetimes are timezone-aware (UTC) for comparison
+    # Polars datetimes read from parquet with tz info should already be aware
+    df_filtered_for_local_day = df_combined.filter(
+        (pl.col("start") < utc_dt_end) & (pl.col("end") > utc_dt_start)
+    )
+
+    log.info(f"Loaded {df_filtered_for_local_day.height} raw events from {len(files_to_read_paths)} file(s) for local day {local_day} (spanning UTC {utc_dt_start} to {utc_dt_end}).")
+    return df_filtered_for_local_day
+
+def _load_and_prepare_input_df(local_day: date, settings: Settings) -> pl.DataFrame:
+    df_raw_for_local_day = _load_raw_data_for_local_day(local_day, settings)
+
+    prompt_schema = {
+        "time_utc": pl.Utf8, "duration_s": pl.Int32, "app": pl.Utf8,
+        "title": pl.Utf8, "url": pl.Utf8
+    }
+
+    if df_raw_for_local_day.is_empty():
+        log.warning(f"No raw events for local day {local_day} after loading and initial filtering stage.")
+        return pl.DataFrame(schema=prompt_schema)
+
+    # Ensure 'start' and 'end' columns exist before trying to use them
+    if "start" not in df_raw_for_local_day.columns or "end" not in df_raw_for_local_day.columns:
+        log.error(f"Raw data for {local_day} is missing 'start' or 'end' columns after loading. Columns: {df_raw_for_local_day.columns}")
+        return pl.DataFrame(schema=prompt_schema)
+
+    df_activities = df_raw_for_local_day.filter(pl.col("app") != settings.afk_app_name_override)
+    if df_activities.is_empty():
+        log.info(f"No non-AFK activities for local day {local_day}.")
+        return pl.DataFrame(schema=prompt_schema)
+
+    # Ensure 'start' and 'end' columns are present before calculating duration
+    if "start" not in df_activities.columns or "end" not in df_activities.columns:
+        log.error(f"df_activities for {local_day} is missing 'start' or 'end' columns before duration calculation. Columns: {df_activities.columns}")
+        return pl.DataFrame(schema=prompt_schema) # Return empty with expected schema
+
+    df_activities = df_activities.with_columns(
+        ((pl.col("end") - pl.col("start")).dt.total_seconds()).alias("duration_s")
+    )
+
     if settings.enrichment_min_duration_s > 0:
         df_activities = df_activities.filter(pl.col("duration_s") >= settings.enrichment_min_duration_s)
-    if df_activities.is_empty(): return df_activities
-    truncate_limit = settings.enrichment_prompt_truncate_limit; ellipsis_suffix = "…"
-    df_for_prompt = df_activities.select(
+
+    if df_activities.is_empty():
+        log.info(f"No activities after duration filter for local day {local_day}.")
+        return pl.DataFrame(schema=prompt_schema)
+
+    truncate_limit = settings.enrichment_prompt_truncate_limit
+    ellipsis_suffix = "…"
+
+    # Sort by the original 'start' datetime column before selecting and formatting for the prompt
+    df_activities_sorted = df_activities.sort("start")
+
+    df_for_prompt = df_activities_sorted.select(
         pl.col("start").dt.strftime("%H:%M:%S").alias("time_utc"),
         pl.col("duration_s").round(0).cast(pl.Int32),
         pl.col("app"),
-        pl.when(pl.col("title").fill_null("").str.len_chars() > truncate_limit).then(pl.col("title").fill_null("").str.slice(0, truncate_limit) + pl.lit(ellipsis_suffix)).otherwise(pl.col("title").fill_null("")).alias("title"),
-        pl.when(pl.col("url").fill_null("").str.len_chars() > truncate_limit).then(pl.col("url").fill_null("").str.slice(0, truncate_limit) + pl.lit(ellipsis_suffix)).otherwise(pl.col("url").fill_null("")).alias("url"),
-    ).sort("time_utc")
-    log.info(f"Prepared {df_for_prompt.height} activity events for LLM prompt for {day}.")
+        pl.when(pl.col("title").fill_null("").str.len_chars() > truncate_limit)
+          .then(pl.col("title").fill_null("").str.slice(0, truncate_limit) + pl.lit(ellipsis_suffix))
+          .otherwise(pl.col("title").fill_null(""))
+          .alias("title"),
+        pl.when(pl.col("url").fill_null("").str.len_chars() > truncate_limit)
+          .then(pl.col("url").fill_null("").str.slice(0, truncate_limit) + pl.lit(ellipsis_suffix))
+          .otherwise(pl.col("url").fill_null(""))
+          .alias("url"),
+    )
+    # No sort needed here as df_activities_sorted was already sorted by the true start time.
+
+    log.info(f"Prepared {df_for_prompt.height} activity events for LLM prompt for local day {local_day}.")
     return df_for_prompt
 
 def _build_llm_prompt(day: date, events_df: pl.DataFrame, settings: Settings) -> str:
@@ -371,32 +496,112 @@ def run_enrichment_for_day(day: date, settings: Settings) -> Path | None:
         return output_file_path
     try:
         df_for_prompt = _load_and_prepare_input_df(day, settings)
+        enriched_llm_entries: List[EnrichedTimelineEntry] = []
         if df_for_prompt.is_empty():
-            log.warning(f"No suitable events for LLM for {day}. Writing empty Parquet.")
-            empty_schema = {f.name: pl.Datetime if f.annotation==datetime else pl.Utf8 for f_name, f in EnrichedTimelineEntry.model_fields.items()}
-            pl.DataFrame(schema=empty_schema).write_parquet(output_file_path); return output_file_path
-        prompt_text = _build_llm_prompt(day, df_for_prompt, settings)
-        enriched_llm = _invoke_llm_and_parse(day, prompt_text, settings)
-        if not enriched_llm:
-            log.warning(f"LLM returned no entries for {day}. Writing empty Parquet.")
-            empty_schema = {f.name: pl.Datetime if f.annotation==datetime else pl.Utf8 for f_name, f in EnrichedTimelineEntry.model_fields.items()}
-            pl.DataFrame(schema=empty_schema).write_parquet(output_file_path); return output_file_path
-        final_entries = _post_process_entries(day, enriched_llm, settings)
-        if not final_entries:
-            log.warning(f"No entries after post-processing for {day}. Writing empty Parquet.")
-            empty_schema = {f.name: pl.Datetime if f.annotation==datetime else pl.Utf8 for f_name, f in EnrichedTimelineEntry.model_fields.items()}
+            log.warning(f"No suitable events for LLM for {day}. Will proceed to check for trailing AFK.")
+            # enriched_llm_entries remains empty
+        else:
+            prompt_text = _build_llm_prompt(day, df_for_prompt, settings)
+            enriched_llm_entries = _invoke_llm_and_parse(day, prompt_text, settings)
+
+        final_entries = _post_process_entries(day, enriched_llm_entries, settings) # Pass LLM entries here
+
+        # --- BEGIN ADDITION: Capture trailing AFK period ---
+        current_last_event_end_utc: Optional[datetime] = None
+        if final_entries:
+            current_last_event_end_utc = final_entries[-1].end
+        else:
+            # If LLM produced no entries, or post-processing resulted in no entries,
+            # start checking for AFK from the beginning of the day.
+            local_tz_for_day_start = _get_local_tz(settings)
+            current_last_event_end_utc = datetime.combine(day, time.min, tzinfo=local_tz_for_day_start).astimezone(timezone.utc)
+
+        # Determine the actual end of the local day in UTC (exclusive boundary)
+        local_tz_for_day_end = _get_local_tz(settings)
+        day_end_boundary_utc = (datetime.combine(day, time.min, tzinfo=local_tz_for_day_end) + timedelta(days=1)).astimezone(timezone.utc)
+
+        if current_last_event_end_utc < day_end_boundary_utc:
+            df_raw_for_day_check = _load_raw_data_for_local_day(day, settings)
+
+            if not df_raw_for_day_check.is_empty() and 'start' in df_raw_for_day_check.columns:
+                # Check for any *non-AFK* activity in the raw data in the gap
+                df_non_afk_in_gap = df_raw_for_day_check.filter(
+                    (pl.col("app") != settings.afk_app_name_override) &
+                    (pl.col("start") >= current_last_event_end_utc) &
+                    (pl.col("start") < day_end_boundary_utc)
+                )
+
+                if df_non_afk_in_gap.is_empty():
+                    # No non-AFK activity in the gap. The gap is AFK or unrecorded.
+                    if day_end_boundary_utc > current_last_event_end_utc: # Ensure positive duration
+                        afk_block_start = current_last_event_end_utc
+                        afk_block_end = day_end_boundary_utc
+                        
+                        log.info(f"Identified trailing Idle / Away period for {day} from {afk_block_start.isoformat()} to {afk_block_end.isoformat()}")
+                        
+                        new_idle_entry = EnrichedTimelineEntry(
+                            start=afk_block_start,
+                            end=afk_block_end,
+                            activity="Idle / Away",
+                            project=None,
+                            notes="Device was idle or user was away until the end of the day."
+                        )
+
+                        merged_with_previous = False
+                        if final_entries:
+                            last_entry = final_entries[-1]
+                            # Check if last entry is idle and if the new idle block starts very close to its end
+                            if ("idle" in last_entry.activity.lower() or "away" in last_entry.activity.lower()) and \
+                               (new_idle_entry.start - last_entry.end).total_seconds() < settings.enrichment_merge_gap_s:
+                                log.info(f"Extending previous Idle / Away entry (ending {last_entry.end.isoformat()}) to {new_idle_entry.end.isoformat()}")
+                                last_entry.end = new_idle_entry.end
+                                # Optionally update notes if needed, e.g., if the new one is more generic
+                                # last_entry.notes = new_idle_entry.notes # Or some combination
+                                merged_with_previous = True
+                        
+                        if not merged_with_previous:
+                            log.info(f"Appending new trailing Idle / Away entry for {day}.")
+                            final_entries.append(new_idle_entry)
+                else:
+                    log.info(f"Non-AFK activity found after {current_last_event_end_utc.isoformat()} for day {day}. Not adding trailing idle block.")
+            elif df_raw_for_day_check.is_empty():
+                 log.info(f"Raw data for {day} was empty for trailing AFK check. Not adding trailing idle block.")
+            else: # df_raw_for_day_check is not empty but 'start' column missing (should not happen with _load_raw_data_for_local_day)
+                 log.warning(f"Raw data for {day} missing 'start' column for trailing AFK check. Not adding trailing idle block.")
+
+        # --- END ADDITION ---
+
+        if not final_entries: # Check again after potential addition
+            log.warning(f"No entries after post-processing and trailing AFK check for {day}. Writing empty Parquet.")
+            # Define schema for empty DataFrame based on EnrichedTimelineEntry fields
+            empty_schema = {
+                field_name: pl.Datetime(time_unit='us', time_zone='UTC') if annotation == datetime else pl.Utf8
+                for field_name, field_info in EnrichedTimelineEntry.model_fields.items()
+                for annotation in [field_info.annotation] # Get actual type
+            }
             pl.DataFrame(schema=empty_schema).write_parquet(output_file_path)
+            return output_file_path # Return path to empty file
         else:
             output_data = [e.model_dump(mode='json') for e in final_entries]
+            # Ensure datetimes from model_dump (which are ISO strings) are converted back to Polars Datetime
             df_output = pl.from_dicts(output_data).with_columns([
-                pl.col("start").str.to_datetime().dt.replace_time_zone("UTC"),
-                pl.col("end").str.to_datetime().dt.replace_time_zone("UTC"),
-                pl.all().exclude(["start", "end"]).cast(pl.Utf8) # Cast others to Utf8
+                pl.col("start").str.to_datetime(time_unit='us').dt.replace_time_zone("UTC"),
+                pl.col("end").str.to_datetime(time_unit='us').dt.replace_time_zone("UTC"),
+                # Ensure other columns are Utf8, especially project and notes which can be None
+                pl.col("activity").cast(pl.Utf8),
+                pl.col("project").cast(pl.Utf8, strict=False), # Fill None with null
+                pl.col("notes").cast(pl.Utf8, strict=False)    # Fill None with null
             ])
+            # Select columns in desired order, matching EnrichedTimelineEntry fields
+            ordered_columns = list(EnrichedTimelineEntry.model_fields.keys())
+            df_output = df_output.select(ordered_columns)
+
             df_output.write_parquet(output_file_path)
             log.info(f"✅ Enriched {len(final_entries)} entries for {day} to {output_file_path}")
         return output_file_path
-    except FileNotFoundError: return None
+    except FileNotFoundError: # This might be too broad if _load_raw_data_for_local_day raises it for missing raw files
+        log.error(f"A required file was not found during enrichment for {day}.", exc_info=True) # Log with traceback
+        return None
     except Exception as e:
         log.error(f"Unhandled error during enrichment for day {day}: {e}", exc_info=True)
         return None
