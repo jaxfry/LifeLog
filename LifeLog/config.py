@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # --- Enrichment (Timeline Generation) Settings ---
     model_name: str = "gemini-2.5-flash-preview-05-20" # Default model for enrichment, can be overridden for summary
-    enrichment_max_events: int = 300 
+    enrichment_max_events: int = 600 
     enrichment_prompt_truncate_limit: int = 120 
     enrichment_min_duration_s: int = 10 
     enrichment_force_llm: bool = False 
