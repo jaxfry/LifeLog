@@ -3,6 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useDayData } from "../hooks/useDayData";
 import SummaryPanel from "../components/SummaryPanel";
 import Timeline from "../components/Timeline";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Main component                                                           */
@@ -70,7 +73,7 @@ export default function DayView() {
           {/* Date picker */}
           <div>
             <label className="block text-sm font-medium mb-1">Select date</label>
-            <input
+            <Input
               type="date"
               value={day}
               onChange={handleDateChange}
@@ -104,8 +107,37 @@ export default function DayView() {
 
         {/* ───────── Timeline column ─────────────────────────────────────── */}
         <main className="flex-1 p-6 overflow-y-auto">
-            {}
-          <Timeline entries={sortedEntries} />
+          <Card>
+            <h1 className="text-2xl font-bold text-gray-800 text-center">
+              LifeLog Viewer
+            </h1>
+            <div>
+              <label className="block text-sm font-medium mb-1">Pick a date</label>
+              <Input
+                type="date"
+                value={day}
+                onChange={(e) => navigate(`/day/${e.target.value}`)}
+              />
+            </div>
+            <Button
+              onClick={() => navigate(`/day/${day}`)}
+              className="w-full mt-4"
+            >
+              View Day
+            </Button>
+          </Card>
+
+          <Timeline
+            entries={sortedEntries.map((entry) => ({
+              ...entry,
+              color:
+                entry.tags?.includes("Work")
+                  ? "bg-green-500"
+                  : entry.tags?.includes("Break")
+                  ? "bg-yellow-500"
+                  : "bg-gray-300",
+            }))}
+          />
         </main>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import Card from "../components/ui/Card";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -32,6 +33,22 @@ export default function Home() {
         >
           View Day
         </button>
+      </div>
+
+      {/* Add a responsive grid layout to the Home page */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <h2 className="text-lg font-bold">Today's Stats</h2>
+          {/* Add stats content here */}
+        </Card>
+        <Card>
+          <h2 className="text-lg font-bold">Quick Actions</h2>
+          {/* Add quick actions here */}
+        </Card>
+        <Card>
+          <h2 className="text-lg font-bold">Weekly Overview</h2>
+          {/* Add weekly overview content here */}
+        </Card>
       </div>
     </div>
   );

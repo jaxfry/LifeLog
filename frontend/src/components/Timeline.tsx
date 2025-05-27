@@ -1,4 +1,3 @@
-import React from "react";
 import type { TimelineEntry } from "../types";
 
 /**
@@ -11,6 +10,16 @@ function formatTime(raw: string | number): string {
     minute: "2-digit",
     hour12: true,
   });
+}
+
+function getColorByActivity(activity: string): string {
+  const activityColors: Record<string, string> = {
+    Work: "bg-blue-100 text-blue-800",
+    Exercise: "bg-green-100 text-green-800",
+    Leisure: "bg-purple-100 text-purple-800",
+    Other: "bg-gray-100 text-gray-800",
+  };
+  return activityColors[activity] || "bg-gray-100 text-gray-800";
 }
 
 export default function Timeline({ entries }: { entries: TimelineEntry[] }) {
@@ -36,7 +45,11 @@ export default function Timeline({ entries }: { entries: TimelineEntry[] }) {
               </h3>
             )}
 
-            <div className="bg-white rounded-xl shadow p-4 border border-gray-100">
+            <div
+              className={`bg-white rounded-xl shadow p-4 border border-gray-100 ${getColorByActivity(
+                e.activity
+              )}`}
+            >
               <div className="text-xs text-gray-400 mb-1">
                 {formatTime(e.start)} – {formatTime(e.end)}
               </div>

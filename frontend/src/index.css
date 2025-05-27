@@ -1,11 +1,14 @@
 @import "tailwindcss";   /* v4 entry */
 
+/* Import Design System Tokens */
+@import './styles/design-tokens.css';
+
 :root {
   /* Light-mode defaults */
   color-scheme: light dark;
-  color: #213547;
-  background-color: #ffffff;
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color: var(--text-primary);
+  background-color: var(--background-primary);
+  font-family: var(--font-family-sans);
   line-height: 1.5;
 }
 
@@ -13,26 +16,166 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: inherit;
-  color: inherit;
+  background-color: var(--color-neutral-50);
+  color: var(--color-neutral-900);
+  font-feature-settings: 'cv11', 'cv02', 'cv03', 'cv04'; /* Inter font features */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Typography Utilities */
+.text-heading-1 {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.text-heading-2 {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.text-heading-3 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+}
+
+.text-heading-4 {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+}
+
+.text-body-large {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 400;
+}
+
+.text-body {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 400;
+}
+
+.text-body-small {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+}
+
+.text-caption {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Link Styles */
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--color-primary-600);
   text-decoration: none;
-}
-a:hover {
-  color: #535bf2;
+  transition: color 150ms ease-in-out;
 }
 
-/* Dark-mode overrides */
+a:hover {
+  color: var(--color-primary-700);
+  text-decoration: underline;
+}
+
+a:focus {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Focus Styles */
+*:focus {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-neutral-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: var(--radius-lg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400);
+}
+
+/* Selection Styling */
+::selection {
+  background-color: var(--color-primary-200);
+  color: var(--color-primary-900);
+}
+
+/* Dark Mode Support */
 @media (prefers-color-scheme: dark) {
   :root {
-    color: rgba(255, 255, 255, 0.87);
-    background-color: #242424;
+    --color-neutral-0: #030712;
+    --color-neutral-50: #111827;
+    --color-neutral-100: #1f2937;
+    --color-neutral-200: #374151;
+    --color-neutral-300: #4b5563;
+    --color-neutral-400: #6b7280;
+    --color-neutral-500: #9ca3af;
+    --color-neutral-600: #d1d5db;
+    --color-neutral-700: #e5e7eb;
+    --color-neutral-800: #f3f4f6;
+    --color-neutral-900: #f9fafb;
+    --color-neutral-950: #ffffff;
+    
+    color: var(--color-neutral-900);
+    background-color: var(--color-neutral-50);
   }
+  
   a:hover {
-    color: #747bff;
+    color: var(--color-primary-400);
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  *,
+  *::before,
+  *::after {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
 }
