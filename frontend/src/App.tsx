@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
-import DayView from "./pages/DayView";
+import DayLayout from "./components/layout/DayLayout";
 import DesignSystemShowcase from "./components/DesignSystemShowcase";
 
 export default function App() {
@@ -8,8 +8,8 @@ export default function App() {
     <Routes>
       <Route index element={<Home />} />
 
-      {/* Specific day */}
-      <Route path="/day/:day" element={<DayView />} />
+      {/* Specific day - using new TimeFlow layout */}
+      <Route path="/day/:day" element={<DayLayout />} />
 
       {/* Design System Showcase */}
       <Route path="/design-system" element={<DesignSystemShowcase />} />

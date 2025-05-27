@@ -9,6 +9,14 @@ const config: Config = {
     extend: {
       // Color Palette
       colors: {
+        // TimeFlow Custom Colors
+        timeflow: {
+          background: '#020412',
+          panel: '#0F1727',
+          focus: '#1F2937',
+          purple: '#9B5CDE',
+          timeGrey: '#999FAA',
+        },
         // Primary brand colors
         primary: {
           50: '#eff6ff',

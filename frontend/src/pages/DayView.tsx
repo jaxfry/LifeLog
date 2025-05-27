@@ -67,78 +67,85 @@ export default function DayView() {
   /* ----- main layout ----------------------------------------------------- */
   return (
     <div className="h-screen w-full bg-gray-50 text-gray-900 overflow-hidden">
-      <div className="flex h-full">
-        {/* ───────── Sidebar ─────────────────────────────────────────────── */}
-        <aside className="w-full max-w-md p-6 border-r overflow-y-auto bg-white shadow-lg space-y-6">
-          {/* Date picker */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Select date</label>
-            <Input
-              type="date"
-              value={day}
-              onChange={handleDateChange}
-              className="w-full px-3 py-2 border rounded-md text-sm"
-            />
+      <div className="flex flex-col h-full">
+        {/* Top bar with tags and search */}
+        <div className="flex items-center justify-between p-4 bg-white shadow-md">
+          <div className="flex flex-wrap gap-2">
+            {tagOptions.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setActiveTag(tag)}
+                className={`px-3 py-1 rounded-full text-sm border focus:outline-none ${
+                  activeTag === tag
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "text-gray-600 bg-gray-100 border-gray-300 hover:bg-gray-200"
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
           </div>
+          <Input
+            type="text"
+            value=""
+            onChange={() => {}}
+            className="w-64 px-3 py-2 border rounded-md text-sm"
+          />
+        </div>
 
-          {/* Tag filters */}
-          <div>
-            <h2 className="text-sm font-medium mb-2">Filter by tag</h2>
-            <div className="flex flex-wrap gap-2">
-              {tagOptions.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => setActiveTag(tag)}
-                  className={`px-3 py-1 rounded-full text-sm border focus:outline-none ${
-                    activeTag === tag
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "text-gray-600 bg-gray-100 border-gray-300 hover:bg-gray-200"
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Summary */}
-          <SummaryPanel summary={data.summary} />
-        </aside>
-
-        {/* ───────── Timeline column ─────────────────────────────────────── */}
-        <main className="flex-1 p-6 overflow-y-auto">
-          <Card>
-            <h1 className="text-2xl font-bold text-gray-800 text-center">
-              LifeLog Viewer
-            </h1>
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <aside className="w-full max-w-md p-6 border-r overflow-y-auto bg-white shadow-lg space-y-6">
+            {/* Date picker */}
             <div>
-              <label className="block text-sm font-medium mb-1">Pick a date</label>
+              <label className="block text-sm font-medium mb-1">Select date</label>
               <Input
                 type="date"
                 value={day}
-                onChange={(e) => navigate(`/day/${e.target.value}`)}
+                onChange={handleDateChange}
+                className="w-full px-3 py-2 border rounded-md text-sm"
               />
             </div>
-            <Button
-              onClick={() => navigate(`/day/${day}`)}
-              className="w-full mt-4"
-            >
-              View Day
-            </Button>
-          </Card>
 
-          <Timeline
-            entries={sortedEntries.map((entry) => ({
-              ...entry,
-              color:
-                entry.tags?.includes("Work")
-                  ? "bg-green-500"
-                  : entry.tags?.includes("Break")
-                  ? "bg-yellow-500"
-                  : "bg-gray-300",
-            }))}
-          />
-        </main>
+            {/* Summary */}
+            <SummaryPanel summary={data.summary} />
+          </aside>
+
+          {/* Timeline column */}
+          <main className="flex-1 p-6 overflow-y-auto">
+            <Card>
+              <h1 className="text-2xl font-bold text-gray-800 text-center">
+                LifeLog Viewer
+              </h1>
+              <div>
+                <label className="block text-sm font-medium mb-1">Pick a date</label>
+                <Input
+                  type="date"
+                  value={day}
+                  onChange={(e) => navigate(`/day/${e.target.value}`)}
+                />
+              </div>
+              <Button
+                onClick={() => navigate(`/day/${day}`)}
+                className="w-full mt-4"
+              >
+                View Day
+              </Button>
+            </Card>
+
+            <Timeline
+              entries={sortedEntries.map((entry) => ({
+                ...entry,
+                color:
+                  entry.tags?.includes("Work")
+                    ? "bg-green-500"
+                    : entry.tags?.includes("Break")
+                    ? "bg-yellow-500"
+                    : "bg-gray-300",
+              }))}
+            />
+          </main>
+        </div>
       </div>
     </div>
   );
