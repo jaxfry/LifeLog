@@ -15,7 +15,7 @@ export default function Sidebar() {
   const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
-    <aside className="w-72 flex-shrink-0 bg-gray-900 text-white flex flex-col h-screen">
+    <aside className="w-94 flex-shrink-0 bg-gray-900 text-white flex flex-col h-screen">
       <div className="p-5 flex items-center gap-3">
         <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">

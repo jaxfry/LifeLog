@@ -4,12 +4,14 @@ interface SearchBarProps {
   placeholder?: string;
   onSearch?: (query: string) => void;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 export default function SearchBar({ 
   placeholder = "Search activities...", 
   onSearch,
-  className = ""
+  className = "",
+  style
 }: SearchBarProps) {
   const [query, setQuery] = useState('');
   
@@ -21,7 +23,7 @@ export default function SearchBar({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`relative ${className}`}>
+    <form onSubmit={handleSubmit} className={`relative ${className}`} style={style}>
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <svg 
@@ -45,8 +47,9 @@ export default function SearchBar({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="block w-full rounded-lg pl-10 pr-3 py-2 border border-gray-200 
-                   text-sm placeholder:text-gray-500 text-gray-900 bg-white
+                   text-sm placeholder:text-gray-500 text-gray-900
                    focus:outline-none focus:ring-2 focus:ring-gray-900"
+          style={{ backgroundColor: '#0F101D', color: 'white' }}
         />
         <button 
           type="button" 

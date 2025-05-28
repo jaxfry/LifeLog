@@ -1,4 +1,3 @@
-import { useState, useMemo } from 'react';
 import { formatDuration, formatTime } from '../lib/utils';
 import ActivityIcon from './ui/ActivityIcon';
 import type { TimelineEntry } from '../types';
@@ -14,7 +13,7 @@ function ActivityCard({ entry, className = "" }: ActivityCardProps) {
   const duration = formatDuration(start, end);
 
   return (
-    <div className={`flex rounded-lg border border-gray-100 shadow-sm overflow-hidden ${className}`} style={{ backgroundColor: '#0F1727' }}>
+    <div className={`flex rounded-lg border border-gray-100 shadow-sm overflow-hidden ${className} h-[125px]`} style={{ backgroundColor: '#0F101D' }}>
       <div className="p-4 flex-1">
         <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
           <div>{formatTime(start)} - {formatTime(end)}</div>
@@ -31,7 +30,7 @@ function ActivityCard({ entry, className = "" }: ActivityCardProps) {
             </p>
             
             {entry.tags && entry.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2" style={{ backgroundColor: '#020412' }}>
+              <div className="flex flex-wrap gap-1 mt-2" style={{ backgroundColor: '#0F101D' }}>
                 {entry.tags.map(tag => (
                   <span 
                     key={tag}
@@ -67,78 +66,15 @@ function getTagColor(tag: string) {
 }
 
 export default function ActivityTimeline({ 
-  entries, 
-  selectedDate 
+  entries 
 }: { 
   entries: TimelineEntry[];
-  selectedDate?: Date;
 }) {
-  const [activeType, setActiveType] = useState<string>('All');
-  
-  // Generate activity types dynamically from entries
-  const activityTypes = useMemo(() => {
-    const uniqueActivities = new Set<string>();
-    
-    // Extract unique activities from entries
-    entries.forEach(entry => {
-      if (entry.activity) {
-        uniqueActivities.add(entry.activity);
-      }
-      // Also include tags as activity types
-      if (entry.tags && Array.isArray(entry.tags)) {
-        entry.tags.forEach(tag => uniqueActivities.add(tag));
-      }
-    });
-    
-    // Create an array with "All" first, then sorted activities
-    return [
-      {id: 'All', label: 'All'},
-      ...Array.from(uniqueActivities)
-        .sort()
-        .map(activity => ({id: activity, label: activity}))
-    ];
-  }, [entries]);
-
-  const filteredEntries = activeType === 'All' 
-    ? entries 
-    : entries.filter(entry => 
-        entry.tags?.includes(activeType) || 
-        entry.activity === activeType
-      );
-
-  // Format the selected date for display
-  const formattedDate = selectedDate ? selectedDate.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }) : new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
-  // Only the filter bar and timeline list remain here
+  // Only the timeline list remains here - no filtering logic
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#020412' }}>
-      <div className="p-3 flex gap-2 overflow-x-auto border-b border-gray-100 bg-white">
-        {activityTypes.map(type => (
-          <button
-            key={type.id}
-            className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap ${
-              activeType === type.id 
-                ? 'bg-gray-900 text-white' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveType(type.id)}
-          >
-            {type.label}
-          </button>
-        ))}
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {filteredEntries.map((entry, index) => (
+    <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#0F101D' }}>
+      <div className="flex-1 overflow-y-auto p-[30px] space-y-5 bg-gradient-to-b from-[#0f111d] via-[#101226] to-[#1b0f17]">
+        {entries.map((entry, index) => (
           <ActivityCard key={index} entry={entry} />
         ))}
       </div>
@@ -149,12 +85,10 @@ export default function ActivityTimeline({
 export function getFormattedTimelineDate(selectedDate?: Date) {
   return selectedDate ? selectedDate.toLocaleDateString('en-US', {
     weekday: 'long',
-    year: 'numeric',
     month: 'long',
     day: 'numeric'
   }) : new Date().toLocaleDateString('en-US', {
     weekday: 'long',
-    year: 'numeric',
     month: 'long',
     day: 'numeric'
   });

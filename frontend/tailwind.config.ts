@@ -11,7 +11,7 @@ const config: Config = {
       colors: {
         // TimeFlow Custom Colors
         timeflow: {
-          background: '#020412',
+          background: '#0F101D',
           panel: '#0F1727',
           focus: '#1F2937',
           purple: '#9B5CDE',

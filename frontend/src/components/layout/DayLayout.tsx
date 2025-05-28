@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDayData } from '../../hooks/useDayData';
 import ActivityTimeline, { getFormattedTimelineDate } from '../ActivityTimeline';
@@ -48,11 +49,33 @@ export default function DayLayout() {
   const navigate = useNavigate();
   const { data, loading, error } = useDayData(day);
   
+  // Add filter state management
+  const [activeFilter, setActiveFilter] = useState<string>('All');
+  
+  // Filter entries based on activeFilter
+  const filteredEntries = useMemo(() => {
+    if (!data?.entries) return [];
+    
+    if (activeFilter === 'All') {
+      return data.entries;
+    }
+    
+    return data.entries.filter(entry => 
+      entry.tags?.includes(activeFilter) || 
+      entry.activity === activeFilter
+    );
+  }, [data?.entries, activeFilter]);
+  
   // Parse date consistently to avoid timezone issues
   const parseDateFromParam = (dateStr: string) => {
-    if (!dateStr) return new Date();
-    const [year, month, dayOfMonth] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, dayOfMonth); // Month is 0-indexed in JS Date
+    if (!dateStr) return new Date(); // Default to today if no date string
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [year, month, dayOfMonth] = parts.map(Number);
+      // Ensure month is 0-indexed for Date constructor
+      return new Date(year, month - 1, dayOfMonth); 
+    }
+    return new Date(); // Fallback to today if format is unexpected
   };
 
   /* ----- loading / error / empty states --------------------------------- */
@@ -84,9 +107,9 @@ export default function DayLayout() {
 
   /* ----- main layout ----------------------------------------------------- */
   return (
-    <div className="h-screen w-full bg-gray-50 flex overflow-hidden timeflow-ui">
+    <div className="h-screen w-full flex overflow-hidden timeflow-ui" style={{ backgroundColor: '#0F101D' }}>
       {/* Left Sidebar - Fixed width */}
-      <aside className="w-72 flex-shrink-0 bg-gray-900 text-white flex flex-col h-screen border-r">
+      <aside className="w-72 flex-shrink-0 text-white flex flex-col h-screen border-r">
         {/* Logo and app name */}
         <div className="p-5 flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
@@ -103,10 +126,9 @@ export default function DayLayout() {
         <div className="mt-6 px-5">
           <div className="flex flex-col mb-4">
             <h2 className="text-lg font-medium">
-              {parseDateFromParam(day).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              {parseDateFromParam(day).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </h2>
             <div className="flex justify-between items-center mt-2">
-              <h3 className="text-sm text-gray-400">Track your digital footprint</h3>
               <div className="flex gap-2">
                 <button 
                   className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800"
@@ -231,19 +253,23 @@ export default function DayLayout() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex flex-1 bg-white overflow-auto flex-col">
+      <div className="flex flex-1 overflow-auto flex-col" style={{ backgroundColor: '#0F101D' }}>
         {/* Top bar above both timeline and AI Insights */}
-        <TimelineTopBar formattedDate={getFormattedTimelineDate(day ? new Date(day) : undefined)} />
+        <TimelineTopBar 
+          formattedDate={getFormattedTimelineDate(day ? parseDateFromParam(day) : undefined)}
+          entries={data.entries}
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+        />
         <div className="flex flex-1 min-h-0">
           {/* Timeline section - Will grow to fill available space */}
           <div className="flex-1 min-w-0 overflow-auto">
             <ActivityTimeline 
-              entries={data.entries} 
-              selectedDate={day ? new Date(day) : undefined}
+              entries={filteredEntries}
             />
           </div>
           {/* Right sidebar - AI Insights with fixed width */}
-          <div className="w-80 flex-shrink-0 bg-gray-50 overflow-y-auto flex flex-col h-full" style={{ backgroundColor: '#0F1727', border: 'none' }}>
+          <div className="w-80 flex-shrink-0 overflow-y-auto flex flex-col h-full" style={{ backgroundColor: '#0F101D', border: 'none' }}>
             <div className="p-4">
               <h2 className="text-lg font-semibold text-gray-800">AI Insights</h2>
             </div>

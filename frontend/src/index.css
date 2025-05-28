@@ -128,6 +128,38 @@ a:focus {
   background: var(--color-neutral-400);
 }
 
+/* Hide scrollbar but keep scrolling ability */
+.flex-1.overflow-y-auto::-webkit-scrollbar {
+  display: none;
+}
+
+.flex-1.overflow-y-auto {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Hide scrollbar but keep scrolling ability for the filter bar */
+.mt-4.flex.gap-2.overflow-x-auto,
+.flex.gap-2.overflow-x-auto.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.mt-4.flex.gap-2.overflow-x-auto::-webkit-scrollbar,
+.flex.gap-2.overflow-x-auto.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar specifically for timeline filters */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
 /* Selection Styling */
 ::selection {
   background-color: var(--color-primary-200);
