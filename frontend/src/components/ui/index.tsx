@@ -1,6 +1,6 @@
 import React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '../lib/utils';
+import { cn } from '../../lib/utils';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Button Component Variants                                                */
@@ -12,12 +12,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700",
+        primary: "bg-primary-500 text-on-primary hover:bg-primary-600 active:bg-primary-700",
         secondary: "bg-neutral-200 text-neutral-900 hover:bg-neutral-300 active:bg-neutral-400",
         outline: "border border-primary-500 text-primary-500 hover:bg-primary-50 active:bg-primary-100",
         ghost: "text-primary-500 hover:bg-primary-50 active:bg-primary-100",
-        danger: "bg-error-500 text-white hover:bg-error-600 active:bg-error-700",
-        success: "bg-success-500 text-white hover:bg-success-600 active:bg-success-700",
+        danger: "bg-error-500 text-on-error hover:bg-error-600 active:bg-error-700",
+        success: "bg-success-500 text-on-success hover:bg-success-600 active:bg-success-700",
       },
       size: {
         sm: "h-8 px-3 text-xs",
@@ -60,7 +60,7 @@ export function Button({
 /* ────────────────────────────────────────────────────────────────────────── */
 
 const cardVariants = cva(
-  "rounded-lg border bg-white text-neutral-900 shadow-sm",
+  "rounded-lg border bg-surface-primary text-on-surface shadow-sm",
   {
     variants: {
       variant: {
@@ -126,7 +126,7 @@ export function CardDescription({
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
     <p
-      className={cn("text-sm text-neutral-600", className)}
+      className={cn("text-sm text-on-surface-variant", className)}
       {...props}
     />
   );
@@ -189,13 +189,13 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
 /* ────────────────────────────────────────────────────────────────────────── */
 
 const inputVariants = cva(
-  "flex h-10 w-full rounded-md border px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+  "flex h-10 w-full rounded-md border px-3 py-2 text-sm ring-offset-surface-primary file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "border-neutral-300 bg-white focus-visible:ring-primary-500",
-        error: "border-error-500 bg-white focus-visible:ring-error-500",
-        success: "border-success-500 bg-white focus-visible:ring-success-500",
+        default: "border-neutral-300 bg-surface-primary focus-visible:ring-primary-500",
+        error: "border-error-500 bg-surface-primary focus-visible:ring-error-500",
+        success: "border-success-500 bg-surface-primary focus-visible:ring-success-500",
       },
     },
     defaultVariants: {
@@ -253,7 +253,7 @@ export function Skeleton({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded-md bg-neutral-200", className)}
+      className={cn("animate-pulse rounded-md bg-surface-light", className)}
       {...props}
     />
   );

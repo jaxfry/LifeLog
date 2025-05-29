@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDayData } from "../hooks/useDayData";
-import SummaryPanel from "../components/SummaryPanel";
 import Timeline from "../components/Timeline";
-import Card from "../components/ui/Card";
-import Button from "../components/ui/Button";
-import Input from "../components/ui/Input";
+import SummaryPanel from "../components/SummaryPanel";
+import { Input } from "../components/ui";
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Main component                                                           */
@@ -66,82 +64,87 @@ export default function DayView() {
 
   /* ----- main layout ----------------------------------------------------- */
   return (
-    <div className="h-screen w-full bg-gray-50 text-gray-900 overflow-hidden">
+    <div className="h-screen w-full bg-surface-secondary text-primary overflow-hidden">
       <div className="flex flex-col h-full">
         {/* Top bar with tags and search */}
-        <div className="flex items-center justify-between p-4 bg-white shadow-md">
-          <div className="flex flex-wrap gap-2">
-            {tagOptions.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => setActiveTag(tag)}
-                className={`px-3 py-1 rounded-full text-sm border focus:outline-none ${
-                  activeTag === tag
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "text-gray-600 bg-gray-100 border-gray-300 hover:bg-gray-200"
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
+        <header className="flex items-center justify-between p-4 bg-surface-primary shadow-sm">
+          <nav aria-label="Filter activities by tags">
+            <div className="flex flex-wrap gap-2" role="group">
+              {tagOptions.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setActiveTag(tag)}
+                  className={`px-3 py-1 rounded-full text-sm border focus:outline-none transition-colors focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                    activeTag === tag
+                      ? "bg-primary-600 text-on-primary border-primary-600"
+                      : "text-on-surface-dark bg-surface-primary border-surface-light hover:bg-surface-secondary"
+                  }`}
+                  aria-pressed={activeTag === tag}
+                  aria-label={`Filter by ${tag} activities`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </nav>
           <Input
             type="text"
             value=""
             onChange={() => {}}
+            placeholder="Search activities..."
             className="w-64 px-3 py-2 border rounded-md text-sm"
+            aria-label="Search activities"
           />
-        </div>
+        </header>
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <aside className="w-full max-w-md p-6 border-r overflow-y-auto bg-white shadow-lg space-y-6">
+          <aside 
+            className="w-full max-w-md p-6 border-r border-light overflow-y-auto bg-surface-primary shadow-sm space-y-6"
+            aria-label="Day information and summary"
+          >
             {/* Date picker */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Select date</label>
+            <section>
+              <label className="block text-sm font-medium mb-1 text-primary" htmlFor="date-picker">
+                Select date
+              </label>
               <Input
+                id="date-picker"
                 type="date"
                 value={day}
                 onChange={handleDateChange}
                 className="w-full px-3 py-2 border rounded-md text-sm"
+                aria-describedby="date-picker-help"
               />
-            </div>
+              <p id="date-picker-help" className="sr-only">
+                Change the date to view activities for a different day
+              </p>
+            </section>
 
-            {/* Summary */}
-            <SummaryPanel summary={data.summary} />
+            {/* Daily Summary */}
+            {data?.summary && <SummaryPanel summary={data.summary} />}
           </aside>
 
           {/* Timeline column */}
-          <main className="flex-1 p-6 overflow-y-auto">
-            <Card>
-              <h1 className="text-2xl font-bold text-gray-800 text-center">
-                LifeLog Viewer
+          <main className="flex-1 p-6 overflow-y-auto" role="main" aria-label="Daily timeline">
+            <header className="text-center mb-6">
+              <h1 className="text-2xl font-bold text-primary">
+                Daily Timeline
               </h1>
-              <div>
-                <label className="block text-sm font-medium mb-1">Pick a date</label>
-                <Input
-                  type="date"
-                  value={day}
-                  onChange={(e) => navigate(`/day/${e.target.value}`)}
-                />
-              </div>
-              <Button
-                onClick={() => navigate(`/day/${day}`)}
-                className="w-full mt-4"
-              >
-                View Day
-              </Button>
-            </Card>
-
+              <p className="text-sm text-secondary mt-2">
+                {sortedEntries.length} activities on {new Date(day).toLocaleDateString()}
+              </p>
+            </header>
+            
             <Timeline
               entries={sortedEntries.map((entry) => ({
                 ...entry,
                 color:
                   entry.tags?.includes("Work")
-                    ? "bg-green-500"
+                    ? "bg-success-500"
                     : entry.tags?.includes("Break")
-                    ? "bg-yellow-500"
-                    : "bg-gray-300",
+                    ? "bg-warning-500"
+                    : "bg-surface-light",
               }))}
             />
           </main>
@@ -156,8 +159,8 @@ export default function DayView() {
 /* ────────────────────────────────────────────────────────────────────────── */
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <p className="text-gray-500">{children}</p>
+    <div className="min-h-screen flex items-center justify-center bg-surface-secondary">
+      <p className="text-secondary">{children}</p>
     </div>
   );
 }
@@ -168,16 +171,16 @@ function EmptyState(props: {
   action: () => void;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white shadow rounded-xl p-8 space-y-6 text-center">
-        <p className="text-gray-600">{props.message}</p>
+    <main className="min-h-screen flex items-center justify-center bg-surface-secondary" role="main">
+      <div className="bg-surface-primary shadow-md rounded-xl p-8 space-y-6 text-center max-w-md">
+        <p className="text-secondary">{props.message}</p>
         <button
           onClick={props.action}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-primary-600 text-on-primary rounded-lg hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
         >
           {props.actionLabel}
         </button>
       </div>
-    </div>
+    </main>
   );
 }

@@ -1,0 +1,149 @@
+/**
+ * Additional CSS Styles for Fixing UI Issues
+ * This file contains CSS fixes for UI rendering problems
+ */
+
+/* Additional semantic token mappings */
+.text-on-surface-variant { color: var(--text-secondary); }
+.text-on-surface-dark { color: var(--text-primary); }
+.text-on-surface { color: var(--text-primary); }
+.text-on-surface-light { color: var(--text-tertiary); }  /* Add this missing class */
+.text-on-primary { color: var(--color-neutral-0); }
+.text-on-error { color: var(--color-neutral-0); }
+.text-on-success { color: var(--color-neutral-0); }
+.text-on-warning { color: var(--color-neutral-0); }
+
+.bg-surface-primary { background-color: var(--surface-primary); }
+.bg-surface-secondary { background-color: var(--surface-secondary); }
+.bg-surface-light { background-color: var(--surface-secondary); }
+.bg-surface-dark { background-color: var(--surface-tertiary); }
+
+.border-outline { border-color: var(--border-default); }
+.border-outline-light { border-color: var(--border-light); }
+.border-surface-light { border-color: var(--border-light); }
+
+/* Timeline component fixes */
+.timeline-gradient {
+  background: linear-gradient(to bottom, 
+    var(--color-neutral-900), 
+    var(--color-neutral-950), 
+    var(--color-neutral-900)
+  );
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  .timeline-gradient {
+    background: linear-gradient(to bottom,
+      var(--color-neutral-800),
+      var(--color-neutral-950),
+      var(--color-neutral-800)
+    );
+  }
+}
+
+/* Activity card fixes */
+.activity-card {
+  background-color: var(--surface-secondary);
+  border-color: var(--border-light);
+}
+
+/* Elegant Timeline specific styles */
+.timeline-elegant {
+  /* Ensure proper dark background for elegant timeline */
+  background: linear-gradient(to bottom, 
+    rgb(15, 17, 29), 
+    rgb(14, 17, 26),
+    rgb(15, 17, 29)
+  );
+}
+
+.timeline-elegant .timeline-card {
+  /* Ensure cards have proper glassmorphism effect */
+  background: rgba(14, 17, 26, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Enhanced spine glow effect */
+.timeline-spine {
+  background: linear-gradient(to bottom, 
+    transparent 0%,
+    rgba(147, 51, 234, 0.5) 20%,
+    rgba(147, 51, 234, 0.5) 80%,
+    transparent 100%
+  );
+}
+
+/* Text contrast improvements for dark cards */
+.timeline-elegant .text-gray-100 {
+  color: rgb(243 244 246) !important;
+}
+
+.timeline-elegant .text-gray-300 {
+  color: rgb(209 213 219) !important;
+}
+
+.timeline-elegant .text-gray-400 {
+  color: rgb(156 163 175) !important;
+}
+
+.timeline-elegant .text-gray-500 {
+  color: rgb(107 114 128) !important;
+}
+
+/* Calendar specific fixes */
+.calendar-button {
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.calendar-button:hover {
+  background-color: var(--surface-tertiary);
+  color: var(--text-primary);
+}
+
+.calendar-day-active {
+  background-color: var(--color-primary-600) !important;
+  color: var(--color-neutral-0) !important;
+}
+
+.calendar-day-inactive:hover {
+  background-color: var(--surface-tertiary);
+  color: var(--text-primary);
+}
+
+/* Navigation buttons styling */
+.nav-button {
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.nav-button:hover {
+  background-color: var(--surface-tertiary);
+  color: var(--text-primary);
+}
+
+/* Force dark mode for LifeLog app regardless of system preferences */
+:root {
+  color-scheme: dark;
+  --text-primary: var(--color-neutral-100);
+  --text-secondary: var(--color-neutral-300);
+  --text-tertiary: var(--color-neutral-400);
+  --text-disabled: var(--color-neutral-500);
+  --text-inverse: var(--color-neutral-100);
+  
+  --background-primary: var(--color-neutral-900);
+  --background-secondary: var(--color-neutral-800);
+  --background-tertiary: var(--color-neutral-700);
+  --background-inverse: var(--color-neutral-50);
+  
+  --surface-primary: var(--color-neutral-900);
+  --surface-secondary: var(--color-neutral-800);
+  --surface-tertiary: var(--color-neutral-700);
+  --surface-inverse: var(--color-neutral-50);
+  
+  --border-light: var(--color-neutral-700);
+  --border-default: var(--color-neutral-600);
+  --border-dark: var(--color-neutral-500);
+}

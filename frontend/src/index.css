@@ -2,6 +2,7 @@
 
 /* Import Design System Tokens */
 @import './styles/design-tokens.css';
+@import './styles/fix-styles.css';
 
 :root {
   /* Light-mode defaults */
@@ -12,19 +13,33 @@
   line-height: 1.5;
 
   /* Update the default border color */
-  --border-color: #1F2836;
+  --border-color: var(--border-default); /* Using design token */
+}
+
+html {
+  height: 100%;
+  overflow: hidden; /* Prevent page-level scrolling */
 }
 
 body {
   margin: 0;
+  padding: 0;
   min-width: 320px;
-  min-height: 100vh;
-  background-color: var(--color-neutral-50);
-  color: var(--color-neutral-900);
+  height: 100vh; /* Changed from min-height to height */
+  overflow: hidden; /* Prevent page-level scrolling */
+  background-color: var(--background-secondary); /* Using design token */
+  color: var(--text-primary); /* Using design token */
   font-feature-settings: 'cv11', 'cv02', 'cv03', 'cv04'; /* Inter font features */
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Constrain the root React app container */
+#root {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
 }
 
 /* Apply the border color globally */
@@ -34,125 +49,103 @@ body {
 
 /* Typography Utilities */
 .text-heading-1 {
-  font-size: 2.25rem;
-  line-height: 2.5rem;
-  font-weight: 700;
+  font-size: var(--font-size-4xl);
+  line-height: var(--line-height-4xl);
+  font-weight: var(--font-weight-bold);
   letter-spacing: -0.025em;
 }
 
 .text-heading-2 {
-  font-size: 1.875rem;
-  line-height: 2.25rem;
-  font-weight: 600;
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-3xl);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -0.025em;
 }
 
 .text-heading-3 {
-  font-size: 1.5rem;
-  line-height: 2rem;
-  font-weight: 600;
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-2xl);
+  font-weight: var(--font-weight-semibold);
 }
 
 .text-heading-4 {
-  font-size: 1.25rem;
-  line-height: 1.75rem;
-  font-weight: 600;
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-xl);
+  font-weight: var(--font-weight-semibold);
 }
 
 .text-body-large {
-  font-size: 1.125rem;
-  line-height: 1.75rem;
-  font-weight: 400;
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
+  font-weight: var(--font-weight-normal);
 }
 
 .text-body {
-  font-size: 1rem;
-  line-height: 1.5rem;
-  font-weight: 400;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-normal);
 }
 
 .text-body-small {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 400;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-normal);
 }
 
 .text-caption {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 500;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 /* Link Styles */
 a {
-  font-weight: 500;
-  color: var(--color-primary-600);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-link);
   text-decoration: none;
-  transition: color 150ms ease-in-out;
+  transition: color var(--transition-duration-fast) ease-in-out;
 }
 
 a:hover {
-  color: var(--color-primary-700);
+  color: var(--text-link-hover);
   text-decoration: underline;
 }
 
 a:focus {
-  outline: 2px solid var(--color-primary-500);
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--border-radius-sm);
 }
 
 /* Focus Styles */
 *:focus {
-  outline: 2px solid var(--color-primary-500);
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: var(--spacing-2); /* 8px */
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-neutral-100);
+  background: var(--background-tertiary); /* Using design token */
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-neutral-300);
-  border-radius: var(--radius-lg);
+  background: var(--color-neutral-300); /* Or a semantic token like --interactive-secondary */
+  border-radius: var(--border-radius-lg);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-neutral-400);
+  background: var(--color-neutral-400); /* Or a semantic token */
 }
 
 /* Hide scrollbar but keep scrolling ability */
-.flex-1.overflow-y-auto::-webkit-scrollbar {
-  display: none;
-}
-
-.flex-1.overflow-y-auto {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
-
-/* Hide scrollbar but keep scrolling ability for the filter bar */
-.mt-4.flex.gap-2.overflow-x-auto,
-.flex.gap-2.overflow-x-auto.hide-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
-
-.mt-4.flex.gap-2.overflow-x-auto::-webkit-scrollbar,
-.flex.gap-2.overflow-x-auto.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar specifically for timeline filters */
 .hide-scrollbar::-webkit-scrollbar {
-  display: none !important;
+  display: none !important; /* Ensure this overrides other scrollbar styles */
 }
 
 .hide-scrollbar {
@@ -162,34 +155,11 @@ a:focus {
 
 /* Selection Styling */
 ::selection {
-  background-color: var(--color-primary-200);
-  color: var(--color-primary-900);
+  background-color: var(--color-primary-200); /* Consider a semantic token if available */
+  color: var(--color-primary-900); /* Consider a semantic token if available */
 }
 
-/* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-neutral-0: #030712;
-    --color-neutral-50: #111827;
-    --color-neutral-100: #1f2937;
-    --color-neutral-200: #374151;
-    --color-neutral-300: #4b5563;
-    --color-neutral-400: #6b7280;
-    --color-neutral-500: #9ca3af;
-    --color-neutral-600: #d1d5db;
-    --color-neutral-700: #e5e7eb;
-    --color-neutral-800: #f3f4f6;
-    --color-neutral-900: #f9fafb;
-    --color-neutral-950: #ffffff;
-    
-    color: var(--color-neutral-900);
-    background-color: var(--color-neutral-50);
-  }
-  
-  a:hover {
-    color: var(--color-primary-400);
-  }
-}
+/* Dark Mode Support - Relies on design-tokens.css for dark mode variables */
 
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
@@ -218,74 +188,4 @@ a:focus {
     box-shadow: none !important;
     text-shadow: none !important;
   }
-}
-
-/* TimeFlow UI customizations */
-.timeflow-ui {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-}
-
-/* Calendar day styling */
-.calendar-day {
-  width: 2rem;
-  height: 2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-}
-
-.calendar-day:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.calendar-day.active {
-  background-color: theme('colors.indigo.600');
-  color: white;
-}
-
-/* Scrollbar styling */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 20px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(0, 0, 0, 0.3);
-}
-
-/* Activity tag colors */
-.tag-work {
-  background-color: #e6f1ff;
-  color: #0969da;
-}
-
-.tag-creative {
-  background-color: #fdf4e8;
-  color: #953800;
-}
-
-.tag-communication {
-  background-color: #f6f8fa;
-  color: #57606a;
-}
-
-.tag-entertainment {
-  background-color: #ffeff7;
-  color: #bf3989;
-}
-
-.tag-productivity {
-  background-color: #dafbe1;
-  color: #1a7f37;
 }
