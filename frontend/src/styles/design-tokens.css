@@ -6,8 +6,6 @@
  * Think "Moleskine on a sunny desk".
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700&family=JetBrains+Mono:wght@400&display=swap');
-
 :root {
   /* ────────────────────────────────────────────────────────────────────────── */
   /*  Clarity at Dawn Color System                                             */
@@ -308,7 +306,7 @@
   
   --shadow-xs: 0 1px 2px 0 rgba(24, 32, 51, 0.04);
   --shadow-sm: 0 2px 4px 0 rgba(24, 32, 51, 0.06);
-  --shadow-default: 0 2px 6px rgba(24, 32, 51, 0.06);
+  --shadow-default: 0 2px 6px rgba(24, 32, 51, 0.08);
   --shadow-md: 0 4px 8px rgba(24, 32, 51, 0.08);
   --shadow-lg: 0 8px 16px rgba(24, 32, 51, 0.1);
   --shadow-xl: 0 12px 24px rgba(24, 32, 51, 0.12);
@@ -317,7 +315,7 @@
   --shadow-none: none;
   
   /* Card shadows for light theme */
-  --shadow-card: 0 2px 6px rgba(24, 32, 51, 0.06);
+  --shadow-card: 0 2px 6px 2px rgba(24, 32, 51, 0.08);
   --shadow-card-hover: 0 2px 8px rgba(0, 107, 255, 0.18);
   
   /* ────────────────────────────────────────────────────────────────────────── */
@@ -492,6 +490,10 @@
     --shadow-card-hover: 0 2px 8px rgba(85, 221, 251, 0.25);
     
     --focus-ring: 0 0 0 3px rgba(85, 221, 251, 0.3);
+    
+    /* Calendar tokens for dark mode */
+    --calendar-day-hover: rgba(85, 221, 251, 0.15);
+    --calendar-day-active: var(--accent-500);
   }
 }
 
@@ -619,3 +621,31 @@
   --grid-columns: 12;
   --grid-gap: 16px;
 }
+
+/* Custom Scrollbar for Insights Panel */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--surface-tertiary);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: 3px;
+  transition: background var(--transition-duration-fast) ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400);
+}
+
+/* Firefox scrollbar styling */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-300) var(--surface-tertiary);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */

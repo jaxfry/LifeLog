@@ -167,8 +167,8 @@ export default function DayLayout() {
                         key={dayNum}
                         className={`h-8 w-8 rounded-full flex items-center justify-center mx-auto text-sm transition-hover focus-ring font-mono
                           ${isActive 
-                            ? 'bg-accent-500 text-inverse font-medium' 
-                            : 'text-primary hover:bg-tertiary/50'
+                            ? 'calendar-day-active' 
+                            : 'calendar-day-inactive text-primary hover:bg-tertiary/50'
                           }`}
                         onClick={() => navigate(`/day/${dateString}`)}
                         aria-label={`Select ${dayNum}`}
@@ -187,13 +187,13 @@ export default function DayLayout() {
         {/* Focus Time */}
         <section className="mt-auto" aria-label="Daily statistics">
           <div className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-success/20 border border-success/30">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-success" aria-hidden="true">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"></path>
+            <div className="flex items-center mb-3">
+              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-success/20 border border-success/30 mr-1">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.25} stroke="currentColor" className="w-5 h-5 text-success" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
               </div>
-              <div>
+              <div className="ml-3">
                 <p className="type-caption text-secondary">Focus Time</p>
                 <div className="font-mono text-2xl font-bold text-primary">
                   {data.summary.stats.focus_time_min > 0 ? 
@@ -206,13 +206,13 @@ export default function DayLayout() {
           
           {/* Break Time */}
           <div className="p-5 border-t border-light">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-warning/20 border border-warning/30">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-warning" aria-hidden="true">
-                  <path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path>
+            <div className="flex items-center">
+              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-warning/20 border border-warning/30 mr-1">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.25} stroke="currentColor" className="w-5 h-5 text-warning" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
                 </svg>
               </div>
-              <div>
+              <div className="ml-3">
                 <p className="type-caption text-secondary">Break Time</p>
                 <div className="font-mono text-2xl font-bold text-primary">
                   {/* Calculate break time as the difference between total active time and focus time */}

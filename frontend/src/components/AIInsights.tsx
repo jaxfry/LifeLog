@@ -47,10 +47,10 @@ export default function AIInsights({ summary, entries = [] }: AIInsightsProps) {
         <h2 className="text-xl font-semibold text-primary">AI Insights</h2>
       </header>
       
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         <section className="mb-6" aria-labelledby="daily-summary-heading">
           <h3 id="daily-summary-heading" className="text-lg font-medium mb-2 text-primary">Daily Summary</h3>
-          <p className="text-secondary">{day_summary}</p>
+          <p className="text-secondary leading-relaxed">{day_summary}</p>
         </section>
         
         <section className="bg-surface-secondary rounded-lg p-4 mb-6" aria-labelledby="activity-overview-heading">

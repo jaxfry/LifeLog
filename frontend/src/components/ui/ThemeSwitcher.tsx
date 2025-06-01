@@ -73,7 +73,7 @@ export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ className = '' }) 
           className={`
             flex items-center justify-center w-8 h-8 rounded-md transition-hover
             ${theme === themeOption 
-              ? 'bg-accent-500 text-white shadow-sm' 
+              ? 'bg-primary-500 text-white shadow-sm' 
               : 'text-secondary hover:bg-tertiary hover:text-primary'
             }
           `}

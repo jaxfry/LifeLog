@@ -26,7 +26,7 @@ export default function TimelineTopBar({
   return (
     <header className="px-6 py-4 border-b border-light bg-secondary shadow-card" role="banner">
       <div className="flex justify-between items-center mb-1">
-        <h1 className="type-h1">
+        <h1 className="type-h2">
           {formattedDate}
         </h1>
         <div className="flex items-center gap-3" role="group" aria-label="Search and filter controls">

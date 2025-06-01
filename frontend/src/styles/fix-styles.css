@@ -78,12 +78,13 @@
 }
 
 .calendar-day-active {
-  background-color: var(--color-primary-600) !important;
+  background-color: var(--calendar-day-active) !important;
   color: var(--color-neutral-0) !important;
+  font-weight: 500;
 }
 
 .calendar-day-inactive:hover {
-  background-color: var(--surface-tertiary);
+  background-color: var(--calendar-day-hover);
   color: var(--text-primary);
 }
 

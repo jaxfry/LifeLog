@@ -137,7 +137,7 @@ export default function Timeline({ entries, date }: { entries: TimelineEntry[]; 
       </div>
 
       {/* Heading */}
-      <header className="mx-auto mb-24 max-w-3xl text-center">
+      <header className="mx-auto mb-16 max-w-3xl text-center">
         <motion.h1
           initial={{ opacity: 0, y: -32 }}
           animate={{ opacity: 1, y: 0 }}
