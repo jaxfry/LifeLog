@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDayData } from '../hooks/useDayData';
 import Timeline from '../components/Timeline';
-import { getFormattedTimelineDate } from '../lib/utils';
+import { getFormattedTimelineDate } from '../shared/utils';
 import AIInsights from '../components/AIInsights';
 import TimelineTopBar from '../components/TimelineTopBar';
 import { CenteredMessage, EmptyState } from '../components/ui/StatusMessages'; // Import from ui components

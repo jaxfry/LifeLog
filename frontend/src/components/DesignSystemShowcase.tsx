@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { theme } from '../lib/theme';
+import { theme } from '../shared/theme';
 
 const DesignSystemShowcase: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'colors' | 'typography' | 'spacing' | 'components'>('colors');
@@ -97,7 +97,7 @@ const ColorsSection: React.FC = () => {
           <div>
             <h4 className="font-medium text-on-surface mb-2">Text Colors</h4>
             <div className="space-y-2">
-              {Object.entries(theme.semanticColors.text).map(([name, color]) => (
+              {Object.entries(theme.semantic.text).map(([name, color]) => (
                 <div key={name} className="flex items-center space-x-3">
                   <div
                     className="w-6 h-6 rounded border border-outline"
@@ -112,7 +112,7 @@ const ColorsSection: React.FC = () => {
           <div>
             <h4 className="font-medium text-on-surface mb-2">Background Colors</h4>
             <div className="space-y-2">
-              {Object.entries(theme.semanticColors.background).map(([name, color]) => (
+              {Object.entries(theme.semantic.background).map(([name, color]) => (
                 <div key={name} className="flex items-center space-x-3">
                   <div
                     className="w-6 h-6 rounded border border-outline"
@@ -125,9 +125,9 @@ const ColorsSection: React.FC = () => {
           </div>
           
           <div>
-            <h4 className="font-medium text-on-surface mb-2">Interactive Colors</h4>
+            <h4 className="font-medium text-on-surface mb-2">Border Colors</h4>
             <div className="space-y-2">
-              {Object.entries(theme.semanticColors.interactive).map(([name, color]) => (
+              {Object.entries(theme.semantic.border).map(([name, color]) => (
                 <div key={name} className="flex items-center space-x-3">
                   <div
                     className="w-6 h-6 rounded border border-outline"
@@ -187,14 +187,14 @@ const TypographySection: React.FC = () => {
               <div className="flex-1">
                 <p
                   style={{
-                    fontSize: config.size,
-                    lineHeight: config.lineHeight,
+                    fontSize: config[0],
+                    lineHeight: config[1]?.lineHeight,
                   }}
                 >
                   The quick brown fox jumps over the lazy dog
                 </p>
                 <p className="text-xs text-on-surface-variant font-mono">
-                  {config.size} / {config.lineHeight}
+                  {config[0]} / {config[1]?.lineHeight}
                 </p>
               </div>
             </div>
@@ -244,7 +244,7 @@ const SpacingSection: React.FC = () => {
                 style={{ width: value }}
               />
               <div className="text-sm text-on-surface-variant">
-                {parseInt(value) || value === '0px' ? `${parseInt(value) || 0}px` : value}
+                {value}
               </div>
             </div>
           ))}

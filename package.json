@@ -5,6 +5,8 @@
     "@types/react-window": "^1.8.8"
   },
   "dependencies": {
-    "react-window": "^1.8.11"
+    "clsx": "^2.1.1",
+    "react-window": "^1.8.11",
+    "tailwind-merge": "^3.3.0"
   }
 }

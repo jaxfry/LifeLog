@@ -1,9 +1,9 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Clock } from "lucide-react";
-import { formatDuration, formatTime } from "../lib/utils";
+import { formatDuration, formatTime } from "../shared/utils";
 import ActivityIcon from "./ui/ActivityIcon";
-import { getTagStyle } from "../lib/tag-styles";
+import { getTagStyle } from "../shared/tag-styles";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 import type { TimelineEntry } from "../types";
 
