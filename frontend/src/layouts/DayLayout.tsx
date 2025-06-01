@@ -70,31 +70,31 @@ export default function DayLayout() {
 
   /* ----- main layout ----------------------------------------------------- */
   return (
-    <div className="h-full w-full flex overflow-hidden timeflow-ui" style={{ backgroundColor: 'var(--color-neutral-950)' }}>
+    <div className="h-full w-full flex overflow-hidden bg-primary">
       {/* Left Sidebar - Fixed width */}
-      <aside className="w-72 flex-shrink-0 text-on-surface-dark flex flex-col h-full border-r border-outline-light" aria-label="Application sidebar">
+      <aside className="w-72 flex-shrink-0 bg-secondary text-primary flex flex-col h-full border-r border-light" aria-label="Application sidebar">
         {/* Logo and app name */}
         <header className="p-5 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+          <div className="w-8 h-8 rounded-full bg-accent-gradient flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-inverse" aria-hidden="true">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"></path>
             </svg>
           </div>
-          <h1 className="text-xl font-semibold">TimeFlow</h1>
+          <h1 className="type-h3">LifeLog</h1>
         </header>
         
-        <p className="text-on-surface-light text-sm px-5">Your intelligent activity journal</p>
+        <p className="type-caption text-secondary px-5 mb-6">Your digital life, beautifully organized</p>
         
         {/* Calendar */}
         <nav className="mt-6 px-5" aria-label="Date navigation">
           <div className="flex flex-col mb-4">
-            <h2 className="text-lg font-medium text-on-surface-dark">
+            <h2 className="type-h3 text-primary">
               {parseDateFromParam(day).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </h2>
-            <div className="flex justify-between items-center mt-2">
+            <div className="flex justify-between items-center mt-3">
               <div className="flex gap-2">
                 <button 
-                  className="w-6 h-6 flex items-center justify-center rounded nav-button"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-tertiary hover:bg-tertiary/80 text-primary transition-hover focus-ring"
                   onClick={() => {
                     const currentDate = parseDateFromParam(day);
                     currentDate.setDate(currentDate.getDate() - 1);
@@ -105,7 +105,7 @@ export default function DayLayout() {
                   ‹
                 </button>
                 <button 
-                  className="w-6 h-6 flex items-center justify-center rounded nav-button"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-tertiary hover:bg-tertiary/80 text-primary transition-hover focus-ring"
                   onClick={() => {
                     const currentDate = parseDateFromParam(day);
                     currentDate.setDate(currentDate.getDate() + 1);
@@ -123,7 +123,7 @@ export default function DayLayout() {
           <div className="grid grid-cols-7 gap-y-2 text-center">
             {/* Weekday headers */}
             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-              <div key={`weekday-${index}`} className="text-on-surface-light text-xs">{day}</div>
+              <div key={`weekday-${index}`} className="type-caption text-secondary">{day}</div>
             ))}
             
             {/* Generate calendar days */}
@@ -153,7 +153,7 @@ export default function DayLayout() {
                 <>
                   {/* Empty spaces */}
                   {emptySpaces.map((_, i) => (
-                    <div key={`empty-${i}`} className="h-6"></div>
+                    <div key={`empty-${i}`} className="h-8"></div>
                   ))}
                   
                   {/* Days */}
@@ -165,8 +165,11 @@ export default function DayLayout() {
                     return (
                       <button
                         key={dayNum}
-                        className={`h-7 w-7 rounded-full flex items-center justify-center mx-auto text-sm calendar-button
-                          ${isActive ? 'calendar-day-active' : 'calendar-day-inactive'}`}
+                        className={`h-8 w-8 rounded-full flex items-center justify-center mx-auto text-sm transition-hover focus-ring font-mono
+                          ${isActive 
+                            ? 'bg-accent-500 text-inverse font-medium' 
+                            : 'text-primary hover:bg-tertiary/50'
+                          }`}
                         onClick={() => navigate(`/day/${dateString}`)}
                         aria-label={`Select ${dayNum}`}
                         aria-current={isActive ? 'date' : undefined}
@@ -184,43 +187,47 @@ export default function DayLayout() {
         {/* Focus Time */}
         <section className="mt-auto" aria-label="Daily statistics">
           <div className="p-5">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 flex items-center justify-center rounded-full bg-success-500">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-on-success" aria-hidden="true">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-success/20 border border-success/30">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-success" aria-hidden="true">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"></path>
                 </svg>
               </div>
-              <p className="text-sm text-on-surface-light">Today's Focus</p>
-            </div>
-            <div className="mt-2 text-2xl font-bold text-on-surface-dark">
-              {data.summary.stats.focus_time_min > 0 ? 
-                `${Math.floor(data.summary.stats.focus_time_min / 60)}h ${data.summary.stats.focus_time_min % 60}m` : 
-                '0h 0m'}
+              <div>
+                <p className="type-caption text-secondary">Focus Time</p>
+                <div className="font-mono text-2xl font-bold text-primary">
+                  {data.summary.stats.focus_time_min > 0 ? 
+                    `${Math.floor(data.summary.stats.focus_time_min / 60)}h ${data.summary.stats.focus_time_min % 60}m` : 
+                    '0h 0m'}
+                </div>
+              </div>
             </div>
           </div>
           
           {/* Break Time */}
-          <div className="p-5 border-t border-outline-light">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 flex items-center justify-center text-warning-400">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+          <div className="p-5 border-t border-light">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-warning/20 border border-warning/30">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-warning" aria-hidden="true">
                   <path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path>
                 </svg>
               </div>
-              <p className="text-sm text-on-surface-light">Break Time</p>
-            </div>
-            <div className="mt-2 text-2xl font-bold text-on-surface-dark">
-              {/* Calculate break time as the difference between total active time and focus time */}
-              {data.summary.stats.total_active_time_min > data.summary.stats.focus_time_min ? 
-                `${Math.floor((data.summary.stats.total_active_time_min - data.summary.stats.focus_time_min) / 60)}h ${(data.summary.stats.total_active_time_min - data.summary.stats.focus_time_min) % 60}m` : 
-                '0h 0m'}
+              <div>
+                <p className="type-caption text-secondary">Break Time</p>
+                <div className="font-mono text-2xl font-bold text-primary">
+                  {/* Calculate break time as the difference between total active time and focus time */}
+                  {data.summary.stats.total_active_time_min > data.summary.stats.focus_time_min ? 
+                    `${Math.floor((data.summary.stats.total_active_time_min - data.summary.stats.focus_time_min) / 60)}h ${(data.summary.stats.total_active_time_min - data.summary.stats.focus_time_min) % 60}m` : 
+                    '0h 0m'}
+                </div>
+              </div>
             </div>
           </div>
         </section>
       </aside>
 
       {/* Main Content */}
-      <main className="flex flex-1 overflow-auto flex-col" style={{ backgroundColor: 'var(--background-secondary)' }} role="main">
+      <main className="flex flex-1 overflow-auto flex-col bg-primary" role="main">
         {/* Top bar above both timeline and AI Insights */}
         <TimelineTopBar 
           formattedDate={getFormattedTimelineDate(day ? parseDateFromParam(day) : undefined)}
@@ -235,9 +242,9 @@ export default function DayLayout() {
             />
           </section>
           {/* Right sidebar - AI Insights with fixed width */}
-          <aside className="w-80 flex-shrink-0 overflow-y-auto flex flex-col h-full" style={{ backgroundColor: 'var(--background-secondary)', border: 'none' }} aria-label="AI insights">
-            <header className="p-4">
-              <h2 className="text-lg font-semibold text-text-primary">AI Insights</h2>
+          <aside className="w-80 flex-shrink-0 overflow-y-auto flex flex-col h-full bg-secondary border-l border-light" aria-label="AI insights">
+            <header className="p-6 border-b border-light">
+              <h2 className="type-h3 text-primary">AI Insights</h2>
             </header>
             <div className="flex-1 overflow-y-auto">
               <AIInsights summary={data.summary} entries={data.entries} />

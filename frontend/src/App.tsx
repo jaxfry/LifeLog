@@ -2,8 +2,12 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import DayLayout from "./layouts/DayLayout"; // Updated import path
 import DesignSystemShowcase from "./components/DesignSystemShowcase";
+import { useThemeInitialization } from "./hooks/useThemeInitialization";
 
 export default function App() {
+  // Initialize theme system
+  useThemeInitialization();
+
   return (
     <div className="h-full w-full overflow-hidden">
       <Routes>

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import SearchBar from './ui/SearchBar';
 import FilterIcon from './icons/FilterIcon';
+import { ThemeSwitcher } from './ui';
 
 interface TimelineTopBarProps {
   formattedDate: string;
@@ -23,22 +24,23 @@ export default function TimelineTopBar({
   }, []); // Dependency array is empty as categories are static
 
   return (
-    <header className="px-6 py-4 border-b border-light bg-surface-primary" role="banner">
+    <header className="px-6 py-4 border-b border-light bg-secondary shadow-card" role="banner">
       <div className="flex justify-between items-center mb-1">
-        <h1 className="text-3xl font-bold text-primary">
+        <h1 className="type-h1">
           {formattedDate}
         </h1>
-        <div className="flex items-center gap-2" role="group" aria-label="Search and filter controls">
+        <div className="flex items-center gap-3" role="group" aria-label="Search and filter controls">
           <SearchBar placeholder="Search activities..." className="w-[300px]" />
           <button 
-            className="p-2 rounded hover:bg-surface-secondary transition-colors"
+            className="p-2 rounded-lg hover:bg-tertiary transition-hover focus-ring"
             aria-label="Open filter options"
           >
             <FilterIcon className="w-5 h-5 text-secondary" />
           </button>
+          <ThemeSwitcher />
         </div>
       </div>
-      <p className="text-sm text-secondary mb-2">
+      <p className="type-caption mb-4">
         Track your digital footprint
       </p>
       
@@ -48,10 +50,10 @@ export default function TimelineTopBar({
           {filterOptions.map(option => (
             <button
               key={option.id}
-              className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-hover focus-ring ${
                 activeFilter === option.id 
-                  ? 'bg-primary-600 text-on-primary' 
-                  : 'bg-surface-light text-on-surface-light hover:bg-surface-tertiary'
+                  ? 'bg-accent-gradient text-inverse shadow-card' 
+                  : 'bg-tertiary text-primary hover:bg-tertiary/80 border border-light'
               }`}
               onClick={() => onFilterChange(option.id)}
               aria-pressed={activeFilter === option.id}

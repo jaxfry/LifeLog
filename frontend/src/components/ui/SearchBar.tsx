@@ -13,7 +13,7 @@ const SearchIcon = () => (
     viewBox="0 0 24 24" 
     strokeWidth={1.5} 
     stroke="currentColor" 
-    className="w-4 h-4 text-tertiary"
+    className="w-4 h-4 text-secondary"
     aria-hidden="true"
   >
     <path 
@@ -31,7 +31,7 @@ const ClearIcon = () => (
     viewBox="0 0 24 24" 
     strokeWidth={1.5} 
     stroke="currentColor" 
-    className="w-4 h-4 text-tertiary hover:text-primary transition-colors"
+    className="w-4 h-4 text-secondary hover:text-primary transition-hover"
     aria-hidden="true"
   >
     <path 
@@ -67,16 +67,17 @@ export default function SearchBar({
           placeholder={placeholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="block w-full rounded-lg pl-10 pr-10 py-2 border border-light 
-                   text-sm placeholder:text-tertiary 
-                   bg-surface-primary text-primary 
-                   focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-focus"
+          className="block w-full rounded-lg pl-10 pr-10 py-2.5 border border-light 
+                   text-sm placeholder:text-secondary 
+                   bg-tertiary text-primary 
+                   focus-ring transition-focus
+                   hover:bg-tertiary/80"
           aria-label={placeholder}
         />
         {query && (
           <button 
             type="button" 
-            className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-surface-secondary rounded-r-lg transition-colors"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-tertiary rounded-r-lg transition-hover focus-ring"
             onClick={() => setQuery('')}
             aria-label="Clear search query"
           >

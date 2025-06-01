@@ -284,3 +284,9 @@ export function Separator({
     />
   );
 }
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Export theme switcher                                                   */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+export { default as ThemeSwitcher } from './ThemeSwitcher';

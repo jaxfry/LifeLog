@@ -25,21 +25,10 @@
 /* Timeline component fixes */
 .timeline-gradient {
   background: linear-gradient(to bottom, 
-    var(--color-neutral-900), 
-    var(--color-neutral-950), 
-    var(--color-neutral-900)
+    var(--background-primary), 
+    var(--background-secondary), 
+    var(--background-primary)
   );
-}
-
-/* Dark mode overrides */
-@media (prefers-color-scheme: dark) {
-  .timeline-gradient {
-    background: linear-gradient(to bottom,
-      var(--color-neutral-800),
-      var(--color-neutral-950),
-      var(--color-neutral-800)
-    );
-  }
 }
 
 /* Activity card fixes */
@@ -50,46 +39,31 @@
 
 /* Elegant Timeline specific styles */
 .timeline-elegant {
-  /* Ensure proper dark background for elegant timeline */
+  /* Use theme-aware background */
   background: linear-gradient(to bottom, 
-    rgb(15, 17, 29), 
-    rgb(14, 17, 26),
-    rgb(15, 17, 29)
+    var(--background-primary), 
+    var(--background-secondary),
+    var(--background-primary)
   );
 }
 
 .timeline-elegant .timeline-card {
-  /* Ensure cards have proper glassmorphism effect */
-  background: rgba(14, 17, 26, 0.9);
+  /* Theme-aware glassmorphism effect */
+  background: var(--surface-secondary);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-card);
 }
 
-/* Enhanced spine glow effect */
+/* Enhanced spine glow effect - theme aware */
 .timeline-spine {
   background: linear-gradient(to bottom, 
     transparent 0%,
-    rgba(147, 51, 234, 0.5) 20%,
-    rgba(147, 51, 234, 0.5) 80%,
+    var(--interactive-primary) 20%,
+    var(--interactive-primary) 80%,
     transparent 100%
   );
-}
-
-/* Text contrast improvements for dark cards */
-.timeline-elegant .text-gray-100 {
-  color: rgb(243 244 246) !important;
-}
-
-.timeline-elegant .text-gray-300 {
-  color: rgb(209 213 219) !important;
-}
-
-.timeline-elegant .text-gray-400 {
-  color: rgb(156 163 175) !important;
-}
-
-.timeline-elegant .text-gray-500 {
-  color: rgb(107 114 128) !important;
+  opacity: 0.5;
 }
 
 /* Calendar specific fixes */
@@ -122,28 +96,4 @@
 .nav-button:hover {
   background-color: var(--surface-tertiary);
   color: var(--text-primary);
-}
-
-/* Force dark mode for LifeLog app regardless of system preferences */
-:root {
-  color-scheme: dark;
-  --text-primary: var(--color-neutral-100);
-  --text-secondary: var(--color-neutral-300);
-  --text-tertiary: var(--color-neutral-400);
-  --text-disabled: var(--color-neutral-500);
-  --text-inverse: var(--color-neutral-100);
-  
-  --background-primary: var(--color-neutral-900);
-  --background-secondary: var(--color-neutral-800);
-  --background-tertiary: var(--color-neutral-700);
-  --background-inverse: var(--color-neutral-50);
-  
-  --surface-primary: var(--color-neutral-900);
-  --surface-secondary: var(--color-neutral-800);
-  --surface-tertiary: var(--color-neutral-700);
-  --surface-inverse: var(--color-neutral-50);
-  
-  --border-light: var(--color-neutral-700);
-  --border-default: var(--color-neutral-600);
-  --border-dark: var(--color-neutral-500);
 }

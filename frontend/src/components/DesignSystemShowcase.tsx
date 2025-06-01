@@ -7,27 +7,31 @@
 
 import React, { useState } from 'react';
 import { theme } from '../shared/theme';
+import { ThemeSwitcher } from './ui';
 
 const DesignSystemShowcase: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'colors' | 'typography' | 'spacing' | 'components'>('colors');
+  const [activeTab, setActiveTab] = useState<'themes' | 'colors' | 'typography' | 'spacing' | 'components'>('themes');
 
   return (
     <div className="min-h-screen bg-surface-light p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-on-surface mb-2">
-            LifeLog Design System
-          </h1>
-          <p className="text-lg text-on-surface-variant">
-            A comprehensive design system for consistent UI development
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-bold text-on-surface mb-2">
+              LifeLog Design System
+            </h1>
+            <p className="text-lg text-on-surface-variant">
+              A comprehensive design system for consistent UI development
+            </p>
+          </div>
+          <ThemeSwitcher />
         </div>
 
         {/* Navigation */}
         <div className="mb-8">
           <nav className="flex space-x-1 bg-surface-primary p-1 rounded-lg border border-outline">
-            {(['colors', 'typography', 'spacing', 'components'] as const).map((tab) => (
+            {(['themes', 'colors', 'typography', 'spacing', 'components'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -45,10 +49,138 @@ const DesignSystemShowcase: React.FC = () => {
 
         {/* Content */}
         <div className="space-y-8">
+          {activeTab === 'themes' && <ThemesSection />}
           {activeTab === 'colors' && <ColorsSection />}
           {activeTab === 'typography' && <TypographySection />}
           {activeTab === 'spacing' && <SpacingSection />}
           {activeTab === 'components' && <ComponentsSection />}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Themes Section                                                           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const ThemesSection: React.FC = () => {
+  return (
+    <div className="space-y-8">
+      {/* Theme Overview */}
+      <div className="bg-surface-primary rounded-lg border border-outline p-6">
+        <h3 className="text-2xl font-semibold text-on-surface mb-4">Theme System</h3>
+        <p className="text-on-surface-variant mb-6">
+          LifeLog features a sophisticated dual-theme system with "Clarity at Dawn" (light) and "Midnight Momentum" (dark) themes. 
+          The theme switcher allows users to choose their preference or follow their system setting.
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Clarity at Dawn */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
+            <h4 className="text-lg font-semibold text-gray-900 mb-3">Clarity at Dawn</h4>
+            <p className="text-gray-600 text-sm mb-4">
+              A crisp, paper-white workstation theme that maintains the analytical journal feel with airy neutrals and confident electric-blue accents.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full bg-white border border-gray-300"></div>
+                <span className="text-sm text-gray-700">Sheet White (#FFFFFF)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full" style={{backgroundColor: '#F6F7F9'}}></div>
+                <span className="text-sm text-gray-700">Porcelain (#F6F7F9)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full" style={{backgroundColor: '#006BFF'}}></div>
+                <span className="text-sm text-gray-700">Electric Blue (#006BFF)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Midnight Momentum */}
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
+            <h4 className="text-lg font-semibold text-gray-100 mb-3">Midnight Momentum</h4>
+            <p className="text-gray-300 text-sm mb-4">
+              A deep, sophisticated dark theme with midnight blues and purple accents, designed for extended work sessions and reduced eye strain.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full" style={{backgroundColor: '#0E1323'}}></div>
+                <span className="text-sm text-gray-300">Deep Midnight (#0E1323)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full" style={{backgroundColor: '#151B2E'}}></div>
+                <span className="text-sm text-gray-300">Side Panel (#151B2E)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full" style={{backgroundColor: '#55DDFB'}}></div>
+                <span className="text-sm text-gray-300">Cyan Accent (#55DDFB)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Theme Features */}
+      <div className="bg-surface-primary rounded-lg border border-outline p-6">
+        <h3 className="text-xl font-semibold text-on-surface mb-4">Theme Features</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center">
+            <div className="w-12 h-12 mx-auto mb-3 bg-primary-500 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <h4 className="font-semibold text-on-surface mb-2">Light Theme</h4>
+            <p className="text-sm text-on-surface-variant">Clean, bright interface optimized for daytime use and high-contrast environments.</p>
+          </div>
+          
+          <div className="text-center">
+            <div className="w-12 h-12 mx-auto mb-3 bg-secondary-500 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            </div>
+            <h4 className="font-semibold text-on-surface mb-2">Dark Theme</h4>
+            <p className="text-sm text-on-surface-variant">Sophisticated dark interface designed for extended work sessions and low-light environments.</p>
+          </div>
+          
+          <div className="text-center">
+            <div className="w-12 h-12 mx-auto mb-3 bg-success-500 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h4 className="font-semibold text-on-surface mb-2">Auto Detection</h4>
+            <p className="text-sm text-on-surface-variant">Automatically respects your system preference when no manual theme is selected.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Implementation Details */}
+      <div className="bg-surface-primary rounded-lg border border-outline p-6">
+        <h3 className="text-xl font-semibold text-on-surface mb-4">Implementation</h3>
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-semibold text-on-surface mb-2">CSS Custom Properties</h4>
+            <p className="text-sm text-on-surface-variant mb-3">
+              The theme system uses CSS custom properties (variables) for instant theme switching without page reload.
+            </p>
+            <div className="bg-surface-light rounded border border-outline p-4 font-mono text-sm">
+              <div className="text-success-600">/* Light theme (default) */</div>
+              <div>:root {'{'}</div>
+              <div className="ml-4">--background-primary: #FFFFFF;</div>
+              <div className="ml-4">--text-primary: #182033;</div>
+              <div>{'}'}</div>
+              <br />
+              <div className="text-success-600">/* Dark theme */</div>
+              <div>:root[data-theme="dark"] {'{'}</div>
+              <div className="ml-4">--background-primary: #0E1323;</div>
+              <div className="ml-4">--text-primary: #E7ECF4;</div>
+              <div>{'}'}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

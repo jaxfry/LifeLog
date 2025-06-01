@@ -6,14 +6,14 @@
 
 :root {
   /* Light-mode defaults */
-  color-scheme: light dark;
+  color-scheme: dark light;
   color: var(--text-primary);
   background-color: var(--background-primary);
-  font-family: var(--font-family-sans);
-  line-height: 1.5;
+  font-family: var(--font-ui);
+  line-height: 1.6;
 
   /* Update the default border color */
-  --border-color: var(--border-default); /* Using design token */
+  --border-color: var(--border-default);
 }
 
 html {
@@ -25,10 +25,14 @@ body {
   margin: 0;
   padding: 0;
   min-width: 320px;
-  height: 100vh; /* Changed from min-height to height */
+  height: 100vh;
   overflow: hidden; /* Prevent page-level scrolling */
-  background-color: var(--background-secondary); /* Using design token */
-  color: var(--text-primary); /* Using design token */
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--type-body-weight);
   font-feature-settings: 'cv11', 'cv02', 'cv03', 'cv04'; /* Inter font features */
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -47,57 +51,85 @@ body {
   border-color: var(--border-color);
 }
 
-/* Typography Utilities */
-.text-heading-1 {
-  font-size: var(--font-size-4xl);
-  line-height: var(--line-height-4xl);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.025em;
+/* Typography System - Midnight Momentum */
+h1, .text-heading-1, .type-h1 {
+  font-family: var(--type-h1-family);
+  font-size: var(--type-h1-size);
+  line-height: var(--type-h1-line);
+  font-weight: var(--type-h1-weight);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
 }
 
-.text-heading-2 {
-  font-size: var(--font-size-3xl);
-  line-height: var(--line-height-3xl);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.025em;
+h2, .text-heading-2, .type-h2 {
+  font-family: var(--type-h2-family);
+  font-size: var(--type-h2-size);
+  line-height: var(--type-h2-line);
+  font-weight: var(--type-h2-weight);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.015em;
 }
 
-.text-heading-3 {
-  font-size: var(--font-size-2xl);
-  line-height: var(--line-height-2xl);
-  font-weight: var(--font-weight-semibold);
+h3, .text-heading-3, .type-h3 {
+  font-family: var(--type-h3-family);
+  font-size: var(--type-h3-size);
+  line-height: var(--type-h3-line);
+  font-weight: var(--type-h3-weight);
+  color: var(--text-primary);
+  margin: 0;
 }
 
-.text-heading-4 {
+h4, .text-heading-4 {
   font-size: var(--font-size-xl);
   line-height: var(--line-height-xl);
   font-weight: var(--font-weight-semibold);
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+p, .text-body, .type-body {
+  font-family: var(--type-body-family);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--type-body-weight);
+  color: var(--text-primary);
+  margin: 0;
 }
 
 .text-body-large {
   font-size: var(--font-size-lg);
   line-height: var(--line-height-lg);
   font-weight: var(--font-weight-normal);
-}
-
-.text-body {
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  font-weight: var(--font-weight-normal);
+  font-family: var(--font-ui);
 }
 
 .text-body-small {
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   font-weight: var(--font-weight-normal);
+  font-family: var(--font-ui);
 }
 
-.text-caption {
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
-  font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.text-caption, .type-caption {
+  font-family: var(--type-caption-family);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--type-caption-weight);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Monospace for timestamps and numbers */
+.font-mono, .text-mono {
+  font-family: var(--font-mono);
+}
+
+/* Special emphasis for display text */
+.text-display {
+  font-family: var(--font-display);
 }
 
 /* Link Styles */
@@ -113,16 +145,16 @@ a:hover {
   text-decoration: underline;
 }
 
-a:focus {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
-  border-radius: var(--border-radius-sm);
+/* Focus Styles - Midnight Momentum */
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
-/* Focus Styles */
-*:focus {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--border-radius-sm);
 }
 
 /* Scrollbar Styling */
