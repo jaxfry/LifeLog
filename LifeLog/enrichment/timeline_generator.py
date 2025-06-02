@@ -21,6 +21,7 @@ if str(_project_root) not in sys.path:
 
 
 from LifeLog.config import Settings
+from LifeLog.prompts import TIMELINE_ENRICHMENT_SYSTEM_PROMPT # Added import
 
 log = logging.getLogger(__name__)
 
@@ -262,57 +263,11 @@ def _build_llm_prompt(day: date, events_df: pl.DataFrame, settings: Settings) ->
         '"notes": "string | null"}]'
     )
 
-    prompt_text = f"""You are an expert timeline curator and analyst. Your objective is to transform a raw log of computer events for the date {day.isoformat()}
-into a concise, meaningful, user-centric narrative of the day.
-
-The events are provided in a markdown table with columns: **time_utc, duration_s, app, title, url**.
-- `time_utc` (HH:MM:SS, already UTC) all share the same calendar date {day.isoformat()}.
-- `duration_s` is the length of that raw event in seconds.
-
-Return **only** a JSON list of “EnrichedTimelineEntry” objects that exactly match this schema:
-{schema_description}
-
-──────────────────────────────────────────────────────────
-### Output rules – MUST follow
-• Produce **one** JSON array; the output must begin with `[` and end with `]` (no NDJSON, no Markdown).  
-• `start` and `end` **must** be ISO-8601 strings (e.g. “2025-05-22T09:33:10Z”) — **never** Unix epoch numbers.  
-• Merge consecutive *Idle / Away* blocks if the gap between them is < 5 minutes.  
-• Only populate `"project"` when the block directly advances that project; social chat or generic browsing ⇒ `null`.  
-──────────────────────────────────────────────────────────
-
-#### 1 · Identify coherent activity blocks & keep them sequential
-* Process raw rows strictly in order; each row can belong to only one block.  
-* Short context-preserving app switches (quick look-ups, alt-tabs) stay inside the surrounding block.  
-* A substantial context switch (≈ ≥ 10–15 min) on an unrelated task starts a new block.  
-* Preserve distinct short events (e.g. “Sent email to X”) if they constitute a complete action.
-
-#### 2 · Define `start` / `end`
-* `start` = `time_utc` of the first row in the block.  
-* `end`   = (`time_utc` + `duration_s`) of the last row in that block.  
-* No overlaps: every new block must start ≥ the previous block’s end.
-
-#### 3 · Craft a specific `activity`
-Concise verb phrase (≤ 6 words) that captures the user’s primary focus.  
-*Good:* “Debugging payment API bug”.  *Avoid:* “Using VS Code”.
-
-#### 4 · Determine `project` (optional)
-Name the project/course if obviously identifiable from filenames, repo paths, meeting titles, etc.; otherwise `null`.
-
-#### 5 · Write rich `notes` (1–3 sentences)
-* **Mandatory:** Pull concrete nouns from `title` and `url` (file names, PR numbers, video titles, Discord channels…).  
-* Reflect narrative flow if the block contains multiple stages (research → code → test).  
-* Summarise many similar items (“Reviewed 5 PRs, incl. #101, #103”).  
-* Idle / AFK blocks may use “System locked”, “User away” where applicable.
-
-#### General quality bar
-* Accurate, gap-free, easy to scan, and genuinely useful to the user.
-
-──────────────────────────────────────────────────────────
-Raw Usage Events for {day.isoformat()}:
-{events_table_md}
-
-JSON Output (strictly follow the schema – single array, no comments, no trailing commas):
-"""
+    prompt_text = TIMELINE_ENRICHMENT_SYSTEM_PROMPT.format(
+        day_iso=day.isoformat(),
+        schema_description=schema_description,
+        events_table_md=events_table_md
+    )
     return prompt_text
 
 
