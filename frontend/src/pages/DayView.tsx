@@ -87,14 +87,6 @@ export default function DayView() {
               ))}
             </div>
           </nav>
-          <Input
-            type="text"
-            value=""
-            onChange={() => {}}
-            placeholder="Search activities..."
-            className="w-64 px-3 py-2 border rounded-md text-sm"
-            aria-label="Search activities"
-          />
         </header>
 
         <div className="flex flex-1 overflow-hidden">

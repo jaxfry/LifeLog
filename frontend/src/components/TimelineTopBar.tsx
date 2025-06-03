@@ -7,12 +7,16 @@ interface TimelineTopBarProps {
   formattedDate: string;
   activeFilter: string;
   onFilterChange: (filter: string) => void;
+  searchQuery: string;
+  onSearchQueryChange: (query: string) => void;
 }
 
 export default function TimelineTopBar({ 
   formattedDate, 
   activeFilter, 
-  onFilterChange 
+  onFilterChange,
+  searchQuery,
+  onSearchQueryChange,
 }: TimelineTopBarProps) {
   // Generate filter options from hardcoded categories
   const filterOptions = useMemo(() => {
@@ -30,7 +34,12 @@ export default function TimelineTopBar({
           {formattedDate}
         </h1>
         <div className="flex items-center gap-3" role="group" aria-label="Search and filter controls">
-          <SearchBar placeholder="Search activities..." className="w-[300px]" />
+          <SearchBar 
+            placeholder="Search activities..." 
+            className="w-[300px]" 
+            value={searchQuery}
+            onChange={onSearchQueryChange}
+          />
           <button 
             className="p-2 rounded-lg hover:bg-tertiary transition-hover focus-ring"
             aria-label="Open filter options"

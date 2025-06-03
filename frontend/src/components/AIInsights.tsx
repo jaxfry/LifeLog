@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import type { DailySummary, TimelineEntry } from '../types';
-import HeartIcon from './icons/HeartIcon';
 
 interface AIInsightsProps {
   summary: DailySummary;
@@ -40,12 +39,6 @@ export default function AIInsights({ summary, entries = [] }: AIInsightsProps) {
       className="h-full flex flex-col overflow-hidden w-full bg-surface-primary" 
       aria-label="AI-generated insights and statistics"
     >
-      <header className="flex items-center gap-2 p-4 border-b border-light">
-        <div className="text-primary-600" aria-hidden="true">
-          <HeartIcon className="w-6 h-6" />
-        </div>
-        <h2 className="text-xl font-semibold text-primary">AI Insights</h2>
-      </header>
       
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         <section className="mb-6" aria-labelledby="daily-summary-heading">

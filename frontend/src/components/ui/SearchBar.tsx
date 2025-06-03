@@ -3,6 +3,8 @@ import { useState } from 'react';
 interface SearchBarProps {
   placeholder?: string;
   onSearch?: (query: string) => void;
+  onChange?: (query: string) => void;
+  value?: string;
   className?: string;
 }
 
@@ -45,15 +47,25 @@ const ClearIcon = () => (
 export default function SearchBar({ 
   placeholder = "Search activities...", 
   onSearch,
+  onChange,
+  value,
   className = "",
 }: SearchBarProps) {
-  const [query, setQuery] = useState('');
-  
+  const [internalQuery, setInternalQuery] = useState('');
+  const query = value !== undefined ? value : internalQuery;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (onSearch && query.trim()) {
       onSearch(query.trim());
     }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (value === undefined) {
+      setInternalQuery(e.target.value);
+    }
+    if (onChange) onChange(e.target.value);
   };
 
   return (
@@ -66,7 +78,7 @@ export default function SearchBar({
           type="search"
           placeholder={placeholder}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={handleChange}
           className="block w-full rounded-lg pl-10 pr-10 py-2.5 border border-light 
                    text-sm placeholder:text-secondary 
                    bg-tertiary text-primary 
@@ -78,7 +90,7 @@ export default function SearchBar({
           <button 
             type="button" 
             className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-tertiary rounded-r-lg transition-hover focus-ring"
-            onClick={() => setQuery('')}
+            onClick={() => { if (value === undefined) setInternalQuery(''); if (onChange) onChange(''); }}
             aria-label="Clear search query"
           >
             <ClearIcon />

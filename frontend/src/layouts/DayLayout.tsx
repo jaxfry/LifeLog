@@ -14,20 +14,31 @@ export default function DayLayout() {
   
   // Add filter state management
   const [activeFilter, setActiveFilter] = useState<string>('All');
-  
-  // Filter entries based on activeFilter
+  // Add search query state
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Filter entries based on activeFilter and searchQuery
   const filteredEntries = useMemo(() => {
     if (!data?.entries) return [];
-    
-    if (activeFilter === 'All') {
-      return data.entries;
+    let entries = data.entries;
+    if (activeFilter !== 'All') {
+      entries = entries.filter(entry => 
+        entry.tags?.includes(activeFilter) || 
+        entry.activity === activeFilter
+      );
     }
-    
-    return data.entries.filter(entry => 
-      entry.tags?.includes(activeFilter) || 
-      entry.activity === activeFilter
-    );
-  }, [data?.entries, activeFilter]);
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.trim().toLowerCase();
+      entries = entries.filter(entry =>
+        entry.activity.toLowerCase().includes(q) ||
+        entry.label?.toLowerCase().includes(q) ||
+        entry.summary?.toLowerCase().includes(q) ||
+        entry.notes?.toLowerCase().includes(q) ||
+        (entry.tags && entry.tags.some(tag => tag.toLowerCase().includes(q)))
+      );
+    }
+    return entries;
+  }, [data?.entries, activeFilter, searchQuery]);
   
   // Parse date consistently to avoid timezone issues
   const parseDateFromParam = (dateStr: string) => {
@@ -233,6 +244,8 @@ export default function DayLayout() {
           formattedDate={getFormattedTimelineDate(day ? parseDateFromParam(day) : undefined)}
           activeFilter={activeFilter}
           onFilterChange={setActiveFilter}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
         />
         <div className="flex flex-1 min-h-0">
           {/* Timeline section - Will grow to fill available space */}
