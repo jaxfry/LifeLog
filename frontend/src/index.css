@@ -1,38 +1,223 @@
 @import "tailwindcss";   /* v4 entry */
 
+/* Import Design System Tokens */
+@import './styles/design-tokens.css';
+@import './styles/fix-styles.css';
+
 :root {
   /* Light-mode defaults */
-  color-scheme: light dark;
-  color: #213547;
-  background-color: #ffffff;
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  color-scheme: dark light;
+  color: var(--text-primary);
+  background-color: var(--background-primary);
+  font-family: var(--font-ui);
+  line-height: 1.6;
+
+  /* Update the default border color */
+  --border-color: var(--border-default);
+}
+
+html {
+  height: 100%;
+  overflow: hidden; /* Prevent page-level scrolling */
 }
 
 body {
   margin: 0;
+  padding: 0;
   min-width: 320px;
-  min-height: 100vh;
-  background-color: inherit;
-  color: inherit;
+  height: 100vh;
+  overflow: hidden; /* Prevent page-level scrolling */
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--type-body-weight);
+  font-feature-settings: 'cv11', 'cv02', 'cv03', 'cv04'; /* Inter font features */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Constrain the root React app container */
+#root {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Apply the border color globally */
+* {
+  border-color: var(--border-color);
+}
+
+/* Typography System - Midnight Momentum */
+h1, .text-heading-1, .type-h1 {
+  font-family: var(--type-h1-family);
+  font-size: var(--type-h1-size);
+  line-height: var(--type-h1-line);
+  font-weight: var(--type-h1-weight);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+h2, .text-heading-2, .type-h2 {
+  font-family: var(--type-h2-family);
+  font-size: var(--type-h2-size);
+  line-height: var(--type-h2-line);
+  font-weight: var(--type-h2-weight);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.015em;
+}
+
+h3, .text-heading-3, .type-h3 {
+  font-family: var(--type-h3-family);
+  font-size: var(--type-h3-size);
+  line-height: var(--type-h3-line);
+  font-weight: var(--type-h3-weight);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+h4, .text-heading-4 {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-xl);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+p, .text-body, .type-body {
+  font-family: var(--type-body-family);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--type-body-weight);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.text-body-large {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
+  font-weight: var(--font-weight-normal);
+  font-family: var(--font-ui);
+}
+
+.text-body-small {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-normal);
+  font-family: var(--font-ui);
+}
+
+.text-caption, .type-caption {
+  font-family: var(--type-caption-family);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--type-caption-weight);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Monospace for timestamps and numbers */
+.font-mono, .text-mono {
+  font-family: var(--font-mono);
+}
+
+/* Special emphasis for display text */
+.text-display {
+  font-family: var(--font-display);
+}
+
+/* Link Styles */
 a {
-  font-weight: 500;
-  color: #646cff;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-link);
   text-decoration: none;
-}
-a:hover {
-  color: #535bf2;
+  transition: color var(--transition-duration-fast) ease-in-out;
 }
 
-/* Dark-mode overrides */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: rgba(255, 255, 255, 0.87);
-    background-color: #242424;
+a:hover {
+  color: var(--text-link-hover);
+  text-decoration: underline;
+}
+
+/* Focus Styles - Midnight Momentum */
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--border-radius-sm);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: var(--spacing-2); /* 8px */
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-tertiary); /* Using design token */
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300); /* Or a semantic token like --interactive-secondary */
+  border-radius: var(--border-radius-lg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400); /* Or a semantic token */
+}
+
+/* Hide scrollbar but keep scrolling ability */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none !important; /* Ensure this overrides other scrollbar styles */
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+/* Selection Styling */
+::selection {
+  background-color: var(--color-primary-200); /* Consider a semantic token if available */
+  color: var(--color-primary-900); /* Consider a semantic token if available */
+}
+
+/* Dark Mode Support - Relies on design-tokens.css for dark mode variables */
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  a:hover {
-    color: #747bff;
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  *,
+  *::before,
+  *::after {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
 }

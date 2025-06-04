@@ -9,17 +9,17 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Dict
 
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError # Import specific error
-
 import polars as pl
 from google import genai
-from google.genai import types as genai_types
 from google.auth.exceptions import DefaultCredentialsError 
+from google.genai import types as genai_types
 from pydantic import BaseModel, Field, PositiveInt, field_validator, model_validator
 from sentence_transformers import SentenceTransformer
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError # Import specific error
 
 from LifeLog.config import Settings
 from LifeLog.enrichment.timeline_generator import EnrichedTimelineEntry 
+from LifeLog.prompts import DAILY_SUMMARY_JSON_SCHEMA, DAILY_SUMMARY_SYSTEM_PROMPT # Added import
 
 log = logging.getLogger(__name__)
 
@@ -157,48 +157,14 @@ def _format_groups_for_llm_prompt(
 # --- Gemini Prompt & Call ---
 # (_build_summary_prompt remains the same)
 def _build_summary_prompt(day_iso: str, pre_grouped_markdown: str, settings: Settings) -> str:
-    json_schema_for_prompt = """
-{
-  "blocks": [ { "start_time": "HH:MM", "end_time": "HH:MM", "label": "string", "project": "string | null", "activity": "string", "summary": "string", "tags": ["string"] } ],
-  "day_summary": "string",
-  "stats": { "total_active_time_min": "integer", "focus_time_min": "integer", "number_blocks": "integer", "top_project": "string | null", "top_activity": "string | null" }
-}"""
+    json_schema_for_prompt = DAILY_SUMMARY_JSON_SCHEMA
     time_context = f"(times in table are {settings.local_tz if settings.local_tz else 'UTC'})"
-    prompt = f"""
-You are an expert life-logging summarizer tasked with creating a semantic daily summary for {day_iso}.
-Analyze the provided Markdown table of pre-grouped, time-ordered activity segments {time_context}.
-Your goal is to further consolidate these segments into meaningful, high-level "activity blocks" and provide overall statistics and a narrative summary for the day.
-
-Input Table Columns: 'start_local_or_utc', 'end_local_or_utc', 'project', 'activity', 'condensed_notes'.
-
-Output Requirement: Respond ONLY with a single, valid JSON object strictly adhering to the following schema. Do NOT include any markdown formatting, comments, or explanatory text outside the JSON structure itself.
-
-JSON Schema to follow:
-```json
-{json_schema_for_prompt}
-```
-
-Key Instructions for Generating the JSON:
-1.  Block Consolidation ("blocks"): Review input table. Merge consecutive rows representing a single coherent user task. Determine overall 'start_time' and 'end_time' for each block.
-    'label': Concise, e.g., "Project X · Coding".
-    'project': Primary project or null.
-    'activity': Primary activity, e.g., "Developing feature Y".
-    'summary': 1-2 sentence summary.
-    'tags': 2-5 relevant keyword tags.
-2.  Day Narrative ("day_summary"): 2-3 sentence overview of the day.
-3.  Statistics ("stats"):
-    'total_active_time_min': Sum of durations (end_time - start_time) for ALL generated blocks, in minutes.
-    'focus_time_min': Estimate of focused work time from blocks, in minutes.
-    'number_blocks': Total count of 'blocks' array.
-    'top_project': Project with most time. Null if none.
-    'top_activity': General activity type most prominent by duration. Null if none.
-Strict Adherence: Times in "HH:MM". Durations for stats as integer minutes. Output ONLY JSON.
-
-Pre-grouped Activity Segments for {day_iso}:
-{pre_grouped_markdown}
-
-JSON Output:
-"""
+    prompt = DAILY_SUMMARY_SYSTEM_PROMPT.format(
+        day_iso=day_iso,
+        time_context=time_context,
+        json_schema_for_prompt=json_schema_for_prompt,
+        pre_grouped_markdown=pre_grouped_markdown
+    )
     return prompt.strip()
 
 
