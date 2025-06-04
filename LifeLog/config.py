@@ -6,13 +6,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # --- Core Paths ---
-    raw_dir: Path = Path("storage/raw/activitywatch")
-    curated_dir: Path = Path("storage/curated/timeline")
-    summary_dir: Path = Path("storage/summary/daily")
+    raw_dir: Path = Path("LifeLog/storage/raw/activitywatch")
+    curated_dir: Path = Path("LifeLog/storage/curated/timeline")
+    summary_dir: Path = Path("LifeLog/storage/summary/daily")
     assets_dir: Path = Path("LifeLog/assets")
-    enriched_cache_dir: Path = Path("storage/cache/enrichment_llm_responses")
+    enriched_cache_dir: Path = Path("LifeLog/storage/cache/enrichment_llm_responses")
     # NEW: Cache for summary LLM responses
-    summary_llm_cache_dir: Path = Path("storage/cache/summary_llm_responses")
+    summary_llm_cache_dir: Path = Path("LifeLog/storage/cache/summary_llm_responses")
 
 
     # --- ActivityWatch Ingestion Specific Settings ---
