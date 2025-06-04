@@ -7,6 +7,7 @@ export interface TimelineEntry {
   summary: string;
   tags: string[];
   project?: string | null;
+  notes?: string; // Optional field for user-provided notes
 }
 
 export interface DailySummary {

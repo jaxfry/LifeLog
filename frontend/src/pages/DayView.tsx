@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDayData } from "../hooks/useDayData";
-import SummaryPanel from "../components/SummaryPanel";
 import Timeline from "../components/Timeline";
+import SummaryPanel from "../components/SummaryPanel";
+import { Input } from "../components/ui";
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Main component                                                           */
@@ -63,50 +64,83 @@ export default function DayView() {
 
   /* ----- main layout ----------------------------------------------------- */
   return (
-    <div className="h-screen w-full bg-gray-50 text-gray-900 overflow-hidden">
-      <div className="flex h-full">
-        {/* ───────── Sidebar ─────────────────────────────────────────────── */}
-        <aside className="w-full max-w-md p-6 border-r overflow-y-auto bg-white shadow-lg space-y-6">
-          {/* Date picker */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Select date</label>
-            <input
-              type="date"
-              value={day}
-              onChange={handleDateChange}
-              className="w-full px-3 py-2 border rounded-md text-sm"
-            />
-          </div>
-
-          {/* Tag filters */}
-          <div>
-            <h2 className="text-sm font-medium mb-2">Filter by tag</h2>
-            <div className="flex flex-wrap gap-2">
+    <div className="h-screen w-full bg-surface-secondary text-primary overflow-hidden">
+      <div className="flex flex-col h-full">
+        {/* Top bar with tags and search */}
+        <header className="flex items-center justify-between p-4 bg-surface-primary shadow-sm">
+          <nav aria-label="Filter activities by tags">
+            <div className="flex flex-wrap gap-2" role="group">
               {tagOptions.map((tag) => (
                 <button
                   key={tag}
                   onClick={() => setActiveTag(tag)}
-                  className={`px-3 py-1 rounded-full text-sm border focus:outline-none ${
+                  className={`px-3 py-1 rounded-full text-sm border focus:outline-none transition-colors focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
                     activeTag === tag
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "text-gray-600 bg-gray-100 border-gray-300 hover:bg-gray-200"
+                      ? "bg-primary-600 text-on-primary border-primary-600"
+                      : "text-on-surface-dark bg-surface-primary border-surface-light hover:bg-surface-secondary"
                   }`}
+                  aria-pressed={activeTag === tag}
+                  aria-label={`Filter by ${tag} activities`}
                 >
                   {tag}
                 </button>
               ))}
             </div>
-          </div>
+          </nav>
+        </header>
 
-          {/* Summary */}
-          <SummaryPanel summary={data.summary} />
-        </aside>
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <aside 
+            className="w-full max-w-md p-6 border-r border-light overflow-y-auto bg-surface-primary shadow-sm space-y-6"
+            aria-label="Day information and summary"
+          >
+            {/* Date picker */}
+            <section>
+              <label className="block text-sm font-medium mb-1 text-primary" htmlFor="date-picker">
+                Select date
+              </label>
+              <Input
+                id="date-picker"
+                type="date"
+                value={day}
+                onChange={handleDateChange}
+                className="w-full px-3 py-2 border rounded-md text-sm"
+                aria-describedby="date-picker-help"
+              />
+              <p id="date-picker-help" className="sr-only">
+                Change the date to view activities for a different day
+              </p>
+            </section>
 
-        {/* ───────── Timeline column ─────────────────────────────────────── */}
-        <main className="flex-1 p-6 overflow-y-auto">
-            {}
-          <Timeline entries={sortedEntries} />
-        </main>
+            {/* Daily Summary */}
+            {data?.summary && <SummaryPanel summary={data.summary} />}
+          </aside>
+
+          {/* Timeline column */}
+          <main className="flex-1 p-6 overflow-y-auto" role="main" aria-label="Daily timeline">
+            <header className="text-center mb-6">
+              <h1 className="text-2xl font-bold text-primary">
+                Daily Timeline
+              </h1>
+              <p className="text-sm text-secondary mt-2">
+                {sortedEntries.length} activities on {new Date(day).toLocaleDateString()}
+              </p>
+            </header>
+            
+            <Timeline
+              entries={sortedEntries.map((entry) => ({
+                ...entry,
+                color:
+                  entry.tags?.includes("Work")
+                    ? "bg-success-500"
+                    : entry.tags?.includes("Break")
+                    ? "bg-warning-500"
+                    : "bg-surface-light",
+              }))}
+            />
+          </main>
+        </div>
       </div>
     </div>
   );
@@ -117,8 +151,8 @@ export default function DayView() {
 /* ────────────────────────────────────────────────────────────────────────── */
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <p className="text-gray-500">{children}</p>
+    <div className="min-h-screen flex items-center justify-center bg-surface-secondary">
+      <p className="text-secondary">{children}</p>
     </div>
   );
 }
@@ -129,16 +163,16 @@ function EmptyState(props: {
   action: () => void;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white shadow rounded-xl p-8 space-y-6 text-center">
-        <p className="text-gray-600">{props.message}</p>
+    <main className="min-h-screen flex items-center justify-center bg-surface-secondary" role="main">
+      <div className="bg-surface-primary shadow-md rounded-xl p-8 space-y-6 text-center max-w-md">
+        <p className="text-secondary">{props.message}</p>
         <button
           onClick={props.action}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-primary-600 text-on-primary rounded-lg hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
         >
           {props.actionLabel}
         </button>
       </div>
-    </div>
+    </main>
   );
 }

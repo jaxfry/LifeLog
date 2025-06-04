@@ -1,0 +1,100 @@
+/**
+ * Additional CSS Styles for Fixing UI Issues
+ * This file contains CSS fixes for UI rendering problems
+ */
+
+/* Additional semantic token mappings */
+.text-on-surface-variant { color: var(--text-secondary); }
+.text-on-surface-dark { color: var(--text-primary); }
+.text-on-surface { color: var(--text-primary); }
+.text-on-surface-light { color: var(--text-tertiary); }  /* Add this missing class */
+.text-on-primary { color: var(--color-neutral-0); }
+.text-on-error { color: var(--color-neutral-0); }
+.text-on-success { color: var(--color-neutral-0); }
+.text-on-warning { color: var(--color-neutral-0); }
+
+.bg-surface-primary { background-color: var(--surface-primary); }
+.bg-surface-secondary { background-color: var(--surface-secondary); }
+.bg-surface-light { background-color: var(--surface-secondary); }
+.bg-surface-dark { background-color: var(--surface-tertiary); }
+
+.border-outline { border-color: var(--border-default); }
+.border-outline-light { border-color: var(--border-light); }
+.border-surface-light { border-color: var(--border-light); }
+
+/* Timeline component fixes */
+.timeline-gradient {
+  background: linear-gradient(to bottom, 
+    var(--background-primary), 
+    var(--background-secondary), 
+    var(--background-primary)
+  );
+}
+
+/* Activity card fixes */
+.activity-card {
+  background-color: var(--surface-secondary);
+  border-color: var(--border-light);
+}
+
+/* Elegant Timeline specific styles */
+.timeline-elegant {
+  /* Use theme-aware background */
+  background: linear-gradient(to bottom, 
+    var(--background-primary), 
+    var(--background-secondary),
+    var(--background-primary)
+  );
+}
+
+.timeline-elegant .timeline-card {
+  /* Theme-aware glassmorphism effect */
+  background: var(--surface-secondary);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-card);
+}
+
+/* Enhanced spine glow effect - theme aware */
+.timeline-spine {
+  background: linear-gradient(to bottom, 
+    transparent 0%,
+    var(--interactive-primary) 20%,
+    var(--interactive-primary) 80%,
+    transparent 100%
+  );
+  opacity: 0.5;
+}
+
+/* Calendar specific fixes */
+.calendar-button {
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.calendar-button:hover {
+  background-color: var(--surface-tertiary);
+  color: var(--text-primary);
+}
+
+.calendar-day-active {
+  background-color: var(--calendar-day-active) !important;
+  color: var(--color-neutral-0) !important;
+  font-weight: 500;
+}
+
+.calendar-day-inactive:hover {
+  background-color: var(--calendar-day-hover);
+  color: var(--text-primary);
+}
+
+/* Navigation buttons styling */
+.nav-button {
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.nav-button:hover {
+  background-color: var(--surface-tertiary);
+  color: var(--text-primary);
+}
