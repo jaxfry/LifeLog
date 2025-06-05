@@ -84,9 +84,11 @@ class ProjectResolver:
         notes_text: Optional[str],
         start: datetime,
     ) -> Optional[str]:
+        # Only assign a project if there is a strong, explicit signal
         text = activity_text + (" " + notes_text if notes_text else "")
         vec = self.memory.vectorize(text)
 
+        # 1. Explicit project name provided
         if project_name:
             canonical = self.project_aliases.get(project_name.lower(), project_name)
             self.memory.update(canonical, vec)
@@ -95,13 +97,7 @@ class ProjectResolver:
             self.last_confidence = 1.0
             return canonical
 
-        if self.last_project and self.last_end:
-            gap = (start - self.last_end).total_seconds()
-            if gap <= self.continuity_gap_s and self.last_confidence >= self.threshold:
-                self.memory.update(self.last_project, vec)
-                self.last_end = start
-                return self.last_project
-
+        # 2. Alias found in text
         lowered = text.lower()
         for alias, canonical in self.project_aliases.items():
             if alias.lower() in lowered:
@@ -111,6 +107,7 @@ class ProjectResolver:
                 self.last_confidence = 1.0
                 return canonical
 
+        # 3. Strong match in memory
         name, score = self.memory.best_match(vec)
         if name and score >= self.threshold:
             self.memory.update(name, vec)
@@ -119,9 +116,8 @@ class ProjectResolver:
             self.last_confidence = score
             return name
 
-        new_name = f"Inferred-{hashlib.sha1(text.encode()).hexdigest()[:8]}"
-        self.memory.update(new_name, vec)
-        self.last_project = new_name
+        # Otherwise, do not assign a project (no fallback to inferred)
+        self.last_project = None
         self.last_end = start
-        self.last_confidence = 0.5
-        return new_name
+        self.last_confidence = 0.0
+        return None

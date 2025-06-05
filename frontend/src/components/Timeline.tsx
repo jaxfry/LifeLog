@@ -110,6 +110,13 @@ function TimelineCard({ entry, spring, reduceMotion }: TimelineCardProps) {
           <Clock className="mr-2 h-4 w-4 flex-shrink-0 opacity-80" />
           <time dateTime={start.toISOString()}>{timeRange}</time>
         </div>
+
+        {/* Project title bottom right */}
+        {entry.project && (
+          <span className="absolute bottom-3 right-4 text-xs text-secondary italic opacity-80 select-none pointer-events-none">
+            - {entry.project}
+          </span>
+        )}
       </motion.div>
     </motion.article>
   );
