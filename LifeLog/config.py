@@ -4,15 +4,17 @@ from pathlib import Path
 from typing import List, Dict, Literal, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+project_root = Path(__file__).resolve().parents[1]
+
 class Settings(BaseSettings):
     # --- Core Paths ---
-    raw_dir: Path = Path("LifeLog/storage/raw/activitywatch")
-    curated_dir: Path = Path("LifeLog/storage/curated/timeline")
-    summary_dir: Path = Path("LifeLog/storage/summary/daily")
-    assets_dir: Path = Path("LifeLog/assets")
-    enriched_cache_dir: Path = Path("LifeLog/storage/cache/enrichment_llm_responses")
+    raw_dir: Path = project_root / "LifeLog/storage/raw/activitywatch"
+    curated_dir: Path = project_root / "LifeLog/storage/curated/timeline"
+    summary_dir: Path = project_root / "LifeLog/storage/summary/daily"
+    assets_dir: Path = project_root / "LifeLog/assets"
+    enriched_cache_dir: Path = project_root / "LifeLog/storage/cache/enrichment_llm_responses"
     # NEW: Cache for summary LLM responses
-    summary_llm_cache_dir: Path = Path("LifeLog/storage/cache/summary_llm_responses")
+    summary_llm_cache_dir: Path = project_root / "LifeLog/storage/cache/summary_llm_responses"
 
 
     # --- ActivityWatch Ingestion Specific Settings ---
@@ -42,7 +44,7 @@ class Settings(BaseSettings):
         "lifelog": "LifeLog Development",
         "ll": "LifeLog Development",
     }
-    project_memory_path: Path = Path("LifeLog/storage/project_memory.json")
+    project_memory_path: Path = project_root / "LifeLog/storage/project_memory.json"
     project_similarity_threshold: float = 0.6
     project_continuity_gap_s: int = 1800
     enrichment_enable_post_merge: bool = True
