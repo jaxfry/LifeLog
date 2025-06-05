@@ -1,6 +1,7 @@
 import json
 from LifeLog.models import TimelineEntry
 
+
 def test_parse_contract_example():
     sample = json.loads(
         """
