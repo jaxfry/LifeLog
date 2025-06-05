@@ -12,6 +12,23 @@ from typing import Any, Sequence, Literal
 
 import polars as pl
 from aw_client import ActivityWatchClient
+
+# ---------------------------------------------------------------------------
+# Test helpers
+# ---------------------------------------------------------------------------
+def _flatten(events: list[dict]) -> pl.DataFrame:
+    """Simpler JSON-based flattening used in unit tests."""
+    rows = []
+    for e in events:
+        data = e.get("data", {})
+        rows.append({
+            "timestamp": e.get("timestamp"),
+            "duration": e.get("duration"),
+            "app": data.get("app"),
+            "title": data.get("title"),
+            "url": data.get("url"),
+        })
+    return pl.from_dicts(rows)
 from aw_core.models import Event as AWEvent
 from zoneinfo import ZoneInfo
 

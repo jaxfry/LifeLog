@@ -37,12 +37,15 @@ class Settings(BaseSettings):
     enrichment_force_processing_all: bool = False 
     enrichment_llm_temperature: float = 0.3 
     enrichment_llm_retries: int = 3
-    enrichment_llm_retry_delay_base_s: int = 2 
+    enrichment_llm_retry_delay_base_s: int = 2
     project_aliases: Dict[str, str] = {
         "lifelog": "LifeLog Development",
         "ll": "LifeLog Development",
     }
-    enrichment_enable_post_merge: bool = True 
+    project_memory_path: Path = Path("LifeLog/storage/project_memory.json")
+    project_similarity_threshold: float = 0.6
+    project_continuity_gap_s: int = 1800
+    enrichment_enable_post_merge: bool = True
     enrichment_merge_gap_s: int = 90 
 
     # --- Daily Summary Generation Settings (NEW) ---

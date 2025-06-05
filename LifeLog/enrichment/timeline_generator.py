@@ -22,6 +22,7 @@ if str(_project_root) not in sys.path:
 
 from LifeLog.config import Settings
 from LifeLog.prompts import TIMELINE_ENRICHMENT_SYSTEM_PROMPT # Added import
+from LifeLog.enrichment.project_classifier import ProjectResolver
 
 log = logging.getLogger(__name__)
 
@@ -84,26 +85,6 @@ class TimelineResponse(RootModel[List[EnrichedTimelineEntry]]):
     def __len__(self):
         return len(self.root)
 
-class ProjectResolver:
-    def __init__(self, settings: Settings):
-        self.settings = settings
-        self.project_aliases: Dict[str, str] = settings.project_aliases or {}
-
-    def resolve(self, project_name: Optional[str], activity_text: str, notes_text: Optional[str]) -> Optional[str]:
-        if project_name:
-            norm_project_name = project_name.lower()
-            for alias, canonical_name in self.project_aliases.items():
-                if alias.lower() == norm_project_name:
-                    return canonical_name
-            return project_name # Return original if no alias found
-        
-        combined_text = activity_text.lower() + (notes_text.lower() if notes_text else "")
-        for keyword, canonical_name in self.project_aliases.items():
-             if keyword.lower() in combined_text:
-                 return canonical_name
-        return None
-
-# --- Core Logic ---
 
 # Helper to get local timezone
 def _get_local_tz(settings: Settings) -> ZoneInfo:
@@ -371,7 +352,7 @@ def _post_process_entries(day: date, entries: List[EnrichedTimelineEntry], setti
     entries.sort(key=lambda e: e.start)
     project_resolver = ProjectResolver(settings)
     for entry in entries:
-        entry.project = project_resolver.resolve(entry.project, entry.activity, entry.notes)
+        entry.project = project_resolver.resolve(entry.project, entry.activity, entry.notes, entry.start)
     if not settings.enrichment_enable_post_merge: return entries
     merged_entries: List[EnrichedTimelineEntry] = []
     for current_entry in entries:
