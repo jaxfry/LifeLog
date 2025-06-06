@@ -369,6 +369,56 @@ def _post_process_entries(day: date, entries: List[EnrichedTimelineEntry], setti
     log.info(f"Post-processing for {day}: {len(entries)} initial -> {len(merged_entries)} merged entries.")
     return merged_entries
 
+
+def _ensure_day_boundaries(
+    day: date,
+    entries: List[EnrichedTimelineEntry],
+    settings: Settings,
+) -> List[EnrichedTimelineEntry]:
+    """Ensure timeline covers the full local day by filling leading/trailing gaps."""
+    tz = _get_local_tz(settings)
+    day_start_utc = datetime.combine(day, time.min, tzinfo=tz).astimezone(timezone.utc)
+    day_end_utc = (datetime.combine(day, time.min, tzinfo=tz) + timedelta(days=1)).astimezone(timezone.utc)
+
+    if not entries:
+        return [
+            EnrichedTimelineEntry(
+                start=day_start_utc,
+                end=day_end_utc,
+                activity="Idle / Away",
+                project=None,
+                notes="Device was idle or user was away all day.",
+            )
+        ]
+
+    entries.sort(key=lambda e: e.start)
+    first = entries[0]
+    if first.start > day_start_utc:
+        entries.insert(
+            0,
+            EnrichedTimelineEntry(
+                start=day_start_utc,
+                end=first.start,
+                activity="Idle / Away",
+                project=None,
+                notes="Device was idle or user was away at start of day.",
+            ),
+        )
+
+    last = entries[-1]
+    if last.end < day_end_utc:
+        entries.append(
+            EnrichedTimelineEntry(
+                start=last.end,
+                end=day_end_utc,
+                activity="Idle / Away",
+                project=None,
+                notes="Device was idle or user was away until the end of the day.",
+            )
+        )
+
+    return entries
+
 def run_enrichment_for_day(day: date, settings: Settings) -> Path | None:
     log.info(f"Starting enrichment process for day: {day.isoformat()}")
     output_file_path = settings.curated_dir / f"{day}.parquet"
@@ -453,7 +503,9 @@ def run_enrichment_for_day(day: date, settings: Settings) -> Path | None:
 
         # --- END ADDITION ---
 
-        if not final_entries: # Check again after potential addition
+        final_entries = _ensure_day_boundaries(day, final_entries, settings)
+
+        if not final_entries:
             log.warning(f"No entries after post-processing and trailing AFK check for {day}. Writing empty Parquet.")
             # Define schema for empty DataFrame based on EnrichedTimelineEntry fields
             empty_schema = {
