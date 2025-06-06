@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+polars
+pydantic
+pydantic-settings
+python-dotenv
+scikit-learn
+aw-client
+aw-core
+google-generativeai

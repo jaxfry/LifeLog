@@ -66,6 +66,11 @@ docs/                       # Documentation including design system
 For AI assistants and developers who want to work on LifeLog without setting up ActivityWatch, the project includes a comprehensive test data system:
 
 ```bash
+./tools/setup_env.sh    # installs deps and copies the sample data
+```
+
+Or copy the files manually:
+```bash
 # Copy sample test data to storage directories
 python -m LifeLog.cli setup-test-data
 ```

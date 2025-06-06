@@ -89,7 +89,13 @@ To get LifeLog up and running, follow these general steps:
     cd <repository_directory>
     ```
 
-2.  **Set up Python Environment (for `LifeLog/` CLI and `backend/` API):**
+2.  **Run the Setup Script (optional):**
+    ```bash
+    ./tools/setup_env.sh
+    ```
+    This installs Python and Node dependencies, creates `.venv`, and populates the sample test data.
+
+3.  **Set up Python Environment (for `LifeLog/` CLI and `backend/` API):**
     *   It's recommended to use a virtual environment (e.g., `venv` or `conda`).
     *   Create and activate a virtual environment:
         ```bash
@@ -103,7 +109,7 @@ To get LifeLog up and running, follow these general steps:
         ```
         *(Note: You might need separate `requirements.txt` files for `LifeLog/` and `backend/` or a combined one in the root.)*
 
-3.  **Set up Node.js Environment (for `frontend/`):**
+4.  **Set up Node.js Environment (for `frontend/`):**
     *   Navigate to the `frontend` directory:
         ```bash
         cd frontend
@@ -118,18 +124,18 @@ To get LifeLog up and running, follow these general steps:
         cd ..
         ```
 
-4.  **Configure Environment Variables:**
+5.  **Configure Environment Variables:**
     *   Create a `.env` file in the project root directory by copying the example if one is provided (e.g., `cp .env.example .env`).
     *   Edit the `.env` file to include necessary configurations:
         *   `LIFELOG_OPENAI_API_KEY` or `LIFELOG_GEMINI_API_KEY`: Your API key for the LLM provider. (The specific variable name might depend on `config.py`)
         *   Paths for data storage (if you want to override defaults from `LifeLog/config.py`).
         *   Any other settings required by `LifeLog/config.py`.
 
-5.  **Prepare ActivityWatch (Data Source):**
+6.  **Prepare ActivityWatch (Data Source):**
     *   Ensure ActivityWatch is installed and running.
     *   Configure `aw-watcher-window`, `aw-watcher-afk`, and potentially `aw-watcher-web-*` if you use supported browsers (like Arc).
 
-6.  **Use the Sample Test Day (Optional):**
+7.  **Use the Sample Test Day (Optional):**
     *   If you want to run the API and UI without ActivityWatch, populate the storage directories with the included test data:
         ```bash
         lifelog setup-test-data
@@ -137,7 +143,7 @@ To get LifeLog up and running, follow these general steps:
     *   This copies `tests/testdata/2025-05-22.parquet` and a small summary file into `LifeLog/storage/curated/timeline/` and `LifeLog/storage/summary/daily/`.
     *   The customizable dashboard includes a quick link to this date so you can explore the interface immediately.
 
-7.  **Run Backend Server:**
+8.  **Run Backend Server:**
     *   Navigate to the `backend` directory (if not already there for pip install).
     *   Start the FastAPI server (typically using Uvicorn):
         ```bash
