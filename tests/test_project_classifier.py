@@ -11,13 +11,17 @@ def test_similarity_and_continuity(tmp_path):
     resolver = ProjectResolver(settings)
 
     t1 = datetime.now(timezone.utc)
-    name1 = resolver.resolve(None, "Work on cool app", "initial commit", t1)
-    assert name1.startswith("Inferred-")
+    # Provide an explicit project name to seed the resolver's memory
+    name1 = resolver.resolve("CoolProject", "Work on cool app", "initial commit", t1)
+    assert name1 == "CoolProject"
 
     t2 = t1 + timedelta(minutes=5)
+    # Subsequent similar activity without an explicit project should
+    # be resolved to the previously known project based on text similarity
     name2 = resolver.resolve(None, "continue working on cool application", None, t2)
-    assert name2 == name1
+    assert name2 == "CoolProject"
 
     t3 = t2 + timedelta(minutes=40)
+    # Unrelated text after a long gap should not be associated with the project
     name3 = resolver.resolve(None, "random unrelated task", None, t3)
-    assert name3 != name1
+    assert name3 is None

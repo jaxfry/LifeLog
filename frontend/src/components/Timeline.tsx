@@ -9,7 +9,7 @@ import type { TimelineEntry } from "../types";
 
 interface SegmentHeaderProps {
   label: string;
-  spring: any;
+  spring: Record<string, unknown>;
 }
 
 function SegmentHeader({ label, spring }: SegmentHeaderProps) {
@@ -28,7 +28,7 @@ function SegmentHeader({ label, spring }: SegmentHeaderProps) {
 
 interface TimelineCardProps {
   entry: TimelineEntry;
-  spring: any;
+  spring: Record<string, unknown>;
   reduceMotion: boolean;
 }
 
