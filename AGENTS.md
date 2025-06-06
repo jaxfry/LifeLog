@@ -60,6 +60,49 @@ docs/                       # Documentation including design system
 - **Testing**: pytest for Python, frontend testing setup available
 - **Version Control**: Git with comprehensive .gitignore
 
+## 🚀 Quick Development Setup
+
+### Using Test Data (No ActivityWatch Required)
+For AI assistants and developers who want to work on LifeLog without setting up ActivityWatch, the project includes a comprehensive test data system:
+
+```bash
+# Copy sample test data to storage directories
+python -m LifeLog.cli setup-test-data
+```
+
+This command copies bundled test files:
+- `tests/testdata/2025-05-22.parquet` → `LifeLog/storage/curated/timeline/`
+- `tests/testdata/2025-05-22.json` → `LifeLog/storage/summary/daily/`
+
+**Key Features:**
+- **CLI Command**: `setup-test-data` subcommand for easy test data setup
+- **Auto-Setup**: Set `LIFELOG_SETUP_TEST_DATA=1` environment variable to auto-copy test data when backend starts
+- **Frontend Integration**: The frontend automatically redirects to the test date (2025-05-22) for immediate UI exploration
+- **Standalone Utility**: `tools/setup_test_data.py` can be run directly or imported by other components
+
+**Test Data Structure:**
+```json
+{
+  "date": "2025-05-22",
+  "blocks": [],
+  "day_summary": "Sample data for UI testing without ActivityWatch.",
+  "stats": {
+    "total_active_time_min": 0,
+    "focus_time_min": 0,
+    "number_blocks": 0,
+    "top_project": "",
+    "top_activity": ""
+  },
+  "version": 2
+}
+```
+
+**When to Use Test Data:**
+- Developing frontend features without ActivityWatch dependency
+- Testing the full application stack quickly
+- Demonstrating LifeLog functionality to new users
+- Creating consistent development environments
+
 ## 📝 Coding Conventions
 
 ### Python Code Standards
@@ -194,6 +237,32 @@ pytest -k "test_filtering"
 - Parametrize tests when testing multiple scenarios
 - Mock external dependencies (LLM calls, file system)
 - Test both success and error cases
+
+### Test Data Management
+The project includes a robust test data system for development and testing:
+
+```bash
+# Set up test data for development
+python -m LifeLog.cli setup-test-data
+
+# Run setup script directly
+python tools/setup_test_data.py
+
+# Auto-setup via environment variable
+export LIFELOG_SETUP_TEST_DATA=1
+# Backend will auto-copy test data on startup
+```
+
+**Test Data Files:**
+- `tests/testdata/2025-05-22.parquet`: Sample timeline data in Parquet format
+- `tests/testdata/2025-05-22.json`: Sample daily summary JSON
+- Date chosen (2025-05-22) aligns with frontend's default redirect
+
+**Integration Points:**
+- CLI includes `setup-test-data` subcommand
+- Backend can auto-setup via `LIFELOG_SETUP_TEST_DATA` environment variable
+- Frontend redirects to test date for immediate functionality demonstration
+- Utility script handles missing files gracefully with placeholder generation
 
 ### Frontend Testing
 ```bash
