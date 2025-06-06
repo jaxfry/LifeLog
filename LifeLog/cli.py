@@ -38,6 +38,17 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", title="Available Commands", required=True)
 
+    # --- Setup Test Data Subcommand ---
+    parser_testdata = subparsers.add_parser(
+        "setup-test-data",
+        help="Copy bundled test day into the storage directories."
+    )
+    def handle_setup_testdata(args_ns, current_settings: Settings):
+        from tools.setup_test_data import copy_test_files
+        copy_test_files()
+        log.info("Test data copied.")
+    parser_testdata.set_defaults(func=handle_setup_testdata)
+
     # --- Ingest Subcommand ---
     parser_ingest = subparsers.add_parser("ingest", help="Ingest data from sources.")
     ingest_subparsers = parser_ingest.add_subparsers(dest="source", title="Ingestion Sources", required=True)
