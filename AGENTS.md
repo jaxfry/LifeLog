@@ -77,7 +77,7 @@ This command copies bundled test files:
 **Key Features:**
 - **CLI Command**: `setup-test-data` subcommand for easy test data setup
 - **Auto-Setup**: Set `LIFELOG_SETUP_TEST_DATA=1` environment variable to auto-copy test data when backend starts
-- **Frontend Integration**: The dashboard includes a quick link to the test date (2025-05-22) for immediate UI exploration
+- **Frontend Integration**: The customizable dashboard includes a quick link to the test date (2025-05-22) for immediate UI exploration
 - **Standalone Utility**: `tools/setup_test_data.py` can be run directly or imported by other components
 
 **Test Data Structure:**
@@ -256,12 +256,12 @@ export LIFELOG_SETUP_TEST_DATA=1
 **Test Data Files:**
 - `tests/testdata/2025-05-22.parquet`: Sample timeline data in Parquet format
 - `tests/testdata/2025-05-22.json`: Sample daily summary JSON
-- Date chosen (2025-05-22) is referenced by the dashboard's quick link
+- Date chosen (2025-05-22) is referenced by the customizable dashboard's quick link
 
 **Integration Points:**
 - CLI includes `setup-test-data` subcommand
 - Backend can auto-setup via `LIFELOG_SETUP_TEST_DATA` environment variable
-- Frontend dashboard offers a quick link to the test date for immediate functionality demonstration
+- Frontend dashboard offers a quick link to the test date and lets users reorder widgets for immediate functionality demonstration
 - Utility script handles missing files gracefully with placeholder generation
 
 ### Frontend Testing
