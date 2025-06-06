@@ -44,7 +44,6 @@ export function Button({
   className,
   variant,
   size,
-  asChild = false,
   ...props
 }: ButtonProps) {
   return (
@@ -226,8 +225,7 @@ Input.displayName = "Input";
 /*  Label Component                                                          */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-export interface LabelProps
-  extends React.LabelHTMLAttributes<HTMLLabelElement> {}
+export type LabelProps = React.LabelHTMLAttributes<HTMLLabelElement>;
 
 export const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
   ({ className, ...props }, ref) => (
