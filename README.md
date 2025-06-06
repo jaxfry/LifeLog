@@ -132,7 +132,7 @@ To get LifeLog up and running, follow these general steps:
 6.  **Use the Sample Test Day (Optional):**
     *   If you want to run the API and UI without ActivityWatch, populate the storage directories with the included test data:
         ```bash
-        python scripts/setup_test_data.py
+        lifelog setup-test-data
         ```
     *   This copies `tests/testdata/2025-05-22.parquet` and a small summary file into `LifeLog/storage/curated/timeline/` and `LifeLog/storage/summary/daily/`.
     *   The frontend's home page redirects to this date, allowing you to explore the interface immediately.
