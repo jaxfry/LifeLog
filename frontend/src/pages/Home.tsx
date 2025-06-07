@@ -5,6 +5,7 @@ import {
   ThemeWidget,
   StatsWidget,
   RecentDaysWidget,
+  AIInsightsWidget,
 } from "../components/dashboard";
 
 interface WidgetDef {
@@ -23,6 +24,7 @@ const AVAILABLE_WIDGETS: WidgetDef[] = [
   { key: "stats", label: "Daily Stats", element: <StatsWidget /> },
   { key: "recent", label: "Recent Days", element: <RecentDaysWidget /> },
   { key: "theme", label: "Theme Switcher", element: <ThemeWidget /> },
+  { key: "insights", label: "AI Insights", element: <AIInsightsWidget /> },
 ];
 
 export default function Home() {

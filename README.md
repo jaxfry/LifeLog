@@ -141,7 +141,7 @@ To get LifeLog up and running, follow these general steps:
         lifelog setup-test-data
         ```
     *   This copies `tests/testdata/2025-05-22.parquet` and a small summary file into `LifeLog/storage/curated/timeline/` and `LifeLog/storage/summary/daily/`.
-    *   The customizable dashboard includes a quick link to this date so you can explore the interface immediately.
+    *   The customizable dashboard includes a quick link to this date so you can explore the interface immediately. You can toggle widgets such as Quick Links, Daily Summary, AI Insights, Stats, and more.
 
 8.  **Run Backend Server:**
     *   Navigate to the `backend` directory (if not already there for pip install).
