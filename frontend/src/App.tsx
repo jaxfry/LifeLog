@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/Home";
+import Dashboard from "./pages/Dashboard";
 import DayLayout from "./layouts/DayLayout"; // Updated import path
 import DesignSystemShowcase from "./components/DesignSystemShowcase";
 import { useThemeInitialization } from "./hooks/useThemeInitialization";
@@ -11,7 +11,7 @@ export default function App() {
   return (
     <div className="h-full w-full overflow-hidden">
       <Routes>
-        <Route index element={<Home />} />
+        <Route index element={<Dashboard />} />
 
         {/* Specific day - using new TimeFlow layout */}
         <Route path="/day/:day" element={<DayLayout />} />
