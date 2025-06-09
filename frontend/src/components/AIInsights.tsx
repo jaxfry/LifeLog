@@ -46,16 +46,6 @@ export default function AIInsights({ summary, entries = [] }: AIInsightsProps) {
           <p className="text-secondary leading-relaxed">{day_summary}</p>
         </section>
         
-        <section className="bg-surface-secondary rounded-lg p-4 mb-6" aria-labelledby="activity-overview-heading">
-          <h3 id="activity-overview-heading" className="sr-only">Activity Overview</h3>
-          <p className="text-sm text-secondary leading-relaxed">
-            You spent {stats.total_active_time_min > 0 ? 
-              `${Math.floor(stats.total_active_time_min / 60)}h ${stats.total_active_time_min % 60}m` : 
-              'some time'} today, primarily on {stats.top_activity || 'various activities'}.
-            {stats.focus_time_min > 120 ? ' Your balance of work and breaks supports sustained productivity.' : ''}
-          </p>
-        </section>
-        
         <section className="mb-6" aria-labelledby="top-activities-heading">
           <h3 id="top-activities-heading" className="text-lg font-medium mb-3 text-primary">Top Activities</h3>
           <ul className="space-y-3" role="list" aria-label="List of most time-consuming activities">
