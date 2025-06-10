@@ -222,5 +222,7 @@ a:focus-visible {
   }
 }
 
-.nav-link {@apply px-3 py-2 rounded-lg hover:bg-neutral-200 transition-colors;}
+.nav-link {
+  @apply flex items-center gap-2 px-3 py-2 rounded-lg transition-colors hover:bg-neutral-200 whitespace-nowrap;
+}
 
