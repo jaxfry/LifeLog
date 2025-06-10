@@ -221,3 +221,6 @@ a:focus-visible {
     text-shadow: none !important;
   }
 }
+
+.nav-link {@apply px-3 py-2 rounded-lg hover:bg-neutral-200 transition-colors;}
+
