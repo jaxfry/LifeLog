@@ -27,11 +27,11 @@ export default function ShellLayout() {
   return (
     <div className="h-full w-full flex overflow-hidden bg-primary">
       <motion.aside
-        animate={{ width: collapsed ? 72 : 288 }}
+        animate={{ width: collapsed ? 80 : 288 }}
         className="flex-shrink-0 bg-secondary text-primary h-full border-r border-light"
       >
         <div className="flex flex-col h-full">
-          <header className="p-4 flex items-center gap-3">
+          <header className={`flex items-center ${collapsed ? 'px-2 py-2' : 'p-4 gap-3'}`}>
             <div className="w-8 h-8 flex-shrink-0 rounded-full bg-accent-gradient flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-inverse" aria-hidden="true">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
