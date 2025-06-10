@@ -1,4 +1,5 @@
-import WidgetGrid, { WidgetDefinition } from '../components/dashboard/WidgetGrid';
+import WidgetGrid from '../components/dashboard/WidgetGrid';
+import type { WidgetDefinition } from '../components/dashboard/WidgetGrid';
 import { SampleWidget } from '../components/dashboard/widgets';
 
 const widgets: WidgetDefinition[] = [
