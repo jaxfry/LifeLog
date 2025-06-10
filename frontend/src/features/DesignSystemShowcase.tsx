@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import { theme } from '../shared/theme';
-import { ThemeSwitcher } from './ui';
+import { ThemeSwitcher } from '../components/ui';
 
 const DesignSystemShowcase: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'themes' | 'colors' | 'typography' | 'spacing' | 'components'>('themes');

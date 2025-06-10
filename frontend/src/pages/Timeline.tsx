@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDayData } from '../hooks/useDayData';
-import Timeline from '../components/Timeline';
-import { getFormattedTimelineDate } from '../shared/utils';
-import AIInsights from '../components/AIInsights';
-import TimelineTopBar from '../components/TimelineTopBar';
+import Timeline from '../features/Timeline';
+import AIInsights from '../features/AIInsights';
+import TimelineTopBar from '../features/TimelineTopBar';
 import { CenteredMessage, EmptyState } from '../components/ui/StatusMessages';
+import { getFormattedTimelineDate } from '../shared/utils';
 
 export default function TimelinePage() {
   const { day = '' } = useParams<{ day: string }>();
@@ -19,19 +19,19 @@ export default function TimelinePage() {
     if (!data?.entries) return [];
     let entries = data.entries;
     if (activeFilter !== 'All') {
-      entries = entries.filter(entry =>
+      entries = entries.filter((entry: any) =>
         entry.tags?.includes(activeFilter) ||
         entry.activity === activeFilter
       );
     }
     if (searchQuery.trim() !== '') {
       const q = searchQuery.trim().toLowerCase();
-      entries = entries.filter(entry =>
+      entries = entries.filter((entry: any) =>
         entry.activity.toLowerCase().includes(q) ||
         entry.label?.toLowerCase().includes(q) ||
         entry.summary?.toLowerCase().includes(q) ||
         entry.notes?.toLowerCase().includes(q) ||
-        (entry.tags && entry.tags.some(tag => tag.toLowerCase().includes(q)))
+        (entry.tags && entry.tags.some((tag: string) => tag.toLowerCase().includes(q)))
       );
     }
     return entries;

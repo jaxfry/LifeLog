@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import SearchBar from './ui/SearchBar';
-import FilterIcon from './icons/FilterIcon';
-import { ThemeSwitcher } from './ui';
+import SearchBar from '../components/ui/SearchBar';
+import FilterIcon from "../components/icons/FilterIcon";
+import { ThemeSwitcher } from '../components/ui';
 
 interface TimelineTopBarProps {
   formattedDate: string;
