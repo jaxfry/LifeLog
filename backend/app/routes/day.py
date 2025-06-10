@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
@@ -11,9 +11,14 @@ from LifeLog.models import TimelineEntry
 
 router = APIRouter()
 
-@router.get("/api/day/{day}")
-def get_day_data(day: date): # 'day' is the selected LOCAL day
+@router.get("/api/day/{day_str}")
+def get_day_data(day_str: str): # 'day_str' is the selected LOCAL day string
     settings = Settings()
+
+    try:
+        day = date.fromisoformat(day_str)  # Manually parse the date string
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid date format for '{day_str}'. Please use YYYY-MM-DD.")
 
     # Determine UTC range for the selected local day
     try:
@@ -74,7 +79,7 @@ def get_day_data(day: date): # 'day' is the selected LOCAL day
                 entries.append(json.loads(entry.model_dump_json()))
     
     # Load the daily summary. The summary file is named after the local day.
-    summary_path = settings.summary_dir / f"{day}.json"
+    summary_path = settings.summary_dir / f"{day}.json" # Use the parsed 'day' object
     summary_data = {}
     if summary_path.exists():
         try:
