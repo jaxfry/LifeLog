@@ -1,4 +1,4 @@
-import type { DailySummary } from "../types";
+import type { DailySummary } from "../shared/types";
 
 interface SummaryPanelProps {
   summary: DailySummary;

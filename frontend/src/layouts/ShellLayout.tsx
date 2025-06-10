@@ -9,8 +9,8 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import TimelineSidebar from "../components/TimelineSidebar";
-import OtherTools from "../components/OtherTools";
+import TimelineSidebar from "../features/TimelineSidebar";
+import OtherTools from "../features/OtherTools";
 
 export default function ShellLayout() {
   const [collapsed, setCollapsed] = useState(false);

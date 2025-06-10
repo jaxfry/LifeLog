@@ -4,7 +4,7 @@ import TimelinePage from "./pages/Timeline";
 import Projects from "./pages/Projects";
 import Insights from "./pages/Insights";
 import ShellLayout from "./layouts/ShellLayout";
-import DesignSystemShowcase from "./components/DesignSystemShowcase";
+import DesignSystemShowcase from "./features/DesignSystemShowcase";
 import { useThemeInitialization } from "./hooks/useThemeInitialization";
 
 export default function App() {

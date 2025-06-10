@@ -2,10 +2,10 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Clock } from "lucide-react";
 import { formatDuration, formatTime } from "../shared/utils";
-import ActivityIcon from "./ui/ActivityIcon";
+import ActivityIcon from '../components/ui/ActivityIcon';
 import { getTagColors } from "../shared/tag-styles";
 import { useReducedMotion } from "../hooks/useReducedMotion";
-import type { TimelineEntry } from "../types";
+import type { TimelineEntry } from "../shared/types";
 
 interface SegmentHeaderProps {
   label: string;

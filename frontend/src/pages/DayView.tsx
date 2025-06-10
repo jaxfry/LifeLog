@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDayData } from "../hooks/useDayData";
-import Timeline from "../components/Timeline";
-import SummaryPanel from "../components/SummaryPanel";
+import Timeline from "../features/Timeline";
+import SummaryPanel from "../features/SummaryPanel";
 import { Input } from "../components/ui";
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -17,7 +17,7 @@ export default function DayView() {
   /* ----- build tag list from data --------------------------------------- */
   const tagOptions = useMemo(() => {
     const set = new Set<string>();
-    data?.entries.forEach((e) => e.tags?.forEach((t) => set.add(t)));
+    data?.entries.forEach((e: any) => e.tags?.forEach((t: string) => set.add(t)));
     return ["All", ...Array.from(set).sort()];
   }, [data]);
 
@@ -35,7 +35,7 @@ export default function DayView() {
   const filteredEntries =
     activeTag === "All"
       ? data?.entries || []
-      : (data?.entries || []).filter((e) => e.tags?.includes(activeTag));
+      : (data?.entries || []).filter((e: any) => e.tags?.includes(activeTag));
 
   const sortedEntries = [...filteredEntries].sort(
     (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()

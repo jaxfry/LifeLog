@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { DailySummary, TimelineEntry } from '../types';
+import type { DailySummary, TimelineEntry } from '../shared/types';
 
 interface AIInsightsProps {
   summary: DailySummary;

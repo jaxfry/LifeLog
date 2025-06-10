@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getDay } from "../api/client";
-import type { DayResponse } from "../api/client";
+import { getDay } from "../lib/api/client";
+import type { DayResponse } from "../lib/api/client";
 
 export function useDayData(day: string) {
   const [data, setData] = useState<DayResponse | null>(null);
