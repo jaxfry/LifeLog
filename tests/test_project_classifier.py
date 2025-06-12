@@ -8,6 +8,10 @@ def test_similarity_and_continuity(tmp_path):
     settings.project_aliases = {}
     settings.project_memory_path = tmp_path / "memory.json"
     settings.project_similarity_threshold = 0.2
+    settings.enable_database_fallback = True
+    # Disable database usage for this test to use file-based memory
+    settings.project_memory_use_db = False
+    settings.use_database = False
     resolver = ProjectResolver(settings)
 
     t1 = datetime.now(timezone.utc)

@@ -11,6 +11,8 @@ from google import genai # Main SDK import
 from google.genai import types as genai_types # For type hints like GenerationConfig
 from google.auth.exceptions import DefaultCredentialsError # For auth errors
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError # Python 3.9+
+import duckdb
+from LifeLog.database import get_connection
 
 # Ensure LifeLog can be imported when run as a script
 # This assumes the script is located at /Users/jaxon/Coding/LifeLog/LifeLog/enrichment/timeline_generator.py
@@ -50,6 +52,7 @@ except Exception as e:
 
 # --- Pydantic Models ---
 class EnrichedTimelineEntry(BaseModel):
+    event_id: Optional[str] = Field(default=None, description="Unique event ID for DB row.")
     start: datetime = Field(description="Start time UTC ISO format.")
     end: datetime = Field(description="End time UTC ISO format.")
     activity: str = Field(description="Short verb phrase.")
@@ -163,6 +166,53 @@ def _load_raw_data_for_local_day(local_day: date, settings: Settings) -> pl.Data
     log.info(f"Loaded {df_filtered_for_local_day.height} raw events from {len(files_to_read_paths)} file(s) for local day {local_day} (spanning UTC {utc_dt_start} to {utc_dt_end}).")
     return df_filtered_for_local_day
 
+def _load_unenriched_events_for_day(local_day: date, settings: Settings) -> List[Dict[str, Any]]:
+    """Load events from DuckDB that need enrichment (category IS NULL and before today).
+    Falls back to file-based loading if database is unavailable and fallback is enabled."""
+    try:
+        with get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT event_id, start_time, end_time, app_name, window_title
+                FROM timeline_events
+                WHERE category IS NULL AND date = ? AND start_time < CURRENT_DATE
+                ORDER BY start_time ASC
+                """,
+                (str(local_day),)
+            )
+            rows = cur.fetchall()
+            columns = [desc[0] for desc in cur.description]
+            return [dict(zip(columns, row)) for row in rows]
+    except Exception as e:
+        log.error(f"Failed to load unenriched events from database for {local_day}: {e}")
+        if settings.enable_database_fallback:
+            log.info("Attempting to load from file-based system...")
+            return _load_unenriched_events_from_files(local_day, settings)
+        else:
+            raise
+
+def _load_unenriched_events_from_files(local_day: date, settings: Settings) -> List[Dict[str, Any]]:
+    """Fallback method to load events from parquet files when database is unavailable."""
+    log.warning(f"Using file-based fallback for {local_day}")
+    
+    # Load raw data and convert to expected format
+    df_raw = _load_raw_data_for_local_day(local_day, settings)
+    if df_raw.is_empty():
+        return []
+    
+    events = []
+    for i, row in enumerate(df_raw.iter_rows(named=True)):
+        events.append({
+            "event_id": f"file_fallback_{local_day}_{i}",  # Generate temporary ID
+            "start_time": row["start"],
+            "end_time": row["end"],
+            "app_name": row["app"],
+            "window_title": row["title"]
+        })
+    
+    return events
+
 def _load_and_prepare_input_df(local_day: date, settings: Settings) -> pl.DataFrame:
     df_raw_for_local_day = _load_raw_data_for_local_day(local_day, settings)
 
@@ -256,84 +306,49 @@ def _invoke_llm_and_parse(day: date, prompt_text: str, settings: Settings) -> Li
     if not prompt_text:
         log.warning(f"Empty prompt for {day}, skipping LLM call.")
         return []
-
-    cache_path = settings.enriched_cache_dir / f"{day}.json"
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    # Always call LLM; DB-centric pipeline, skip file cache
     raw_json_response_str: Optional[str] = None
-
-    if cache_path.exists() and not settings.enrichment_force_llm:
-        log.info(f"Using cached LLM response for {day} from {cache_path}")
-        raw_json_response_str = cache_path.read_text()
-    else:
-        log.info(f"Querying Gemini for {day} with model {settings.model_name}. Prompt length: ~{len(prompt_text)} chars.")
-        
+    try:
         client: Optional[genai.Client] = None
-        try:
-            if not os.getenv("GEMINI_API_KEY"):
-                log.error("GEMINI_API_KEY environment variable not set. This is required for the google-genai SDK with Gemini Developer API.")
-                raise ValueError("GEMINI_API_KEY not set.")
-            api_key_from_env = os.getenv("GEMINI_API_KEY")
-            client = genai.Client(api_key=api_key_from_env)
-        except DefaultCredentialsError as e:
-            log.error(f"Google Cloud Default Credentials not found: {e}. If using Vertex, ensure you are authenticated.")
-            raise
-        except Exception as e:
-            log.error(f"Failed to initialize Gemini client: {e}")
-            raise
-        
-        if client is None:
-            log.error("Gemini client was not initialized.")
-            raise RuntimeError("Gemini client initialization failed.")
-
-        generation_config_obj = genai_types.GenerateContentConfig( # Corrected to GenerateContentConfig
+        if not os.getenv("GEMINI_API_KEY"):
+            log.error("GEMINI_API_KEY environment variable not set. This is required for the google-genai SDK with Gemini Developer API.")
+            raise ValueError("GEMINI_API_KEY not set.")
+        api_key_from_env = os.getenv("GEMINI_API_KEY")
+        client = genai.Client(api_key=api_key_from_env)
+        generation_config_obj = genai_types.GenerateContentConfig(
             response_mime_type="application/json",
             temperature=settings.enrichment_llm_temperature,
         )
-        
         retries = settings.enrichment_llm_retries
-        response_obj = None # Initialize response_obj before the loop
+        response_obj = None
         for attempt in range(retries):
             try:
                 log.debug(f"Attempt {attempt+1}/{retries} to call Gemini.")
-                response_obj = client.models.generate_content( # Assign to response_obj directly
+                response_obj = client.models.generate_content(
                     model=settings.model_name,
                     contents=prompt_text,
                     config=generation_config_obj
                 )
                 raw_json_response_str = response_obj.text
-                
-                # *** CORRECTED CHECK for prompt_feedback ***
                 if response_obj.prompt_feedback and response_obj.prompt_feedback.block_reason:
                     log.error(f"Prompt for {day} was blocked by Gemini. Reason: {response_obj.prompt_feedback.block_reason}")
-                    return [] 
-                break # Successful call, exit retry loop
+                    return []
+                break
             except Exception as e:
                 log.warning(f"Gemini API error on attempt {attempt+1}/{retries} for {day}: {type(e).__name__} - {e}")
-                
-                # *** CORRECTED CHECK for prompt_feedback in except block ***
-                # This check is for a less common scenario where an exception might also populate prompt_feedback.
-                # response_obj here would be from the current failed attempt if it got that far.
                 if response_obj and response_obj.prompt_feedback and response_obj.prompt_feedback.block_reason:
                     log.error(f"Prompt for {day} was blocked during retry by Gemini (associated with exception). Reason: {response_obj.prompt_feedback.block_reason}")
-                    return [] 
-                
+                    return []
                 if attempt + 1 == retries:
                     log.error(f"Max retries reached for Gemini API for {day}.")
-                    raise # Re-raise the last exception
-                time.sleep( (2 ** attempt) * settings.enrichment_llm_retry_delay_base_s )
-
-        if raw_json_response_str:
-            cache_path.write_text(raw_json_response_str)
-            log.info(f"Cached LLM JSON response for {day} to {cache_path}")
-        # If raw_json_response_str is None here, it means all retries failed, or it was blocked (handled), or prompt was empty (handled).
-        # The next check outside this `else` block will correctly handle it.
-
-
+                    raise
+                time.sleep((2 ** attempt) * settings.enrichment_llm_retry_delay_base_s)
+    except Exception as e:
+        log.error(f"Failed to initialize Gemini client or call LLM: {e}")
+        raise
     if not raw_json_response_str:
-        # This handles cases where cache was not used AND LLM call failed or returned no content (e.g. blocked, or all retries failed)
-        log.warning(f"No response from LLM for {day} (either from cache or API).")
+        log.warning(f"No response from LLM for {day} (API failure or blocked).")
         return []
-
     try:
         timeline_response = TimelineResponse.model_validate_json(raw_json_response_str)
         enriched_entries = timeline_response.root
@@ -342,11 +357,7 @@ def _invoke_llm_and_parse(day: date, prompt_text: str, settings: Settings) -> Li
     except Exception as e:
         log.error(f"Failed to parse/validate LLM JSON response for {day}: {e}")
         log.error(f"Problematic JSON string snippet: {raw_json_response_str[:500]}...")
-        error_cache_path = settings.enriched_cache_dir / f"{day}.error.txt"
-        error_cache_path.write_text(raw_json_response_str)
-        log.error(f"Saved erroneous LLM response to {error_cache_path}")
         raise
-
 def _post_process_entries(day: date, entries: List[EnrichedTimelineEntry], settings: Settings) -> List[EnrichedTimelineEntry]:
     if not entries: return []
     entries.sort(key=lambda e: e.start)
@@ -419,126 +430,219 @@ def _ensure_day_boundaries(
 
     return entries
 
-def run_enrichment_for_day(day: date, settings: Settings) -> Path | None:
+def run_enrichment_for_day(day: date, settings: Settings) -> None:
     log.info(f"Starting enrichment process for day: {day.isoformat()}")
-    output_file_path = settings.curated_dir / f"{day}.parquet"
-    output_file_path.parent.mkdir(parents=True, exist_ok=True)
-    if output_file_path.exists() and not settings.enrichment_force_processing_all:
-        log.info(f"Skipping {day}, output exists: {output_file_path}")
-        return output_file_path
     try:
-        df_for_prompt = _load_and_prepare_input_df(day, settings)
-        enriched_llm_entries: List[EnrichedTimelineEntry] = []
-        if df_for_prompt.is_empty():
-            log.warning(f"No suitable events for LLM for {day}. Will proceed to check for trailing AFK.")
-            # enriched_llm_entries remains empty
+        if settings.use_database:
+            _run_database_enrichment(day, settings)
         else:
-            prompt_text = _build_llm_prompt(day, df_for_prompt, settings)
-            enriched_llm_entries = _invoke_llm_and_parse(day, prompt_text, settings)
-
-        final_entries = _post_process_entries(day, enriched_llm_entries, settings) # Pass LLM entries here
-
-        # --- BEGIN ADDITION: Capture trailing AFK period ---
-        current_last_event_end_utc: Optional[datetime] = None
-        if final_entries:
-            current_last_event_end_utc = final_entries[-1].end
-        else:
-            # If LLM produced no entries, or post-processing resulted in no entries,
-            # start checking for AFK from the beginning of the day.
-            local_tz_for_day_start = _get_local_tz(settings)
-            current_last_event_end_utc = datetime.combine(day, time.min, tzinfo=local_tz_for_day_start).astimezone(timezone.utc)
-
-        # Determine the actual end of the local day in UTC (exclusive boundary)
-        local_tz_for_day_end = _get_local_tz(settings)
-        day_end_boundary_utc = (datetime.combine(day, time.min, tzinfo=local_tz_for_day_end) + timedelta(days=1)).astimezone(timezone.utc)
-
-        if current_last_event_end_utc < day_end_boundary_utc:
-            df_raw_for_day_check = _load_raw_data_for_local_day(day, settings)
-
-            if not df_raw_for_day_check.is_empty() and 'start' in df_raw_for_day_check.columns:
-                # Check for any *non-AFK* activity in the raw data in the gap
-                df_non_afk_in_gap = df_raw_for_day_check.filter(
-                    (pl.col("app") != settings.afk_app_name_override) &
-                    (pl.col("start") >= current_last_event_end_utc) &
-                    (pl.col("start") < day_end_boundary_utc)
-                )
-
-                if df_non_afk_in_gap.is_empty():
-                    # No non-AFK activity in the gap. The gap is AFK or unrecorded.
-                    if day_end_boundary_utc > current_last_event_end_utc: # Ensure positive duration
-                        afk_block_start = current_last_event_end_utc
-                        afk_block_end = day_end_boundary_utc
-                        
-                        log.info(f"Identified trailing Idle / Away period for {day} from {afk_block_start.isoformat()} to {afk_block_end.isoformat()}")
-                        
-                        new_idle_entry = EnrichedTimelineEntry(
-                            start=afk_block_start,
-                            end=afk_block_end,
-                            activity="Idle / Away",
-                            project=None,
-                            notes="Device was idle or user was away until the end of the day."
-                        )
-
-                        merged_with_previous = False
-                        if final_entries:
-                            last_entry = final_entries[-1]
-                            # Check if last entry is idle and if the new idle block starts very close to its end
-                            if ("idle" in last_entry.activity.lower() or "away" in last_entry.activity.lower()) and \
-                               (new_idle_entry.start - last_entry.end).total_seconds() < settings.enrichment_merge_gap_s:
-                                log.info(f"Extending previous Idle / Away entry (ending {last_entry.end.isoformat()}) to {new_idle_entry.end.isoformat()}")
-                                last_entry.end = new_idle_entry.end
-                                # Optionally update notes if needed, e.g., if the new one is more generic
-                                # last_entry.notes = new_idle_entry.notes # Or some combination
-                                merged_with_previous = True
-                        
-                        if not merged_with_previous:
-                            log.info(f"Appending new trailing Idle / Away entry for {day}.")
-                            final_entries.append(new_idle_entry)
-                else:
-                    log.info(f"Non-AFK activity found after {current_last_event_end_utc.isoformat()} for day {day}. Not adding trailing idle block.")
-            elif df_raw_for_day_check.is_empty():
-                 log.info(f"Raw data for {day} was empty for trailing AFK check. Not adding trailing idle block.")
-            else: # df_raw_for_day_check is not empty but 'start' column missing (should not happen with _load_raw_data_for_local_day)
-                 log.warning(f"Raw data for {day} missing 'start' column for trailing AFK check. Not adding trailing idle block.")
-
-        # --- END ADDITION ---
-
-        final_entries = _ensure_day_boundaries(day, final_entries, settings)
-
-        if not final_entries:
-            log.warning(f"No entries after post-processing and trailing AFK check for {day}. Writing empty Parquet.")
-            # Define schema for empty DataFrame based on EnrichedTimelineEntry fields
-            empty_schema = {
-                field_name: pl.Datetime(time_unit='us', time_zone='UTC') if annotation == datetime else pl.Utf8
-                for field_name, field_info in EnrichedTimelineEntry.model_fields.items()
-                for annotation in [field_info.annotation] # Get actual type
-            }
-            pl.DataFrame(schema=empty_schema).write_parquet(output_file_path)
-            return output_file_path # Return path to empty file
-        else:
-            output_data = [e.model_dump(mode='json') for e in final_entries]
-            # Ensure datetimes from model_dump (which are ISO strings) are converted back to Polars Datetime
-            df_output = pl.from_dicts(output_data).with_columns([
-                pl.col("start").str.to_datetime(time_unit='us').dt.replace_time_zone("UTC"),
-                pl.col("end").str.to_datetime(time_unit='us').dt.replace_time_zone("UTC"),
-                # Ensure other columns are Utf8, especially project and notes which can be None
-                pl.col("activity").cast(pl.Utf8),
-                pl.col("project").cast(pl.Utf8, strict=False), # Fill None with null
-                pl.col("notes").cast(pl.Utf8, strict=False)    # Fill None with null
-            ])
-            # Select columns in desired order, matching EnrichedTimelineEntry fields
-            ordered_columns = list(EnrichedTimelineEntry.model_fields.keys())
-            df_output = df_output.select(ordered_columns)
-
-            df_output.write_parquet(output_file_path)
-            log.info(f"✅ Enriched {len(final_entries)} entries for {day} to {output_file_path}")
-        return output_file_path
-    except FileNotFoundError: # This might be too broad if _load_raw_data_for_local_day raises it for missing raw files
-        log.error(f"A required file was not found during enrichment for {day}.", exc_info=True) # Log with traceback
-        return None
+            _run_file_based_enrichment(day, settings)
     except Exception as e:
-        log.error(f"Unhandled error during enrichment for day {day}: {e}", exc_info=True)
-        return None
+        log.error(f"Enrichment failed for day {day}: {e}", exc_info=True)
+        if settings.enable_backwards_compatibility and settings.use_database:
+            log.info("Attempting fallback to file-based enrichment...")
+            try:
+                _run_file_based_enrichment(day, settings)
+                log.info(f"✅ Fallback enrichment completed for {day}")
+            except Exception as fallback_error:
+                log.error(f"❌ Fallback enrichment also failed for {day}: {fallback_error}")
+                raise
+        else:
+            raise
+
+def _run_database_enrichment(day: date, settings: Settings) -> None:
+    """Run database-based enrichment pipeline."""
+    unenriched_events = _load_unenriched_events_for_day(day, settings)
+    if not unenriched_events:
+        log.info(f"No unenriched events found for {day} in DB.")
+        return
+    
+    log.info(f"Loaded {len(unenriched_events)} unenriched events from DB for {day}.")
+    
+    # Prepare DataFrame for LLM prompt (simulate previous logic, but from DB rows)
+    import pandas as pd
+    df_for_prompt = pd.DataFrame([
+        {
+            "time_utc": e["start_time"].strftime("%H:%M:%S"),
+            "duration_s": int((e["end_time"] - e["start_time"]).total_seconds()),
+            "app": e["app_name"],
+            "title": e["window_title"] or "",
+            "url": ""
+        }
+        for e in unenriched_events
+        if (e["end_time"] - e["start_time"]).total_seconds() >= settings.enrichment_min_duration_s
+    ])
+    
+    if df_for_prompt.empty:
+        log.warning(f"No suitable events for LLM for {day}. Skipping.")
+        return
+    
+    # Build prompt and call LLM
+    prompt_text = _build_llm_prompt(day, pl.from_pandas(df_for_prompt), settings)
+    enriched_llm_entries = _invoke_llm_and_parse(day, prompt_text, settings)
+    
+    # Map event_ids back to enriched entries (assume 1:1 order for now)
+    for entry, raw in zip(enriched_llm_entries, unenriched_events):
+        entry.event_id = raw["event_id"]
+    
+    final_entries = _post_process_entries(day, enriched_llm_entries, settings)
+    
+    # Update DB
+    _update_enriched_events_in_db(final_entries, settings)
+    log.info(f"✅ Enriched and updated {len(final_entries)} events for {day} in DB.")
+
+def _run_file_based_enrichment(day: date, settings: Settings) -> None:
+    """Run file-based enrichment pipeline as fallback."""
+    log.info(f"Running file-based enrichment for {day}")
+    
+    df_for_prompt = _load_and_prepare_input_df(day, settings)
+    if df_for_prompt.is_empty():
+        log.warning(f"No suitable events for LLM for {day}. Skipping.")
+        return
+    
+    prompt_text = _build_llm_prompt(day, df_for_prompt, settings)
+    enriched_llm_entries = _invoke_llm_and_parse(day, prompt_text, settings)
+    final_entries = _post_process_entries(day, enriched_llm_entries, settings)
+    final_entries = _ensure_day_boundaries(day, final_entries, settings)
+    
+    # Save to file for backwards compatibility
+    _save_enriched_timeline_to_file(day, final_entries, settings)
+    log.info(f"✅ File-based enrichment completed for {day}")
+
+def _save_enriched_timeline_to_file(day: date, entries: List[EnrichedTimelineEntry], settings: Settings) -> None:
+    """Save enriched timeline to file for backwards compatibility."""
+    output_path = settings.curated_dir / f"{day.isoformat()}.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    timeline_data = [entry.model_dump(mode='json') for entry in entries]
+    import json
+    with open(output_path, 'w') as f:
+        json.dump(timeline_data, f, indent=2, default=str)
+    
+    log.info(f"Saved {len(entries)} enriched entries to {output_path}")
+
+def _update_enriched_events_in_db(enriched_entries: List[EnrichedTimelineEntry], settings: Settings):
+    """Batch update timeline_events with enrichment results using a transaction. 
+    Logs progress and implements sophisticated retry logic for partial batch failures."""
+    if not enriched_entries:
+        return
+
+    batch_size = getattr(settings, 'enrichment_batch_size', 50)
+    max_retries = getattr(settings, 'enrichment_max_retries', 3)
+    
+    def process_batch_with_recovery(batch: List[EnrichedTimelineEntry], attempt: int = 1):
+        """Process a batch of entries with sophisticated retry and recovery logic."""
+        try:
+            with get_connection() as conn:
+                conn.execute("BEGIN TRANSACTION;")
+                success_count = 0
+                failed_entries = []
+                
+                for idx, entry in enumerate(batch):
+                    if not entry.event_id:
+                        log.warning(f"Skipping entry without event_id: {entry.activity}")
+                        continue
+                    
+                    try:
+                        # Check if record exists first
+                        cur = conn.cursor()
+                        cur.execute("SELECT COUNT(*) FROM timeline_events WHERE event_id = ?", (entry.event_id,))
+                        if cur.fetchone()[0] == 0:
+                            log.warning(f"Event ID {entry.event_id} not found in database, skipping")
+                            continue
+                            
+                        conn.execute(
+                            """
+                            UPDATE timeline_events
+                            SET category = ?, notes = ?, project = ?, last_modified = CURRENT_TIMESTAMP
+                            WHERE event_id = ?
+                            """,
+                            (
+                                entry.activity,  # category
+                                entry.notes,
+                                entry.project,
+                                entry.event_id,
+                            )
+                        )
+                        success_count += 1
+                        
+                        # Log progress for large batches
+                        if len(batch) > 20 and (idx + 1) % 10 == 0:
+                            log.debug(f"Processed {idx + 1}/{len(batch)} entries in current batch")
+                            
+                    except Exception as e:
+                        log.error(f"Failed to update individual entry {entry.event_id}: {e}")
+                        failed_entries.append(entry)
+                
+                conn.commit()
+                log.info(f"Batch {attempt}: Successfully updated {success_count}/{len(batch)} entries")
+                
+                # Handle partial failures with individual retry strategy
+                if failed_entries:
+                    if attempt < max_retries:
+                        log.info(f"Retrying {len(failed_entries)} failed entries individually (attempt {attempt + 1})")
+                        # Try each failed entry individually to isolate specific issues
+                        individual_successes = 0
+                        permanent_failures = []
+                        
+                        for failed_entry in failed_entries:
+                            try:
+                                with get_connection() as retry_conn:
+                                    retry_conn.execute("BEGIN TRANSACTION;")
+                                    retry_conn.execute(
+                                        """
+                                        UPDATE timeline_events
+                                        SET category = ?, notes = ?, project = ?, last_modified = CURRENT_TIMESTAMP
+                                        WHERE event_id = ?
+                                        """,
+                                        (failed_entry.activity, failed_entry.notes, failed_entry.project, failed_entry.event_id)
+                                    )
+                                    retry_conn.commit()
+                                    individual_successes += 1
+                            except Exception as retry_error:
+                                log.error(f"Individual retry failed for {failed_entry.event_id}: {retry_error}")
+                                permanent_failures.append(failed_entry)
+                        
+                        log.info(f"Individual retry recovered {individual_successes}/{len(failed_entries)} entries")
+                        
+                        if permanent_failures and attempt < max_retries:
+                            # Final attempt for permanent failures
+                            log.info(f"Final attempt for {len(permanent_failures)} persistent failures")
+                            process_batch_with_recovery(permanent_failures, max_retries)
+                        elif permanent_failures:
+                            log.error(f"Permanently failed to update {len(permanent_failures)} entries: {[e.event_id for e in permanent_failures]}")
+                    else:
+                        log.error(f"Permanently failed to update {len(failed_entries)} entries after {max_retries} attempts")
+                        
+        except Exception as e:
+            try:
+                conn.rollback()
+                log.info("Transaction rolled back due to error")
+            except:
+                pass  # Ignore rollback errors if no transaction is active
+            
+            log.error(f"Batch {attempt} failed completely: {e}")
+            
+            # Retry the entire batch if we haven't exceeded max retries
+            if attempt < max_retries:
+                import time
+                backoff_delay = min(2 ** attempt, 30)  # Exponential backoff capped at 30s
+                log.info(f"Retrying entire batch after {backoff_delay}s delay (attempt {attempt + 1})")
+                time.sleep(backoff_delay)
+                process_batch_with_recovery(batch, attempt + 1)
+            else:
+                log.error(f"Batch permanently failed after {max_retries} attempts")
+                raise
+
+    # Process entries in batches with progress tracking
+    total_batches = (len(enriched_entries) + batch_size - 1) // batch_size
+    log.info(f"Processing {len(enriched_entries)} entries in {total_batches} batches (batch size: {batch_size})")
+    
+    for i in range(0, len(enriched_entries), batch_size):
+        batch = enriched_entries[i:i + batch_size]
+        batch_num = i // batch_size + 1
+        log.info(f"Processing batch {batch_num}/{total_batches} ({len(batch)} entries)...")
+        process_batch_with_recovery(batch)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)-7s] [%(name)-25s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")

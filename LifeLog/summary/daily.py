@@ -14,7 +14,6 @@ from google import genai
 from google.auth.exceptions import DefaultCredentialsError 
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field, PositiveInt, field_validator, model_validator
-from sentence_transformers import SentenceTransformer
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError # Import specific error
 
 from LifeLog.config import Settings
@@ -24,9 +23,13 @@ from LifeLog.prompts import DAILY_SUMMARY_JSON_SCHEMA, DAILY_SUMMARY_SYSTEM_PROM
 log = logging.getLogger(__name__)
 
 try:
+    from sentence_transformers import SentenceTransformer
     EMBED_MODEL_NAME = "sentence-transformers/paraphrase-MiniLM-L6-v2"
     EMBED_MODEL = SentenceTransformer(EMBED_MODEL_NAME, device="cpu")
     log.info(f"Successfully loaded sentence embedding model: {EMBED_MODEL_NAME}")
+except ImportError as e:
+    log.warning(f"sentence_transformers not available: {e}. Summary embeddings will be disabled.")
+    EMBED_MODEL = None
 except Exception as e:
     log.error(f"Failed to load sentence embedding model: {EMBED_MODEL_NAME}. Error: {e}", exc_info=True)
     EMBED_MODEL = None

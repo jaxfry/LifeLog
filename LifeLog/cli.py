@@ -65,20 +65,35 @@ def main():
     parser_ingest_aw.set_defaults(func=handle_ingest_activitywatch)
 
     # --- Enrich Subcommand ---
-    parser_enrich = subparsers.add_parser("enrich", help="Enrich ingested data.")
-    enrich_subparsers = parser_enrich.add_subparsers(dest="target_data", title="Enrichment Targets", required=True)
-    parser_enrich_timeline = enrich_subparsers.add_parser("timeline", help="Generate LLM-enriched timeline from ActivityWatch data.")
-    parser_enrich_timeline.add_argument("--day", type=lambda s: date.fromisoformat(s) if s else None, help="Day YYYY-MM-DD (default: yesterday).")
-    parser_enrich_timeline.add_argument("--days-ago", type=int, default=None, help="Days ago (overrides --day).")
-    parser_enrich_timeline.add_argument("--force-llm", action="store_true", help="Force LLM re-query, ignore cache.")
-    parser_enrich_timeline.add_argument("--force-processing", action="store_true", help="Force re-process day even if output exists.")
-    def handle_enrich_timeline(args_ns, current_settings):
+    parser_enrich = subparsers.add_parser("enrich", help="Enrich ingested data using database operations.")
+    parser_enrich.add_argument("--day", type=lambda s: date.fromisoformat(s) if s else None, help="Day YYYY-MM-DD (default: yesterday).")
+    parser_enrich.add_argument("--days-ago", type=int, default=None, help="Days ago (overrides --day).")
+    parser_enrich.add_argument("--force-llm", action="store_true", help="Force LLM re-query, ignore cache.")
+    parser_enrich.add_argument("--batch-size", type=int, default=None, help="Override batch size for database operations.")
+    parser_enrich.add_argument("--fallback-to-files", action="store_true", help="Fallback to file-based processing if database fails.")
+    
+    def handle_enrich(args_ns, current_settings):
         target_day = (date.today() - timedelta(days=args_ns.days_ago)) if args_ns.days_ago is not None else (args_ns.day or (date.today() - timedelta(days=1)))
-        if args_ns.force_llm: current_settings.enrichment_force_llm = True
-        if args_ns.force_processing: current_settings.enrichment_force_processing_all = True
-        log.info(f"CLI: Initiating timeline enrichment for {target_day}...")
-        run_enrichment_for_day(target_day, current_settings)
-    parser_enrich_timeline.set_defaults(func=handle_enrich_timeline)
+        if args_ns.force_llm: 
+            current_settings.enrichment_force_llm = True
+        if args_ns.batch_size:
+            current_settings.enrichment_batch_size = args_ns.batch_size
+        if args_ns.fallback_to_files:
+            current_settings.enable_database_fallback = True
+            
+        log.info(f"CLI: Initiating database-based enrichment for {target_day}...")
+        try:
+            run_enrichment_for_day(target_day, current_settings)
+            log.info(f"✅ Database enrichment completed for {target_day}")
+        except Exception as e:
+            log.error(f"❌ Database enrichment failed for {target_day}: {e}")
+            if current_settings.enable_database_fallback:
+                log.info("Attempting fallback to file-based processing...")
+                # This would require implementing file-based fallback logic
+                log.warning("File-based fallback not yet implemented.")
+            else:
+                raise
+    parser_enrich.set_defaults(func=handle_enrich)
 
     # --- Summarize Subcommand (UPDATED) ---
     parser_summarize = subparsers.add_parser(

@@ -65,6 +65,15 @@ class Settings(BaseSettings):
     retry_attempts: int = 3           # Number of retry attempts for failed collections
     retry_delay_seconds: int = 10     # Delay between retries in seconds
 
+    # --- Database Settings ---
+    use_database: bool = True         # Use database-based storage vs file-based
+    enable_backwards_compatibility: bool = True  # Support both file and DB during transition
+    project_memory_use_db: bool = True  # Use database for project memory storage
+    enrichment_batch_size: int = 50   # Batch size for database operations
+    enrichment_max_retries: int = 3   # Max retries for failed batch operations
+    database_connection_timeout: int = 30  # Database connection timeout in seconds
+    enable_database_fallback: bool = True  # Fallback to file-based operations if DB fails
+
 
     model_config = SettingsConfigDict(
         env_prefix="LIFELOG_",

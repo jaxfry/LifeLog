@@ -1,1 +1,23 @@
 duckdb
+polars
+aw-client
+aw-core
+pydantic-settings
+python-dotenv
+pytest
+
+# For typing and linting (optional, but recommended)
+typing-extensions
+
+# For CLI and scheduling
+argparse
+
+# For timezone support
+backports.zoneinfo; python_version<'3.9'
+
+# For fastapi backend (if used)
+fastapi
+uvicorn
+google-genai
+pyarrow
+sentence_transformers
