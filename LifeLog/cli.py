@@ -18,6 +18,7 @@ from LifeLog.ingestion.activitywatch import ingest as ingest_activitywatch_data
 from LifeLog.enrichment.timeline_generator import run_enrichment_for_day
 from LifeLog.summary.daily import summarize_day_activities # Import the correct function
 from LifeLog.database import init_database, DB_PATH
+from LifeLog.collectors.live_collector import LiveCollector
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)-20s | %(funcName)-25s | %(message)s",
@@ -200,6 +201,29 @@ def main():
         init_database()
         log.info(f"DuckDB database initialized at {DB_PATH}.")
     parser_dbinit.set_defaults(func=handle_init_db)
+
+    # --- Live Collector Subcommand ---
+    parser_live = subparsers.add_parser("live-collector", help="Manage the real-time data collector.")
+    live_subparsers = parser_live.add_subparsers(dest="action", title="Live Collector Actions", required=True)
+    
+    parser_live_start = live_subparsers.add_parser("start", help="Start the live collector.")
+    def handle_live_collector_start(args_ns, current_settings):
+        import signal
+        collector = LiveCollector()
+        def shutdown_handler(signum, frame):
+            log.info("Received shutdown signal. Stopping live collector...")
+            collector.stop()
+            sys.exit(0)
+        signal.signal(signal.SIGINT, shutdown_handler)
+        signal.signal(signal.SIGTERM, shutdown_handler)
+        log.info("Starting live collector. Press Ctrl+C to stop.")
+        collector.start()
+    parser_live_start.set_defaults(func=handle_live_collector_start)
+    
+    parser_live_stop = live_subparsers.add_parser("stop", help="Stop the live collector.")
+    def handle_live_collector_stop(args_ns, current_settings):
+        log.info("To stop the live collector, use your process manager or systemctl if running as a service.")
+    parser_live_stop.set_defaults(func=handle_live_collector_stop)
 
     args = parser.parse_args()
 
