@@ -198,8 +198,8 @@ def main():
     )
     def handle_init_db(args_ns, current_settings: Settings):
         init_database()
-        log.info("DuckDB database initialized at storage/lifelog.db.")
-    parser_dbinit.set_defaults(func=handle_init_db)
+        log.info(f"DuckDB database initialized at {current_settings.db_path}.")
+    parser_dbinit.set_defaults(func=lambda args_ns: handle_init_db(args_ns, settings))
 
     args = parser.parse_args()
 
