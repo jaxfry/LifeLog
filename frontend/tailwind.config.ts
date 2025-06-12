@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -8,104 +9,55 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // TimeFlow Custom Colors
-        timeflow: {
-          background: 'var(--color-neutral-950)', // Using design token
-          panel: 'var(--color-neutral-900)',    // Using design token
-          focus: 'var(--color-neutral-800)',    // Using design token
-          purple: 'var(--color-primary-500)',   // Using design token (example, adjust as needed)
-          timeGrey: 'var(--color-neutral-500)', // Using design token
-        },
-        // Primary brand colors
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
         primary: {
-          50: 'var(--color-primary-50)',
-          100: 'var(--color-primary-100)',
-          200: 'var(--color-primary-200)',
-          300: 'var(--color-primary-300)',
-          400: 'var(--color-primary-400)',
-          500: 'var(--color-primary-500)',
-          600: 'var(--color-primary-600)',
-          700: 'var(--color-primary-700)',
-          800: 'var(--color-primary-800)',
-          900: 'var(--color-primary-900)',
-          950: 'var(--color-primary-950)',
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
         },
         secondary: {
-          50: 'var(--color-secondary-50)',
-          100: 'var(--color-secondary-100)',
-          200: 'var(--color-secondary-200)',
-          300: 'var(--color-secondary-300)',
-          400: 'var(--color-secondary-400)',
-          500: 'var(--color-secondary-500)',
-          600: 'var(--color-secondary-600)',
-          700: 'var(--color-secondary-700)',
-          800: 'var(--color-secondary-800)',
-          900: 'var(--color-secondary-900)',
-          950: 'var(--color-secondary-950)',
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
         },
-        success: {
-          50: 'var(--color-success-50)',
-          100: 'var(--color-success-100)',
-          200: 'var(--color-success-200)',
-          300: 'var(--color-success-300)',
-          400: 'var(--color-success-400)',
-          500: 'var(--color-success-500)',
-          600: 'var(--color-success-600)',
-          700: 'var(--color-success-700)',
-          800: 'var(--color-success-800)',
-          900: 'var(--color-success-900)',
-          950: 'var(--color-success-950)',
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
         },
-        warning: {
-          50: 'var(--color-warning-50)',
-          100: 'var(--color-warning-100)',
-          200: 'var(--color-warning-200)',
-          300: 'var(--color-warning-300)',
-          400: 'var(--color-warning-400)',
-          500: 'var(--color-warning-500)',
-          600: 'var(--color-warning-600)',
-          700: 'var(--color-warning-700)',
-          800: 'var(--color-warning-800)',
-          900: 'var(--color-warning-900)',
-          950: 'var(--color-warning-950)',
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
         },
-        error: {
-          50: 'var(--color-error-50)',
-          100: 'var(--color-error-100)',
-          200: 'var(--color-error-200)',
-          300: 'var(--color-error-300)',
-          400: 'var(--color-error-400)',
-          500: 'var(--color-error-500)',
-          600: 'var(--color-error-600)',
-          700: 'var(--color-error-700)',
-          800: 'var(--color-error-800)',
-          900: 'var(--color-error-900)',
-          950: 'var(--color-error-950)',
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
         },
-        neutral: {
-          0: 'var(--color-neutral-0)',
-          50: 'var(--color-neutral-50)',
-          100: 'var(--color-neutral-100)',
-          200: 'var(--color-neutral-200)',
-          300: 'var(--color-neutral-300)',
-          400: 'var(--color-neutral-400)',
-          500: 'var(--color-neutral-500)',
-          600: 'var(--color-neutral-600)',
-          700: 'var(--color-neutral-700)',
-          800: 'var(--color-neutral-800)',
-          900: 'var(--color-neutral-900)',
-          950: 'var(--color-neutral-950)',
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
         },
-        surface: {
-          primary: 'var(--surface-primary)',
-          secondary: 'var(--surface-secondary)',
-          tertiary: 'var(--surface-tertiary)',
-          inverse: 'var(--surface-inverse)',
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
         },
-        border: {
-          light: 'var(--border-light)',
-          DEFAULT: 'var(--border-default)',
-          dark: 'var(--border-dark)',
+        // NEW SEMANTIC COLORS
+        development: {
+          DEFAULT: 'hsl(var(--development))',
+          foreground: 'hsl(var(--development-foreground))',
+        },
+        communication: {
+          DEFAULT: 'hsl(var(--communication))',
+          foreground: 'hsl(var(--communication-foreground))',
+        },
+        system: {
+          DEFAULT: 'hsl(var(--system))',
+          foreground: 'hsl(var(--system-foreground))',
+        },
+        general: {
+          DEFAULT: 'hsl(var(--general))',
+          foreground: 'hsl(var(--general-foreground))',
         },
       },
       fontFamily: {
@@ -176,15 +128,9 @@ const config: Config = {
         '96': 'var(--spacing-96)',
       },
       borderRadius: {
-        'none': 'var(--border-radius-none)',
-        'sm': 'var(--border-radius-sm)',
-        'DEFAULT': 'var(--border-radius-default)',
-        'md': 'var(--border-radius-md)',
-        'lg': 'var(--border-radius-lg)',
-        'xl': 'var(--border-radius-xl)',
-        '2xl': 'var(--border-radius-2xl)',
-        '3xl': 'var(--border-radius-3xl)',
-        'full': 'var(--border-radius-full)',
+        lg: `var(--radius)`,
+        md: `calc(var(--radius) - 2px)`,
+        sm: `calc(var(--radius) - 4px)`,
       },
       boxShadow: {
         'xs': 'var(--shadow-xs)',
@@ -225,7 +171,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 }
 
 export default config
