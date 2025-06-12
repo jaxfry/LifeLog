@@ -17,7 +17,7 @@ from LifeLog.config import Settings
 from LifeLog.ingestion.activitywatch import ingest as ingest_activitywatch_data
 from LifeLog.enrichment.timeline_generator import run_enrichment_for_day
 from LifeLog.summary.daily import summarize_day_activities # Import the correct function
-from LifeLog.database import init_database
+from LifeLog.database import init_database, DB_PATH
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)-20s | %(funcName)-25s | %(message)s",
@@ -198,8 +198,8 @@ def main():
     )
     def handle_init_db(args_ns, current_settings: Settings):
         init_database()
-        log.info(f"DuckDB database initialized at {current_settings.db_path}.")
-    parser_dbinit.set_defaults(func=lambda args_ns: handle_init_db(args_ns, settings))
+        log.info(f"DuckDB database initialized at {DB_PATH}.")
+    parser_dbinit.set_defaults(func=handle_init_db)
 
     args = parser.parse_args()
 
