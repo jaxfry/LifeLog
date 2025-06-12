@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     summary_force_llm: bool = False # Separate force flag for summary LLM call
     summary_force_processing_all: bool = False # If true, re-run summary even if output file exists (overlaps with CLI --force)
 
+    # --- Live Collector Settings (NEW) ---
+    polling_interval_minutes: int = 3  # Default polling interval for live collector
+    retry_attempts: int = 3           # Number of retry attempts for failed collections
+    retry_delay_seconds: int = 10     # Delay between retries in seconds
+
 
     model_config = SettingsConfigDict(
         env_prefix="LIFELOG_",

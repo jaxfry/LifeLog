@@ -520,6 +520,52 @@ def ingest(day: date | None = None, *, out_path: Path | None = None) -> Path | N
         log.error(f"Failed to write Parquet file to {final_out_path}: {e}", exc_info=True)
         return None
 
+# --- Real-time event fetcher for live collector ---
+def fetch_new_events(since: int | None = None) -> list[dict]:
+    """
+    Fetch new ActivityWatch events since the given timestamp (ms since epoch).
+    Returns a list of event dicts with keys: timestamp, duration_ms, app, title, url, browser.
+    """
+    from LifeLog.config import Settings
+    settings = Settings()
+    client = ActivityWatchClient(client_name="LifeLogLiveCollector")
+    hostname = settings.hostname_override or client.get_info()["hostname"]
+    # Use all buckets (window, afk, web) and fetch since last timestamp
+    # For real-time, fetch from all buckets for the last 10 minutes if since is None
+    import time as _time
+    now_ms = int(_time.time() * 1000)
+    if since is None:
+        since = now_ms - 10 * 60 * 1000  # Default: last 10 minutes
+    start_utc = datetime.fromtimestamp(since / 1000, tz=timezone.utc)
+    end_utc = datetime.fromtimestamp(now_ms / 1000, tz=timezone.utc)
+    # Fetch window events
+    window_bucket = settings.window_bucket_pattern.format(hostname=hostname)
+    window_events = client.get_events(bucket_id=window_bucket, start=start_utc, end=end_utc, limit=-1)
+    # Fetch AFK events
+    afk_bucket = settings.afk_bucket_pattern.format(hostname=hostname)
+    afk_events = client.get_events(bucket_id=afk_bucket, start=start_utc, end=end_utc, limit=-1)
+    # Fetch web events from all web buckets
+    web_events = []
+    for app_name, bucket_pattern in settings.web_bucket_map.items():
+        bucket_id = bucket_pattern.format(hostname=hostname)
+        web_events.extend(client.get_events(bucket_id=bucket_id, start=start_utc, end=end_utc, limit=-1))
+    # Flatten and merge all events
+    all_events = window_events + afk_events + web_events
+    # Use the same flattening as _flatten_events_to_df, but output as dicts
+    events_out = []
+    for e in all_events:
+        data = e.data if hasattr(e, 'data') else {}
+        events_out.append({
+            "timestamp": int(e.timestamp.timestamp() * 1000),
+            "duration_ms": int(e.duration.total_seconds() * 1000) if hasattr(e, 'duration') else None,
+            "app": data.get("app"),
+            "title": data.get("title") or data.get("status"),
+            "url": data.get("url"),
+            "browser": data.get("browser"),
+        })
+    # Only return events strictly after 'since'
+    return [e for e in events_out if e["timestamp"] > since]
+
 if __name__ == "__main__":
     logging.basicConfig(
         format="%(asctime)s | %(levelname)-8s | %(name)-20s | %(funcName)-25s | %(message)s",

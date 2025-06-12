@@ -1,0 +1,14 @@
+[Unit]
+Description=LifeLog Real-Time Live Collector Service
+After=network.target
+
+[Service]
+Type=simple
+User=lifelog
+WorkingDirectory=/workspaces/LifeLog
+ExecStart=/usr/bin/python3 -m LifeLog.cli live-collector start
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
