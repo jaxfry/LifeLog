@@ -7,8 +7,9 @@ import polars as pl # Added polars
 import os # Added os
 import sys # Added sys
 from pydantic import BaseModel, Field, field_validator, model_validator, RootModel
-from google import genai # Main SDK import
-from google.genai import types as genai_types # For type hints like GenerationConfig
+import uuid
+import google.generativeai as genai
+from google.generativeai import types as genai_types
 from google.auth.exceptions import DefaultCredentialsError # For auth errors
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError # Python 3.9+
 
@@ -466,17 +467,20 @@ def run_enrichment_for_day(day: date, settings: Settings) -> int | None:
         log.warning(f"LLM returned no entries for {day}")
         return 0
     with get_connection() as conn:
+        conn.execute("BEGIN TRANSACTION")
         cur = conn.cursor()
-        cur.execute("BEGIN")
         try:
             for e in enriched_entries:
                 cur.execute(
-                    "UPDATE timeline_events SET category = ?, notes = ?, project = ?, last_modified = NOW() WHERE event_id = ?",
-                    (e.activity, e.notes, e.project, e.event_id),
+                    "UPDATE timeline_events SET category = ?, notes = ?, project = ?, last_modified = CURRENT_TIMESTAMP WHERE event_id = ?",
+                    (e.activity, e.notes, e.project, uuid.UUID(e.event_id)),
                 )
             conn.commit()
         except Exception as exc:
-            conn.rollback()
+            try:
+                conn.rollback()
+            except Exception:
+                pass
             log.error(f"Failed to update events for {day}: {exc}")
             return None
     log.info(f"Updated {len(enriched_entries)} events for {day}")

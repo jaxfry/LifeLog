@@ -18,6 +18,7 @@ SCHEMA_QUERIES = [
         app_name VARCHAR,
         window_title VARCHAR,
         category VARCHAR,
+        project VARCHAR,
         notes TEXT,
         last_modified TIMESTAMP
     );

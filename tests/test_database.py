@@ -25,6 +25,7 @@ def test_database_schema_creation(tmp_path, monkeypatch):
         assert "app_name" in columns
         assert "window_title" in columns
         assert "category" in columns
+        assert "project" in columns
         assert "notes" in columns
         assert "last_modified" in columns
 
