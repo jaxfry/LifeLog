@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError # Import specific error
 from LifeLog.config import Settings
 from LifeLog.enrichment.timeline_generator import EnrichedTimelineEntry 
 from LifeLog.prompts import DAILY_SUMMARY_JSON_SCHEMA, DAILY_SUMMARY_SYSTEM_PROMPT # Added import
+from LifeLog.database import get_connection
 
 log = logging.getLogger(__name__)
 
@@ -245,10 +246,30 @@ def summarize_day_activities(day: date, settings: Settings, force_regenerate: bo
     if output_summary_path.exists() and not force_regenerate:
         log.info(f"Daily summary for {day} already exists at {output_summary_path}. Skipping.")
         return output_summary_path
-    if not source_parquet_path.exists():
-        log.error(f"Source curated timeline file not found: {source_parquet_path}")
-        raise FileNotFoundError(f"Source curated timeline file not found: {source_parquet_path}")
-    df_curated = pl.read_parquet(source_parquet_path)
+    if source_parquet_path.exists():
+        df_curated = pl.read_parquet(source_parquet_path)
+    else:
+        log.warning(
+            f"Source curated timeline file not found: {source_parquet_path}. Querying database."
+        )
+        with get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT start_time, end_time, category, project, notes
+                FROM timeline_events
+                WHERE date = ? AND category IS NOT NULL
+                ORDER BY start_time
+                """,
+                (day.isoformat(),),
+            ).fetchall()
+        if not rows:
+            raise FileNotFoundError(
+                f"No enriched events found in database for {day}"
+            )
+        df_curated = pl.DataFrame(
+            rows,
+            schema=["start", "end", "activity", "project", "notes"],
+        )
     if df_curated.is_empty():
         log.warning(f"Source curated timeline for {day} is empty. Writing empty summary.")
         empty_stats = Stats(total_active_time_min=0, focus_time_min=0, number_blocks=0)
