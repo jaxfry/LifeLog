@@ -50,9 +50,10 @@ except Exception as e:
 
 # --- Pydantic Models ---
 class EnrichedTimelineEntry(BaseModel):
+    event_id: str = Field(description="UUID of the source event")
     start: datetime = Field(description="Start time UTC ISO format.")
     end: datetime = Field(description="End time UTC ISO format.")
-    activity: str = Field(description="Short verb phrase.")
+    activity: str = Field(description="Short verb phrase or category.")
     project: Optional[str] = Field(default=None, description="Project/course name.")
     notes: Optional[str] = Field(default=None, description="1-2 sentence summary.")
 
@@ -419,126 +420,67 @@ def _ensure_day_boundaries(
 
     return entries
 
-def run_enrichment_for_day(day: date, settings: Settings) -> Path | None:
-    log.info(f"Starting enrichment process for day: {day.isoformat()}")
-    output_file_path = settings.curated_dir / f"{day}.parquet"
-    output_file_path.parent.mkdir(parents=True, exist_ok=True)
-    if output_file_path.exists() and not settings.enrichment_force_processing_all:
-        log.info(f"Skipping {day}, output exists: {output_file_path}")
-        return output_file_path
-    try:
-        df_for_prompt = _load_and_prepare_input_df(day, settings)
-        enriched_llm_entries: List[EnrichedTimelineEntry] = []
-        if df_for_prompt.is_empty():
-            log.warning(f"No suitable events for LLM for {day}. Will proceed to check for trailing AFK.")
-            # enriched_llm_entries remains empty
-        else:
-            prompt_text = _build_llm_prompt(day, df_for_prompt, settings)
-            enriched_llm_entries = _invoke_llm_and_parse(day, prompt_text, settings)
+from LifeLog.database import get_connection
 
-        final_entries = _post_process_entries(day, enriched_llm_entries, settings) # Pass LLM entries here
-
-        # --- BEGIN ADDITION: Capture trailing AFK period ---
-        current_last_event_end_utc: Optional[datetime] = None
-        if final_entries:
-            current_last_event_end_utc = final_entries[-1].end
-        else:
-            # If LLM produced no entries, or post-processing resulted in no entries,
-            # start checking for AFK from the beginning of the day.
-            local_tz_for_day_start = _get_local_tz(settings)
-            current_last_event_end_utc = datetime.combine(day, time.min, tzinfo=local_tz_for_day_start).astimezone(timezone.utc)
-
-        # Determine the actual end of the local day in UTC (exclusive boundary)
-        local_tz_for_day_end = _get_local_tz(settings)
-        day_end_boundary_utc = (datetime.combine(day, time.min, tzinfo=local_tz_for_day_end) + timedelta(days=1)).astimezone(timezone.utc)
-
-        if current_last_event_end_utc < day_end_boundary_utc:
-            df_raw_for_day_check = _load_raw_data_for_local_day(day, settings)
-
-            if not df_raw_for_day_check.is_empty() and 'start' in df_raw_for_day_check.columns:
-                # Check for any *non-AFK* activity in the raw data in the gap
-                df_non_afk_in_gap = df_raw_for_day_check.filter(
-                    (pl.col("app") != settings.afk_app_name_override) &
-                    (pl.col("start") >= current_last_event_end_utc) &
-                    (pl.col("start") < day_end_boundary_utc)
+def run_enrichment_for_day(day: date, settings: Settings) -> int | None:
+    """Enrich timeline events stored in the database for the given day."""
+    log.info(f"Starting enrichment process for {day}")
+    query = (
+        "SELECT event_id, start_time, end_time, app_name, window_title "
+        "FROM timeline_events "
+        "WHERE date = ? AND category IS NULL AND date < CURRENT_DATE "
+        "ORDER BY start_time"
+    )
+    with get_connection() as conn:
+        rows = conn.execute(query, (day.isoformat(),)).fetchall()
+    if not rows:
+        log.info(f"No unenriched events for {day}")
+        return 0
+    events = []
+    for r in rows:
+        event_id, start, end, app, title = r
+        duration_s = int((end - start).total_seconds())
+        events.append({
+            "event_id": str(event_id),
+            "time_utc": start.strftime("%H:%M:%S"),
+            "duration_s": duration_s,
+            "app": app,
+            "title": title or "",
+        })
+    header = "| event_id | time_utc | duration_s | app | title |"
+    sep = "|---|---|---|---|---|"
+    rows_md = [header, sep]
+    for ev in events[: settings.enrichment_max_events]:
+        rows_md.append(
+            f"| {ev['event_id']} | {ev['time_utc']} | {ev['duration_s']} | {ev['app']} | {ev['title']} |"
+        )
+    events_table_md = "\n".join(rows_md)
+    schema_description = '[{"event_id": "uuid", "category": "string", "project": "string | null", "notes": "string | null"}]'
+    prompt_text = TIMELINE_ENRICHMENT_SYSTEM_PROMPT.format(
+        day_iso=day.isoformat(),
+        schema_description=schema_description,
+        events_table_md=events_table_md,
+    )
+    enriched_entries = _invoke_llm_and_parse(day, prompt_text, settings)
+    if not enriched_entries:
+        log.warning(f"LLM returned no entries for {day}")
+        return 0
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("BEGIN")
+        try:
+            for e in enriched_entries:
+                cur.execute(
+                    "UPDATE timeline_events SET category = ?, notes = ?, project = ?, last_modified = NOW() WHERE event_id = ?",
+                    (e.activity, e.notes, e.project, e.event_id),
                 )
-
-                if df_non_afk_in_gap.is_empty():
-                    # No non-AFK activity in the gap. The gap is AFK or unrecorded.
-                    if day_end_boundary_utc > current_last_event_end_utc: # Ensure positive duration
-                        afk_block_start = current_last_event_end_utc
-                        afk_block_end = day_end_boundary_utc
-                        
-                        log.info(f"Identified trailing Idle / Away period for {day} from {afk_block_start.isoformat()} to {afk_block_end.isoformat()}")
-                        
-                        new_idle_entry = EnrichedTimelineEntry(
-                            start=afk_block_start,
-                            end=afk_block_end,
-                            activity="Idle / Away",
-                            project=None,
-                            notes="Device was idle or user was away until the end of the day."
-                        )
-
-                        merged_with_previous = False
-                        if final_entries:
-                            last_entry = final_entries[-1]
-                            # Check if last entry is idle and if the new idle block starts very close to its end
-                            if ("idle" in last_entry.activity.lower() or "away" in last_entry.activity.lower()) and \
-                               (new_idle_entry.start - last_entry.end).total_seconds() < settings.enrichment_merge_gap_s:
-                                log.info(f"Extending previous Idle / Away entry (ending {last_entry.end.isoformat()}) to {new_idle_entry.end.isoformat()}")
-                                last_entry.end = new_idle_entry.end
-                                # Optionally update notes if needed, e.g., if the new one is more generic
-                                # last_entry.notes = new_idle_entry.notes # Or some combination
-                                merged_with_previous = True
-                        
-                        if not merged_with_previous:
-                            log.info(f"Appending new trailing Idle / Away entry for {day}.")
-                            final_entries.append(new_idle_entry)
-                else:
-                    log.info(f"Non-AFK activity found after {current_last_event_end_utc.isoformat()} for day {day}. Not adding trailing idle block.")
-            elif df_raw_for_day_check.is_empty():
-                 log.info(f"Raw data for {day} was empty for trailing AFK check. Not adding trailing idle block.")
-            else: # df_raw_for_day_check is not empty but 'start' column missing (should not happen with _load_raw_data_for_local_day)
-                 log.warning(f"Raw data for {day} missing 'start' column for trailing AFK check. Not adding trailing idle block.")
-
-        # --- END ADDITION ---
-
-        final_entries = _ensure_day_boundaries(day, final_entries, settings)
-
-        if not final_entries:
-            log.warning(f"No entries after post-processing and trailing AFK check for {day}. Writing empty Parquet.")
-            # Define schema for empty DataFrame based on EnrichedTimelineEntry fields
-            empty_schema = {
-                field_name: pl.Datetime(time_unit='us', time_zone='UTC') if annotation == datetime else pl.Utf8
-                for field_name, field_info in EnrichedTimelineEntry.model_fields.items()
-                for annotation in [field_info.annotation] # Get actual type
-            }
-            pl.DataFrame(schema=empty_schema).write_parquet(output_file_path)
-            return output_file_path # Return path to empty file
-        else:
-            output_data = [e.model_dump(mode='json') for e in final_entries]
-            # Ensure datetimes from model_dump (which are ISO strings) are converted back to Polars Datetime
-            df_output = pl.from_dicts(output_data).with_columns([
-                pl.col("start").str.to_datetime(time_unit='us').dt.replace_time_zone("UTC"),
-                pl.col("end").str.to_datetime(time_unit='us').dt.replace_time_zone("UTC"),
-                # Ensure other columns are Utf8, especially project and notes which can be None
-                pl.col("activity").cast(pl.Utf8),
-                pl.col("project").cast(pl.Utf8, strict=False), # Fill None with null
-                pl.col("notes").cast(pl.Utf8, strict=False)    # Fill None with null
-            ])
-            # Select columns in desired order, matching EnrichedTimelineEntry fields
-            ordered_columns = list(EnrichedTimelineEntry.model_fields.keys())
-            df_output = df_output.select(ordered_columns)
-
-            df_output.write_parquet(output_file_path)
-            log.info(f"✅ Enriched {len(final_entries)} entries for {day} to {output_file_path}")
-        return output_file_path
-    except FileNotFoundError: # This might be too broad if _load_raw_data_for_local_day raises it for missing raw files
-        log.error(f"A required file was not found during enrichment for {day}.", exc_info=True) # Log with traceback
-        return None
-    except Exception as e:
-        log.error(f"Unhandled error during enrichment for day {day}: {e}", exc_info=True)
-        return None
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            log.error(f"Failed to update events for {day}: {exc}")
+            return None
+    log.info(f"Updated {len(enriched_entries)} events for {day}")
+    return len(enriched_entries)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)-7s] [%(name)-25s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
