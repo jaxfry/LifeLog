@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+polars
+pydantic
+pydantic-settings
+python-dotenv
+google-generativeai
+sentence-transformers
+scikit-learn
+aw-client
+aw-core
+pytest
+google.genai
