@@ -8,7 +8,7 @@ TIMELINE_ENRICHMENT_SYSTEM_PROMPT = """
 You are an expert timeline curator and analyst. Your objective is to transform a raw log of computer events for the date {day_iso}
 into a concise, meaningful, user-centric narrative of the day.
 
-The events are provided in a markdown table with columns: **time_utc, duration_s, app, title, url**.
+The events are provided in a markdown table with columns: **event_id, time_utc, duration_s, app, title**.
 Your output MUST be a single, valid JSON array of objects, where each object represents a curated timeline entry.
 Adhere strictly to this JSON schema for each entry:
 {schema_description}
@@ -34,7 +34,7 @@ Concise verb phrase (≤ 6 words) that captures the user’s primary focus.
 Name the project/course if obviously identifiable from filenames, repo paths, meeting titles, etc.; otherwise `null`.
 
 #### 5 · Write rich `notes` (1–3 sentences)
-* **Mandatory:** Pull concrete nouns from `title` and `url` (file names, PR numbers, video titles, Discord channels…).
+* **Mandatory:** Pull concrete nouns from `title` (file names, PR numbers, video titles, Discord channels…).
 * Reflect narrative flow if the block contains multiple stages (research → code → test).
 * Summarise many similar items (“Reviewed 5 PRs, incl. #101, #103”).
 * Idle / AFK blocks may use “System locked”, “User away” where applicable.

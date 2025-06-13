@@ -496,7 +496,9 @@ async def fetch_day_data(day: date, client: ActivityWatchClient, settings: Setti
     log.info("🔍 Processed data for %s. Final rows: %d (includes SystemActivity AFK/not-AFK events)", day, result.height)
     return result
 
-def ingest(day: date | None = None, *, out_path: Path | None = None) -> Path | None:
+from LifeLog.database import get_connection
+
+def ingest(day: date | None = None, *, out_path: Path | None = None) -> int | None:
     settings = Settings()
     target_day = day or (date.today() - timedelta(days=1))
     aw_client = ActivityWatchClient(client_name="LifeLogIngest_v5.6") # Version bump
@@ -507,18 +509,43 @@ def ingest(day: date | None = None, *, out_path: Path | None = None) -> Path | N
         log.error(f"Failed to fetch or process data for day {target_day}: {e}", exc_info=True)
 
     if df_processed_day.is_empty():
-        log.warning("%s resulted in empty data or processing failed; skipping write.", target_day)
-        return None
+        log.warning("%s resulted in empty data or processing failed; skipping DB insert.", target_day)
+        return 0
 
-    final_out_path = out_path or (settings.raw_dir / f"{target_day}.parquet")
-    final_out_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        df_processed_day.write_parquet(final_out_path)
-        log.info("✅ Wrote %d rows to %s", df_processed_day.height, final_out_path)
-        return final_out_path
-    except Exception as e:
-        log.error(f"Failed to write Parquet file to {final_out_path}: {e}", exc_info=True)
-        return None
+    from datetime import timezone
+    import uuid
+    now = datetime.now(timezone.utc)
+    with get_connection() as conn:
+        conn.execute("BEGIN TRANSACTION")
+        cur = conn.cursor()
+        try:
+            for row in df_processed_day.to_dicts():
+                start_dt = row["start"].to_pydatetime()
+                end_dt = row["end"].to_pydatetime()
+                duration_s = int((end_dt - start_dt).total_seconds())
+                cur.execute(
+                    "INSERT INTO timeline_events (event_id, start_time, end_time, duration_s, source, app_name, window_title, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        str(uuid.uuid4()),
+                        start_dt,
+                        end_dt,
+                        duration_s,
+                        "activitywatch",
+                        row.get("app"),
+                        row.get("title"),
+                        now,
+                    ),
+                )
+            conn.commit()
+        except Exception as exc:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            log.error(f"Failed to insert events for {target_day}: {exc}")
+            return None
+    log.info("✅ Inserted %d rows for %s", df_processed_day.height, target_day)
+    return df_processed_day.height
 
 # --- Real-time event fetcher for live collector ---
 def fetch_new_events(since: int | None = None) -> list[dict]:
@@ -586,9 +613,9 @@ if __name__ == "__main__":
         #     handler.setLevel(logging.DEBUG)
         log.debug("Debug logging enabled for LifeLog.ingestion.activitywatch.")
 
-    ingest_result_path = ingest(args.day, out_path=args.out_path)
-    if ingest_result_path:
-        log.info(f"Ingestion successful: {ingest_result_path}")
+    inserted = ingest(args.day, out_path=args.out_path)
+    if inserted:
+        log.info(f"Ingestion successful: {inserted} events")
     else:
         processed_day = args.day or (date.today() - timedelta(days=1))
         log.error(f"Ingestion failed or produced no data for day: {processed_day}")
