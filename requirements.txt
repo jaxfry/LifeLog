@@ -12,3 +12,5 @@ aw-core
 pytest
 google.genai
 pydantic
+duckdb
+pytest
