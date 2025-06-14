@@ -11,3 +11,4 @@ aw-client
 aw-core
 pytest
 google.genai
+pydantic
