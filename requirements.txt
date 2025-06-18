@@ -13,3 +13,6 @@ google-generativeai
 duckdb
 pyarrow
 schedule
+pytz
+pandas
+tabulate
