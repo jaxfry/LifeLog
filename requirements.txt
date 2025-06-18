@@ -4,13 +4,12 @@ polars
 pydantic
 pydantic-settings
 python-dotenv
-google-generativeai
 sentence-transformers
 scikit-learn
 aw-client
 aw-core
 pytest
-google.genai
-pydantic
+google-generativeai
 duckdb
-pytest
+pyarrow
+schedule

@@ -359,7 +359,12 @@ pip-selfcheck.json
 
 storage/
 tmp/
-test_segmentation.py
 example.py
 test.py
-temp_read_parquet.py
+
+# Database files
+backend/app/data/lifelog.db
+backend/app/data/lifelog.db.wal
+
+# Backups
+backend/app/data/backups/
