@@ -44,12 +44,12 @@ def main():
         # Test the timeline processing
         from backend.app.core.db import get_db_connection
         from backend.app.core.settings import settings
-        from backend.app.processing.timeline import process_pending_events
+        from backend.app.processing.timeline import process_pending_events_sync
         
         con = get_db_connection()
         try:
             print("Testing timeline processing...")
-            process_pending_events(con, settings)
+            process_pending_events_sync(con, settings)
             print("Processing test completed!")
         finally:
             con.close()

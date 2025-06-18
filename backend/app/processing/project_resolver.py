@@ -47,12 +47,12 @@ class ProjectResolver:
         # Query using vector similarity search
         result = self.con.execute(
             """
-            SELECT name, embedding <-> list_value(?) AS distance
+            SELECT name, embedding <-> list_value(CAST(? AS FLOAT[])) AS distance
             FROM projects
             ORDER BY distance ASC
             LIMIT 1;
             """,
-            [vec.tolist()]
+            [vec.astype(np.float32).tolist()]  # Ensure float32 type
         ).fetchone()
         
         if result:
