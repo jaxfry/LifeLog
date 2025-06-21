@@ -1,4 +1,5 @@
 -- EXTENSIONS
+INSTALL vss;
 LOAD icu;
 LOAD vss;
 

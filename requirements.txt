@@ -9,10 +9,11 @@ scikit-learn
 aw-client
 aw-core
 pytest
-google-generativeai
+google.genai
 duckdb
 pyarrow
 schedule
 pytz
 pandas
 tabulate
+persist-queue[extra]

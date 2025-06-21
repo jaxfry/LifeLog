@@ -419,8 +419,8 @@ class TimelineProcessor:
             return entries
     
     def save_timeline_entries(self, con: duckdb.DuckDBPyConnection, entries: List[TimelineEntry], 
-                            source_event_ids: List[str]) -> None:
-        """Save timeline entries to database."""
+                            source_events: List[Dict[str, Any]]) -> None:
+        """Save timeline entries to database and link them to overlapping source events."""
         for entry in entries:
             # Insert timeline entry
             result = con.execute("""
@@ -445,17 +445,23 @@ class TimelineProcessor:
             if result:
                 entry_id = result[0]
                 
-                # Link to source events
-                for event_id in source_event_ids:
-                    con.execute("""
-                        INSERT INTO timeline_source_events (entry_id, event_id)
-                        VALUES (?, ?)
-                        ON CONFLICT DO NOTHING
-                    """, [entry_id, event_id])
+                # Link only to overlapping source events
+                for event in source_events:
+                    event_start = event['start_time']
+                    event_end = event['end_time'] or event_start  # Handle null end_time
+                    
+                    # Check if event overlaps with timeline entry
+                    if (event_start < entry.end and event_end > entry.start):
+                        con.execute("""
+                            INSERT INTO timeline_source_events (entry_id, event_id)
+                            VALUES (?, ?)
+                            ON CONFLICT DO NOTHING
+                        """, [entry_id, event['id']])
     
-    def mark_events_processed(self, con: duckdb.DuckDBPyConnection, event_ids: List[str]) -> None:
+    def mark_events_processed(self, con: duckdb.DuckDBPyConnection, source_events: List[Dict[str, Any]]) -> None:
         """Mark events as processed - but only if they're not already linked to timeline entries."""
-        for event_id in event_ids:
+        for event in source_events:
+            event_id = event['id']
             # Check if event is already linked to a timeline entry
             result = con.execute("""
                 SELECT COUNT(*) FROM timeline_source_events 
@@ -497,9 +503,8 @@ class TimelineProcessor:
             timeline_entries = self.resolve_projects(con, timeline_entries)
             
             # Save to database
-            event_ids = [event['id'] for event in events]
-            self.save_timeline_entries(con, timeline_entries, event_ids)
-            self.mark_events_processed(con, event_ids)
+            self.save_timeline_entries(con, timeline_entries, events)
+            self.mark_events_processed(con, events)
             
             log.info(f"Successfully processed {len(timeline_entries)} timeline entries for {window.local_day}")
             
