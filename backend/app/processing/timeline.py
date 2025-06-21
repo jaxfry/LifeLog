@@ -113,9 +113,10 @@ class LLMProcessor:
             if not api_key or api_key == "YOUR_API_KEY_HERE":
                 raise ValueError("GEMINI_API_KEY not configured")
             self.client = genai.Client(api_key=api_key)
+            log.info("Gemini client initialized successfully")
         except Exception as e:
             log.error(f"Failed to initialize Gemini client: {e}")
-            raise
+            self.client = None  # Ensure client is None on failure
     
     def _build_prompt(self, events_df: pl.DataFrame, local_day: date) -> str:
         """Builds the LLM prompt from events DataFrame."""
@@ -164,6 +165,10 @@ class LLMProcessor:
     async def process_with_llm(self, events_df: pl.DataFrame, local_day: date) -> List[TimelineEntry]:
         """Processes events using LLM and returns structured timeline entries."""
         if events_df.is_empty():
+            return []
+        
+        if not self.client:
+            log.error("Gemini client not initialized - cannot process with LLM")
             return []
         
         prompt = self._build_prompt(events_df, local_day)
@@ -392,10 +397,26 @@ class TimelineProcessor:
     
     def resolve_projects(self, con: duckdb.DuckDBPyConnection, entries: List[TimelineEntry]) -> List[TimelineEntry]:
         """Resolve project names using the project resolver."""
-        # Skip project resolution for now due to type casting issues
-        # TODO: Fix project resolver type casting
-        log.info("Skipping project resolution temporarily")
-        return entries
+        try:
+            resolver = ProjectResolver(con, self.settings)
+            
+            for entry in entries:
+                if not entry.project:  # Only resolve if no project specified
+                    # Create context from activity and notes
+                    context_parts = [entry.activity]
+                    if entry.notes:
+                        context_parts.append(entry.notes)
+                    context = " | ".join(context_parts)
+                    
+                    resolved_project = resolver.resolve(context)
+                    if resolved_project:
+                        entry.project = resolved_project
+                        log.debug(f"Resolved project '{resolved_project}' for activity '{entry.activity}'")
+            
+            return entries
+        except Exception as e:
+            log.warning(f"Project resolution failed: {e}. Continuing without project resolution.")
+            return entries
     
     def save_timeline_entries(self, con: duckdb.DuckDBPyConnection, entries: List[TimelineEntry], 
                             source_event_ids: List[str]) -> None:

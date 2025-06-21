@@ -44,20 +44,23 @@ class ProjectResolver:
         """Finds the best matching project for a given text context."""
         vec = self._vectorize(text_context)
         
-        # Query using vector similarity search
+        # Convert numpy array to Python list of floats (ensure float32 for DuckDB FLOAT type)
+        vec_list = [float(np.float32(x)) for x in vec]
+        
+        # Query using DuckDB's array_cosine_similarity function with explicit cast
         result = self.con.execute(
             """
-            SELECT name, embedding <-> list_value(CAST(? AS FLOAT[])) AS distance
+            SELECT name, array_cosine_similarity(embedding, CAST(? AS FLOAT[128])) AS similarity
             FROM projects
-            ORDER BY distance ASC
+            ORDER BY similarity DESC
             LIMIT 1;
             """,
-            [vec.astype(np.float32).tolist()]  # Ensure float32 type
+            [vec_list]
         ).fetchone()
         
         if result:
-            name, distance = result
-            if 1 - distance >= self.settings.PROJECT_SIMILARITY_THRESHOLD:
-                log.debug(f"Resolved project '{name}' with similarity {1-distance:.2f}")
+            name, similarity = result
+            if similarity >= self.settings.PROJECT_SIMILARITY_THRESHOLD:
+                log.debug(f"Resolved project '{name}' with similarity {similarity:.2f}")
                 return name
         return None

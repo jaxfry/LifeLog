@@ -23,6 +23,10 @@ def main():
         from backend.app.daemon.daemon import main as daemon_main
         daemon_main()
         
+    elif command == "realtime-watcher":
+        from backend.app.daemon.realtime_watcher import main as watcher_main
+        watcher_main()
+        
     elif command == "test-ingestion":
         # Useful for testing ingestion without running the full daemon
         from backend.app.core.db import get_db_connection
@@ -54,6 +58,21 @@ def main():
         finally:
             con.close()
             
+    elif command == "process-now":
+        # NEW COMMAND FOR ON-DEMAND PROCESSING
+        from backend.app.core.db import get_db_connection
+        from backend.app.core.settings import settings
+        from backend.app.processing.timeline import process_pending_events_sync
+        
+        con = get_db_connection()
+        try:
+            print("Starting on-demand timeline processing...")
+            print("This will process all pending events and may take a moment.")
+            process_pending_events_sync(con, settings)
+            print("On-demand processing complete!")
+        finally:
+            con.close()
+
     else:
         print(f"Unknown command: {command}")
         print_usage()
@@ -62,10 +81,12 @@ def print_usage():
     """Print usage information."""
     print("LifeLog System")
     print("Usage:")
-    print("  python -m backend.app.main init-db        # Initialize database")
-    print("  python -m backend.app.main daemon         # Run daemon")
-    print("  python -m backend.app.main test-ingestion # Test data ingestion")
-    print("  python -m backend.app.main test-processing # Test timeline processing")
+    print("  python -m backend.app.main init-db           # Initialize database")
+    print("  python -m backend.app.main daemon            # Run scheduled jobs (nightly processing, backups)")
+    print("  python -m backend.app.main realtime-watcher  # Run real-time event watcher for AURA (Hot Path)")
+    print("  python -m backend.app.main process-now       # Manually process pending events into timeline")
+    print("  python -m backend.app.main test-ingestion    # Test data ingestion")
+    print("  python -m backend.app.main test-processing   # Test timeline processing")
 
 if __name__ == "__main__":
     # Configure logging
