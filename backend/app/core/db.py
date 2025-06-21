@@ -18,6 +18,15 @@ def get_db_connection(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     )
     # This ensures our AT TIME ZONE clauses work correctly regardless of host TZ
     con.execute("SET TimeZone='UTC';")
+    
+    # Load required extensions (needed for HNSW indexes and other features)
+    try:
+        con.execute("LOAD icu;")
+        con.execute("LOAD vss;")
+        con.execute("SET hnsw_enable_experimental_persistence = true;")
+    except Exception as e:
+        print(f"Warning: Could not load extensions: {e}")
+    
     return con
 
 def initialize_database():
