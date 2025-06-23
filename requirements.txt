@@ -17,5 +17,8 @@ pytz
 pandas
 tabulate
 persist-queue[extra]
-
+python-jose[cryptography]
+passlib
+bcrypt
 nest-asyncio
+python-multipart
