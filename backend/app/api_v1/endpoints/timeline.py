@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from backend.app import schemas
 from backend.app.api_v1.deps import get_db
 from backend.app.api_v1.auth import get_current_active_user
-from backend.app.api_v1.endpoints.projects import get_project_db # To resolve project details
+from backend.app.api_v1.endpoints.projects import ProjectRepository
 
 router = APIRouter()
 
@@ -23,7 +23,8 @@ def _map_timeline_entry_row_to_schema(db: duckdb.DuckDBPyConnection, row: tuple)
     
     project_schema: Optional[schemas.Project] = None
     if project_id_db:
-        project_schema = get_project_db(db, project_id_db) # Fetches the full project object
+        project_repo = ProjectRepository(db)
+        project_schema = project_repo.get_project_by_id(project_id_db)
 
     return schemas.TimelineEntry(
         id=entry_id,
@@ -165,7 +166,8 @@ def update_timeline_entry_db(
             continue
         if key == "project_id" and value is not None:
              # Validate project_id exists before updating
-            if not get_project_db(db, value):
+            project_repo = ProjectRepository(db)
+            if not project_repo.get_project_by_id(value):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid project_id: {value}. Project does not exist.")
             set_clauses.append(f"{key} = ?")
             params.append(str(value))

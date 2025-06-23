@@ -1,72 +1,86 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from datetime import datetime, date
 
+# Constants for field examples
+class FieldExamples:
+    PROJECT_NAME = "LifeLog Development"
+    PROJECT_NAME_UPDATED = "LifeLog Core Development"
+    TIMELINE_TITLE = "Working on API design document"
+    TIMELINE_SUMMARY = "Detailed planning for v1 endpoints and data models."
+    TIMELINE_TITLE_UPDATED = "Refining API design"
+    TIMELINE_SUMMARY_UPDATED = "Added error handling and pagination details."
+    EVENT_SOURCE = "activitywatch_aw-watcher-window"
+    EVENT_ID_1 = "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+    EVENT_ID_2 = "b2c3d4e5-f6a7-8901-2345-67890abcdef0"
+
 # --- Base Models & Common ---
 class HTTPError(BaseModel):
-    detail: Any # Can be a string or List[ErrorDetail] for validation errors
+    detail: Any
 
 class ErrorDetail(BaseModel):
-    loc: Optional[List[str]] = None # Location of the error (e.g., field name)
-    msg: str                    # Error message
-    type: str                   # Error type (e.g., 'value_error.missing')
+    loc: Optional[List[str]] = None
+    msg: str
+    type: str
 
 # --- Project ---
 class ProjectBase(BaseModel):
-    name: str = Field(..., json_schema_extra={'example': "LifeLog Development"}, min_length=1)
+    name: str = Field(..., json_schema_extra={'example': FieldExamples.PROJECT_NAME}, min_length=1)
 
 class ProjectCreate(ProjectBase):
     pass
 
-class ProjectUpdate(BaseModel): # Modified to allow partial updates as per common practice for PUT/PATCH
-    name: Optional[str] = Field(None, json_schema_extra={'example': "LifeLog Core Development"}, min_length=1)
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = Field(None, json_schema_extra={'example': FieldExamples.PROJECT_NAME_UPDATED}, min_length=1)
 
 class Project(ProjectBase):
     id: UUID
-    # embedding: Optional[List[float]] # Handled internally, not directly exposed via basic CRUD
 
     class Config:
-        from_attributes = True # Replaces orm_mode = True in Pydantic v2
+        from_attributes = True
 
 # --- Timeline Entry ---
 class TimelineEntryBase(BaseModel):
     start_time: datetime
     end_time: datetime
-    title: str = Field(..., json_schema_extra={'example': "Working on API design document"}, min_length=1)
-    summary: Optional[str] = Field(None, json_schema_extra={'example': "Detailed planning for v1 endpoints and data models."})
+    title: str = Field(..., json_schema_extra={'example': FieldExamples.TIMELINE_TITLE}, min_length=1)
+    summary: Optional[str] = Field(None, json_schema_extra={'example': FieldExamples.TIMELINE_SUMMARY})
     project_id: Optional[UUID] = Field(None)
 
 class TimelineEntryCreate(TimelineEntryBase):
-    source_event_ids: Optional[List[UUID]] = Field(None, json_schema_extra={'example': ["a1b2c3d4-e5f6-7890-1234-567890abcdef", "b2c3d4e5-f6a7-8901-2345-67890abcdef0"]})
+    source_event_ids: Optional[List[UUID]] = Field(
+        None, 
+        json_schema_extra={'example': [FieldExamples.EVENT_ID_1, FieldExamples.EVENT_ID_2]}
+    )
 
 class TimelineEntryUpdate(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
-    title: Optional[str] = Field(None, json_schema_extra={'example': "Refining API design"}, min_length=1)
-    summary: Optional[str] = Field(None, json_schema_extra={'example': "Added error handling and pagination details."})
+    title: Optional[str] = Field(None, json_schema_extra={'example': FieldExamples.TIMELINE_TITLE_UPDATED}, min_length=1)
+    summary: Optional[str] = Field(None, json_schema_extra={'example': FieldExamples.TIMELINE_SUMMARY_UPDATED})
     project_id: Optional[UUID] = Field(None)
     source_event_ids: Optional[List[UUID]] = Field(None)
 
 class TimelineEntry(TimelineEntryBase):
     id: UUID
-    local_day: date # Changed from datetime to date as per schema.sql and common sense for 'local_day'
-    project: Optional[Project] = None # Populated if project_id exists
+    local_day: date
+    project: Optional[Project] = None
 
     class Config:
         from_attributes = True
 
 # --- Event (Raw Data) ---
 class EventBase(BaseModel):
-    source: str = Field(..., json_schema_extra={'example': "activitywatch_aw-watcher-window"})
-    event_type: str # Corresponds to event_kind ENUM ('digital_activity', 'health_metric', etc.)
+    source: str = Field(..., json_schema_extra={'example': FieldExamples.EVENT_SOURCE})
+    event_type: str
     start_time: datetime
     end_time: Optional[datetime] = None
-    payload: Dict # Generic payload for now, can be a Pydantic union for specific event_types
+    payload: Dict
 
 class Event(EventBase):
     id: UUID
-    local_day: date # Changed from datetime to date
+    local_day: date
 
     class Config:
         from_attributes = True
@@ -90,27 +104,26 @@ class DayDataResponse(BaseModel):
 
 # --- User (for Auth) ---
 class UserBase(BaseModel):
-    username: str # As per API design plan
+    username: str
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
 
 class User(UserBase):
     id: UUID
-    # hashed_password: str # Not directly exposed in API responses for security
 
     class Config:
         from_attributes = True
 
-class UserInDB(User): # For internal use, includes hashed_password
+class UserInDB(User):
+    """Internal user model that includes sensitive data."""
     hashed_password: str
-
 
 # --- Auth Tokens ---
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-class TokenPayload(BaseModel): # Renamed from TokenData for clarity
-    sub: Optional[str] = None # 'sub' (subject) is standard claim for user identifier (username as per original TokenData)
-    # exp: Optional[int] = None # Expiration is handled by JWT library
+class TokenPayload(BaseModel):
+    """JWT token payload model."""
+    sub: Optional[str] = None
