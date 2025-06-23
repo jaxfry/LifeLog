@@ -18,18 +18,28 @@ if __name__ == "__main__":
     
     con = get_db_connection()
     try:
-        con.begin()
-        # Use the correct function from activitywatch.py
+        # Ingest data
         ingest_activitywatch_data(con, settings, start_utc, end_utc)
+        
+        # Process timeline
+        from backend.app.processing.timeline import process_pending_events_sync
+        process_pending_events_sync(con, settings)
+
         print("\n--- TEST RUN FINISHED ---")
         
         # Check results
-        result = con.execute("SELECT count(*) FROM events").fetchone()
-        event_count = result[0] if result else 0
-        print(f"Events in DB: {event_count}")
+        event_result = con.execute("SELECT count(*) FROM events").fetchone()
+        event_count = event_result[0] if event_result else 0
         
-        print("\nRolling back transaction to keep DB clean for next test.")
-        con.rollback()
+        timeline_result = con.execute("SELECT count(*) FROM timeline_entries").fetchone()
+        timeline_entry_count = timeline_result[0] if timeline_result else 0
+
+        project_result = con.execute("SELECT count(*) FROM projects").fetchone()
+        project_count = project_result[0] if project_result else 0
+
+        print(f"Events in DB: {event_count}")
+        print(f"Timeline entries in DB: {timeline_entry_count}")
+        print(f"Projects in DB: {project_count}")
         
     except Exception as e:
         print(f"An error occurred: {e}")

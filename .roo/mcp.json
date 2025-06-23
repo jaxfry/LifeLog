@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "motherduck": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-motherduck",
+        "--db-path",
+        "/Users/jaxon/Coding/LifeLog/backend/app/data/lifelog.db"
+      ]
+    }
+  }
+}

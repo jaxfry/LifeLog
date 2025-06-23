@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     DB_FILE: Path = DATA_DIR / "lifelog.db"
     SCHEMA_FILE: Path = DATA_DIR / "schema.sql"
     BACKUP_DIR: Path = DATA_DIR / "backups"
+    
+    # --- Caching (Testing Mode Only) ---
+    ENABLE_LLM_CACHE: bool = True  # Set to True for testing/development
+    CACHE_DIR: Path = DATA_DIR / "cache"
+    CACHE_TTL_HOURS: int = 24  # Cache expires after 24 hours
 
     # --- Timezone ---
     LOCAL_TZ: str = "America/Vancouver"
@@ -42,9 +47,13 @@ class Settings(BaseSettings):
     ENRICHMENT_CHUNK_MINUTES: int = 15 # Bin events into 15-minute chunks first
     ENRICHMENT_TOKEN_LIMIT: int = 4096 # Max tokens for the prompt context
 
+    ENRICHMENT_PROMPT_TRUNCATE_LIMIT: int = 40
+    ENRICHMENT_MIN_DURATION_S: int = 5
+    AFK_APP_NAME: str = "afk"
+ 
     # --- Project Resolution ---
     PROJECT_EMBEDDING_SIZE: int = 128
     PROJECT_SIMILARITY_THRESHOLD: float = 0.75 # Required similarity to auto-assign project
-
+ 
 # Instantiate a single settings object for the whole app
 settings = Settings()

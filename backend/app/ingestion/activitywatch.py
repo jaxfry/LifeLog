@@ -23,7 +23,6 @@ ACTIVE_STATUS = "not-afk"
 AFK_APP_NAME = "AFK"
 DIGITAL_ACTIVITY_EVENT_TYPE = "digital_activity"
 ACTIVITYWATCH_SOURCE = "activitywatch"
-PENDING_STATUS = "pending"
 
 # Database operation constants
 MILLISECONDS_MULTIPLIER = 1000
@@ -488,11 +487,11 @@ class DatabaseWriter:
     def _insert_events(self, con: duckdb.DuckDBPyConnection) -> None:
         """Inserts events into the main events table."""
         con.execute("""
-            INSERT INTO events (id, source, event_type, start_time, end_time, payload_hash, processing_status)
-            SELECT gen_random_uuid(), source, event_type::event_kind, start_time, end_time, payload_hash, ?::processing_status_enum
+            INSERT INTO events (id, source, event_type, start_time, end_time, payload_hash)
+            SELECT gen_random_uuid(), source, event_type::event_kind, start_time, end_time, payload_hash
             FROM df_to_insert
             ON CONFLICT (payload_hash) DO NOTHING;
-        """, [PENDING_STATUS])
+        """)
     
     def _insert_activity_data(self, con: duckdb.DuckDBPyConnection) -> None:
         """Inserts digital activity data into the specialized table."""

@@ -50,9 +50,12 @@ def main():
         from backend.app.core.settings import settings
         from backend.app.processing.timeline import process_pending_events_sync
         
+        # Enable caching for testing
+        settings.ENABLE_LLM_CACHE = True
+        
         con = get_db_connection()
         try:
-            print("Testing timeline processing...")
+            print("Testing timeline processing with caching enabled...")
             process_pending_events_sync(con, settings)
             print("Processing test completed!")
         finally:
@@ -72,6 +75,36 @@ def main():
             print("On-demand processing complete!")
         finally:
             con.close()
+            
+    elif command == "process-with-cache":
+        # NEW COMMAND FOR PROCESSING WITH CACHE ENABLED (TESTING)
+        from backend.app.core.db import get_db_connection
+        from backend.app.core.settings import settings
+        from backend.app.processing.timeline import process_pending_events_sync
+        
+        # Enable caching for testing
+        settings.ENABLE_LLM_CACHE = True
+        
+        con = get_db_connection()
+        try:
+            print("Starting timeline processing with caching enabled...")
+            print("This will cache LLM responses to speed up repeated runs during testing.")
+            process_pending_events_sync(con, settings)
+            print("Processing with cache complete!")
+        finally:
+            con.close()
+
+    elif command == "clear-cache":
+        # NEW COMMAND TO CLEAR LLM CACHE
+        from backend.app.core.settings import settings
+        import shutil
+        
+        cache_dir = settings.CACHE_DIR
+        if cache_dir.exists():
+            shutil.rmtree(cache_dir)
+            print(f"Cache directory {cache_dir} cleared successfully!")
+        else:
+            print("Cache directory does not exist.")
 
     elif command == "ingest":
         # Command to ingest data for a specific date or days ago
@@ -123,8 +156,10 @@ def print_usage():
     print("  python -m backend.app.main daemon            # Run scheduled jobs (nightly processing, backups)")
     print("  python -m backend.app.main realtime-watcher  # Run real-time event watcher for AURA (Hot Path)")
     print("  python -m backend.app.main process-now       # Manually process pending events into timeline")
+    print("  python -m backend.app.main process-with-cache# Process with LLM caching (testing mode)")
+    print("  python -m backend.app.main clear-cache       # Clear LLM cache directory")
     print("  python -m backend.app.main test-ingestion    # Test data ingestion")
-    print("  python -m backend.app.main test-processing   # Test timeline processing")
+    print("  python -m backend.app.main test-processing   # Test timeline processing (with cache)")
     print("  python -m backend.app.main ingest            # Ingest data for a specific date or days ago")
 
 if __name__ == "__main__":
