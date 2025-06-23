@@ -1,6 +1,7 @@
 import logging
 import schedule
 import time
+import threading
 from datetime import datetime, timedelta, timezone
 
 from backend.app.core.settings import settings
@@ -8,6 +9,7 @@ from backend.app.core.runner import run_transactional_job
 from backend.app.core.db import backup_database
 from backend.app.ingestion.activitywatch import ingest_aw_window
 from backend.app.processing.timeline import process_pending_events_sync
+from backend.app.daemon.realtime_watcher import main as realtime_watcher_main
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,6 +56,10 @@ def main():
     # Run reconciliation on startup to ensure recent data is staged.
     # We DO NOT run the batch processor on startup anymore to save API calls.
     run_transactional_job(reconciliation_ingestor_job)
+
+    log.info("Starting real-time event watcher in a background thread...")
+    watcher_thread = threading.Thread(target=realtime_watcher_main, name="RealtimeWatcher", daemon=True)
+    watcher_thread.start()
 
     log.info("Startup job complete. Entering main loop.")
     while True:

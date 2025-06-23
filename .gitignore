@@ -365,6 +365,7 @@ test.py
 # Database files
 backend/app/data/lifelog.db
 backend/app/data/lifelog.db.wal
+backend/app/data/cache
 
 # Backups
 backend/app/data/backups/

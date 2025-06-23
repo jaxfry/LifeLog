@@ -17,3 +17,5 @@ pytz
 pandas
 tabulate
 persist-queue[extra]
+
+nest-asyncio
