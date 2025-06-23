@@ -55,8 +55,8 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down LifeLog API...")
 
 app = FastAPI(
-    title="LifeLog AMAZING API",
-    description="The backend API for the LifeLog application, featuring super good features and ease of use.",
+    title="LifeLog API",
+    description="The backend API for the LifeLog application, featuring robust features and ease of use.",
     version="0.1.0", # Initial version
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url=f"{settings.API_V1_STR}/docs",
@@ -132,7 +132,7 @@ app.include_router(api_v1_router)
 # Basic root endpoint
 @app.get("/", tags=["Root"])
 async def read_root():
-    return {"message": "Welcome to the LifeLog AMAZING API. See /api/v1/docs for documentation."}
+    return {"message": "Welcome to the LifeLog API. See /api/v1/docs for documentation."}
 
 if __name__ == "__main__":
     import uvicorn
