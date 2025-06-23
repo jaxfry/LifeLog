@@ -2,7 +2,7 @@ import React from 'react';
 import { Clock, Calendar, Target, TrendingUp, Activity, AlertTriangle, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { DayDataResponse } from '@/api/client'; // Assuming this is the correct path
+import { DayDataResponse } from '@/types'; // Corrected import path
 
 interface SummaryCardProps {
   title: string;
@@ -192,10 +192,11 @@ export default function SummaryCard({
           </div>
         )}
 
-        {/* Productivity Score Badge - Assuming productivity_score is directly on summary for now, adjust if it's also in stats */} 
+        {/* Productivity Score Badge - This field (productivity_score) is not in the current API schema.
+            Commenting out until API and types support it.
         {dayData?.summary?.productivity_score !== undefined && dayData.summary.productivity_score !== null && (
           <div className="mt-5 text-center">
-            <Badge 
+            <Badge
               variant={dayData.summary.productivity_score >= 0.7 ? "default" : dayData.summary.productivity_score >= 0.4 ? "secondary" : "destructive"}
               className="px-3 py-1 text-sm font-medium shadow-sm"
             >
@@ -203,6 +204,7 @@ export default function SummaryCard({
             </Badge>
           </div>
         )}
+        */}
       </CardContent>
     </Card>
   );

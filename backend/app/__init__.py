@@ -1,0 +1,1 @@
+# LifeLog Application Core

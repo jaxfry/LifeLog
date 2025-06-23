@@ -1,23 +1,96 @@
 /*  frontend/src/types.ts  */
-export interface TimelineEntry {
-  start: string;
-  end: string;
-  label: string;
-  activity: string;
-  summary: string;
-  tags: string[];
-  project?: string | null;
-  notes?: string; // Optional field for user-provided notes
+
+/**
+ * Represents a Project, aligning with backend `schemas.Project`.
+ */
+export interface Project {
+  id: string; // UUID
+  name: string;
 }
 
+/**
+ * Represents a Timeline Entry, aligning with backend `schemas.TimelineEntry`.
+ * Timestamps are expected to be ISO 8601 strings.
+ */
+export interface TimelineEntry {
+  id: string; // UUID
+  start_time: string; // ISO datetime string
+  end_time: string;   // ISO datetime string
+  title: string;
+  summary?: string | null;
+  project_id?: string | null; // UUID
+  project?: Project | null;   // Populated project details
+  local_day: string; // ISO date string (YYYY-MM-DD)
+  // source_event_ids might be part of create/update but not typically in fetched list object
+}
+
+/**
+ * Represents statistics for a daily summary, aligning with backend `schemas.DailySummaryStats`.
+ */
+export interface DailySummaryStats {
+  total_active_time_min: number;
+  focus_time_min: number;
+  number_blocks: number;
+  top_project?: string | null;
+  top_activity?: string | null;
+}
+
+/**
+ * Represents a daily summary, aligning with backend `schemas.DailySummary`.
+ */
 export interface DailySummary {
   day_summary: string;
-  stats: {
-    total_active_time_min: number;
-    focus_time_min: number;
-    number_blocks: number;
-    top_project: string;
-    top_activity: string;
-  };
+  stats: DailySummaryStats;
   version: number;
+}
+
+/**
+ * Represents the response for fetching data for a specific day,
+ * aligning with backend `schemas.DayDataResponse`.
+ */
+export interface DayDataResponse {
+  entries: TimelineEntry[];
+  summary: DailySummary;
+}
+
+/**
+ * Represents an Event, aligning with backend `schemas.Event`.
+ */
+export interface Event {
+  id: string; // UUID
+  source: string;
+  event_type: string;
+  start_time: string; // ISO datetime string
+  end_time?: string | null; // ISO datetime string
+  payload: Record<string, any>; // Generic dictionary for payload
+  local_day: string; // ISO date string (YYYY-MM-DD)
+}
+
+/**
+ * Represents user information, aligning with backend `schemas.User`.
+ * This is typically received after authentication.
+ */
+export interface User {
+  id: string; // UUID
+  username: string;
+  // email?: string | null; // If email is part of your User schema
+  // is_active?: boolean; // If you have an active status
+}
+
+/**
+ * Represents the token response from the authentication endpoint,
+ * aligning with backend `schemas.Token`.
+ */
+export interface TokenResponse {
+  access_token: string;
+  token_type: string; // e.g., "bearer"
+}
+
+// Generic type for paginated responses if you implement pagination widely
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  pages?: number; // Optional: if your backend provides total pages
 }

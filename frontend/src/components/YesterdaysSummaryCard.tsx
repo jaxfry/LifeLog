@@ -1,22 +1,27 @@
 import React from 'react';
-import { useDayData } from '../hooks/useDayData'; // Use the generic hook for a specific date
+import { useYesterdayData } from '@/hooks/useYesterdayData'; // Updated to use specific hook and alias
 import SummaryCard from './SummaryCard';
 
 interface YesterdaysSummaryCardProps {
   className?: string;
 }
 
-export default function YesterdaysSummaryCard({ className }: YesterdaysSummaryCardProps) {
-  // Hardcoded date for testing: May 22nd, 2025
-  const testDateString = '2025-05-22';
-  const { data, loading, error, hasData } = useDayData(testDateString);
+// Helper function to get yesterday's date object
+function getYesterdayDate(): Date {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  return yesterday;
+}
 
-  const testDate = new Date('2025-05-22');
+export default function YesterdaysSummaryCard({ className }: YesterdaysSummaryCardProps) {
+  const { data, loading, error, hasData } = useYesterdayData();
+  const yesterdayDate = getYesterdayDate(); // Get yesterday's date for the title
 
   return (
     <SummaryCard
-      title="Yesterday's Summary (Test: 2025-05-22)"
-      date={testDate}
+      title="Yesterday's Summary"
+      date={yesterdayDate} // Pass the actual yesterday's date
       dayData={data}
       loading={loading}
       error={error}
