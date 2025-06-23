@@ -6,7 +6,7 @@ import { fetchDayData } from "@/api/client";
 import type { TimelineEntry } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, ChevronRight } from "lucide-react"; // Removed Calendar, MessageSquare
+import { Clock } from "lucide-react"; // Removed Calendar, MessageSquare, ChevronRight
 import { format, formatRelative } from "date-fns";
 import { getActivityMetadata, formatDuration } from "@/lib/timeline-utils";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 // Group entries by day
 function groupEntriesByDay(entries: TimelineEntry[]): Record<string, TimelineEntry[]> {
     return entries.reduce((acc, entry) => {
-        const date = format(new Date(entry.start), 'yyyy-MM-dd');
+        const date = format(new Date(entry.start_time), 'yyyy-MM-dd');
         if (!acc[date]) {
             acc[date] = [];
         }
@@ -48,7 +48,7 @@ export default function TimelinePage() {
     fetchDayData(date)
       .then((data) => {
         const sortedData = data.entries.sort((a, b) => 
-          new Date(b.start).getTime() - new Date(a.start).getTime()
+          new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
         );
         setEntries(sortedData);
         setLoading(false);
@@ -132,9 +132,9 @@ export default function TimelinePage() {
                     <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-border via-border/50 to-transparent"></div>
                     
                     {dayEntries.map((entry, idx) => {
-                      const metadata = getActivityMetadata(entry.activity);
-                      const startTime = new Date(entry.start);
-                      const endTime = new Date(entry.end);
+                      const metadata = getActivityMetadata(entry.title);
+                      const startTime = new Date(entry.start_time);
+                      const endTime = new Date(entry.end_time);
                       const duration = formatDuration(startTime, endTime);
                       const isSelected = selectedEntry === idx;
                       
@@ -183,8 +183,11 @@ export default function TimelinePage() {
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1 space-y-1">
                                   <h3 className="font-semibold text-lg leading-tight">
-                                    {entry.activity}
+                                    {entry.title}
                                   </h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    {entry.summary || "No summary available"}
+                                  </p>
                                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <div className="flex items-center gap-1">
                                       <Clock className="h-3 w-3" />
@@ -206,20 +209,12 @@ export default function TimelinePage() {
                                     metadata.borderClass
                                   )}
                                 >
-                                  {entry.project || metadata.category}
+                                  {entry.project?.name || "No Project"}
                                 </Badge>
                               </div>
                             </CardHeader>
                             
-                            {entry.notes && (
-                              <CardContent className="pt-0 pb-4 space-y-3">
-                                {entry.notes && (
-                                  <p className="text-sm text-muted-foreground pl-5 italic">
-                                    {entry.notes}
-                                  </p>
-                                )}
-                              </CardContent>
-                            )}
+                            {/* entry.notes removed: not present in TimelineEntry */}
                           </Card>
                         </div>
                       );

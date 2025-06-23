@@ -356,10 +356,21 @@ pip-selfcheck.json
 
 # End of https://www.toptal.com/developers/gitignore/api/venv,macos,dotenv,python,node
 
-
+# Project-specific ignores
 storage/
 tmp/
-test_segmentation.py
 example.py
 test.py
-temp_read_parquet.py
+notes.md
+run_ingestion_test.py
+
+# Local configuration
+.roo/
+
+# Database files
+backend/app/data/lifelog.db
+backend/app/data/lifelog.db.wal
+backend/app/data/cache
+
+# Backups
+backend/app/data/backups/

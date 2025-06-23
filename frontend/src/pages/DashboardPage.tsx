@@ -1,7 +1,7 @@
 import React from 'react';
 import DashboardLayout from "@/layouts/DashboardLayout";
-// import TodaysSummaryCard from '../components/TodaysSummaryCard'; // Corrected import path
-import YesterdaysSummaryCard from '../components/YesterdaysSummaryCard'; // Corrected import path
+import TodaysSummaryCard from '@/components/TodaysSummaryCard'; // Use alias path
+import YesterdaysSummaryCard from '@/components/YesterdaysSummaryCard'; // Use alias path
 
 export default function DashboardPage() {
   return (
@@ -11,9 +11,9 @@ export default function DashboardPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Today's Summary Card - Spans 2 columns on larger screens */}
-          {/* <div className="md:col-span-2 lg:col-span-2">
+          <div className="md:col-span-2 lg:col-span-2">
             <TodaysSummaryCard className="h-full" />
-          </div> */}
+          </div>
 
           {/* Yesterday's Summary Card - Spans 1 column */}
           <div className="lg:col-span-1">
