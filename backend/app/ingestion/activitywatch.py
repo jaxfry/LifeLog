@@ -23,6 +23,7 @@ ACTIVE_STATUS = "not-afk"
 AFK_APP_NAME = "AFK"
 DIGITAL_ACTIVITY_EVENT_TYPE = "digital_activity"
 ACTIVITYWATCH_SOURCE = "activitywatch"
+PENDING_STATUS = "pending"
 
 # Database operation constants
 MILLISECONDS_MULTIPLIER = 1000

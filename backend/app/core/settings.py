@@ -54,6 +54,20 @@ class Settings(BaseSettings):
     # --- Project Resolution ---
     PROJECT_EMBEDDING_SIZE: int = 128
     PROJECT_SIMILARITY_THRESHOLD: float = 0.75 # Required similarity to auto-assign project
+
+    # --- API / JWT Authentication ---
+    API_V1_STR: str = "/api/v1"
+    SECRET_KEY: str = "a_very_secret_key_that_should_be_changed_in_production" # TODO: Change this! Generate with: openssl rand -hex 32
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # If using refresh tokens:
+    # REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
+
+    # --- Test User (for development/auth setup) ---
+    # In a real application, manage users through dedicated endpoints or admin tools.
+    # These should ideally be set via .env for security.
+    TEST_USER_USERNAME: str = "testuser@example.com"
+    TEST_USER_PASSWORD: str = "Str0ngP@sswOrd!" # Change this or set via .env
  
 # Instantiate a single settings object for the whole app
 settings = Settings()

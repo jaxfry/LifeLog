@@ -100,3 +100,13 @@ CREATE TABLE project_aliases (
   --#- REMOVED: ON DELETE CASCADE is not supported.
   FOREIGN KEY(project_id) REFERENCES projects(id)
 );
+-- USER AUTHENTICATION
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  username VARCHAR UNIQUE NOT NULL, -- Should be an email or unique identifier
+  hashed_password VARCHAR NOT NULL
+  -- Add other user-related fields here if needed, e.g., full_name, is_active, is_superuser
+);
+
+-- Optional: Index on username for faster lookups
+CREATE INDEX users_username_idx ON users(username);
