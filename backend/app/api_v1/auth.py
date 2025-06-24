@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from backend.app.core.settings import settings
 from backend.app.schemas import User, UserInDB, TokenPayload
 from backend.app.api_v1.deps import get_db
+from backend.app.core.utils import with_db_write_retry
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,7 @@ class UserRepository:
         result = self.db.execute("SELECT COUNT(*) FROM users").fetchone()
         return result[0] if result else 0
     
+    @with_db_write_retry()
     def _create_test_user(self, username: str) -> Optional[tuple]:
         """Create the test user for development."""
         try:

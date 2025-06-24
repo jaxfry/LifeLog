@@ -25,6 +25,7 @@ from zoneinfo import ZoneInfo
 from backend.app.core.settings import Settings
 from backend.app.processing import prompts
 from backend.app.processing.project_resolver import ProjectResolver
+from backend.app.core.utils import with_db_write_retry
 
 log = logging.getLogger(__name__)
 
@@ -388,6 +389,7 @@ class TimelineProcessor:
             log.warning(f"Project resolution failed: {e}. Continuing without.")
             return entries
 
+    @with_db_write_retry()
     def save_timeline_entries(self, con: duckdb.DuckDBPyConnection, entries: List[TimelineEntry], source_events: List[Dict[str, Any]], local_day: date) -> None:
         is_empty_day = not entries
         con.begin()

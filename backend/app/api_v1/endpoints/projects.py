@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from backend.app import schemas
 from backend.app.api_v1.deps import get_db
 from backend.app.api_v1.auth import get_current_active_user
+from backend.app.core.utils import with_db_write_retry
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -20,6 +21,7 @@ class ProjectRepository:
     def __init__(self, db: duckdb.DuckDBPyConnection):
         self.db = db
     
+    @with_db_write_retry()
     def create_project(self, project_data: schemas.ProjectCreate) -> schemas.Project:
         """
         Create a new project in the database.
@@ -71,6 +73,7 @@ class ProjectRepository:
             logger.error(f"Error fetching projects: {e}")
             return []
     
+    @with_db_write_retry()
     def update_project(self, project_id: uuid.UUID, update_data: schemas.ProjectUpdate) -> Optional[schemas.Project]:
         """
         Update an existing project.
@@ -96,6 +99,7 @@ class ProjectRepository:
         
         return self.get_project_by_id(project_id)
     
+    @with_db_write_retry()
     def delete_project(self, project_id: uuid.UUID) -> bool:
         """
         Delete a project if it has no associated timeline entries.
