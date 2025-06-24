@@ -7,6 +7,7 @@ import duckdb
 from sklearn.feature_extraction.text import HashingVectorizer
 
 from backend.app.core.settings import Settings
+from backend.app.core.utils import with_db_write_retry
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ class ProjectEmbeddingRepository:
             [project_name]
         ).fetchone()
     
+    @with_db_write_retry()
     def create_project_with_embedding(self, project_name: str, embedding: List[float]) -> None:
         """Create a new project with its embedding."""
         self.db.execute(
@@ -44,6 +46,7 @@ class ProjectEmbeddingRepository:
             [project_name, embedding]
         )
     
+    @with_db_write_retry()
     def update_project_embedding(self, project_id: str, new_embedding: List[float]) -> None:
         """Update an existing project's embedding."""
         self.db.execute(

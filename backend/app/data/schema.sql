@@ -110,3 +110,9 @@ CREATE TABLE users (
 
 -- Optional: Index on username for faster lookups
 CREATE INDEX users_username_idx ON users(username);
+
+-- METADATA TABLE for daemon state, etc.
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);

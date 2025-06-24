@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     PROJECT_EMBEDDING_SIZE: int = 128
     PROJECT_SIMILARITY_THRESHOLD: float = 0.75 # Required similarity to auto-assign project
 
+    # --- Daemon & Watcher Health ---
+    AW_HEALTH_CHECK_INTERVAL_MINUTES: int = 15 # Frequency for AW server health check
+    WATCHER_TIMESTAMP_THRESHOLD_MINUTES: int = 10 # Max age for watcher's last event timestamp
+
     # --- API / JWT Authentication ---
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = "a_very_secret_key_that_should_be_changed_in_production" # TODO: Change this! Generate with: openssl rand -hex 32

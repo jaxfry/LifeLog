@@ -13,6 +13,7 @@ from aw_core.models import Event as AWEvent
 import duckdb
 
 from backend.app.core.settings import Settings
+from backend.app.core.utils import with_db_write_retry
 
 log = logging.getLogger(__name__)
 
@@ -455,6 +456,7 @@ class DataFrameEnricher:
 class DatabaseWriter:
     """Handles writing processed events to the database."""
     
+    @with_db_write_retry()
     def write_events(self, con: duckdb.DuckDBPyConnection, df_events: pl.DataFrame) -> None:
         """Atomically writes event data to DuckDB."""
         if df_events.is_empty():
