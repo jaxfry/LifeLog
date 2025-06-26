@@ -2,140 +2,136 @@ import logging
 from typing import Optional, List
 import uuid
 
-import numpy as np
-import duckdb
-from sklearn.feature_extraction.text import HashingVectorizer
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
-from backend.app.core.settings import Settings
-from backend.app.core.utils import with_db_write_retry
+from backend.app.models import Project
+from backend.app.core.embeddings import get_embedding_service
 
 logger = logging.getLogger(__name__)
 
-class VectorizationService:
-    """Handles text vectorization for project matching."""
-    
-    def __init__(self, embedding_size: int):
-        self.vectorizer = HashingVectorizer(
-            n_features=embedding_size, 
-            alternate_sign=False
-        )
-    
-    def vectorize_text(self, text: str) -> np.ndarray:
-        """Convert text to vector representation."""
-        vector_matrix = self.vectorizer.transform([text])
-        return np.asarray(vector_matrix.todense())[0]
-
-class ProjectEmbeddingRepository:
-    """Handles database operations for project embeddings."""
-    
-    def __init__(self, db_connection: duckdb.DuckDBPyConnection):
-        self.db = db_connection
-    
-    def find_project_by_name(self, project_name: str) -> Optional[tuple]:
-        """Find existing project by name (case-insensitive)."""
-        return self.db.execute(
-            "SELECT id, embedding FROM projects WHERE lower(name) = lower(?)", 
-            [project_name]
-        ).fetchone()
-    
-    @with_db_write_retry()
-    def create_project_with_embedding(self, project_name: str, embedding: List[float]) -> None:
-        """Create a new project with its embedding."""
-        self.db.execute(
-            "INSERT INTO projects (id, name, embedding) VALUES (gen_random_uuid(), ?, ?)",
-            [project_name, embedding]
-        )
-    
-    @with_db_write_retry()
-    def update_project_embedding(self, project_id: str, new_embedding: List[float]) -> None:
-        """Update an existing project's embedding."""
-        self.db.execute(
-            "UPDATE projects SET embedding = ? WHERE id = ?", 
-            [new_embedding, project_id]
-        )
-    
-    def find_best_matching_project(self, query_vector: List[float]) -> Optional[tuple]:
-        """Find the project with highest similarity to the query vector."""
-        return self.db.execute(
-            """
-            SELECT name, array_cosine_similarity(embedding, CAST(? AS FLOAT[128])) AS similarity
-            FROM projects
-            ORDER BY similarity DESC
-            LIMIT 1;
-            """,
-            [query_vector]
-        ).fetchone()
-
-class EmbeddingUpdater:
-    """Handles embedding update strategies."""
-    
-    @staticmethod
-    def update_with_moving_average(old_embedding: np.ndarray, new_embedding: np.ndarray, weight: float = 0.25) -> np.ndarray:
-        """Update embedding using moving average with specified weight for new data."""
-        return ((old_embedding * (1 - weight)) + (new_embedding * weight))
 
 class ProjectResolver:
-    """Resolves text context to project names using embeddings."""
-    
-    def __init__(self, con: duckdb.DuckDBPyConnection, settings: Settings):
-        self.settings = settings
-        self.vectorizer = VectorizationService(settings.PROJECT_EMBEDDING_SIZE)
-        self.repository = ProjectEmbeddingRepository(con)
-        self.embedding_updater = EmbeddingUpdater()
+    """
+    Handles fetching and creating projects.
+    The main project resolution logic is now handled by the LLMProcessor.
+    """
 
-    def learn(self, project_name: str, text_context: str) -> None:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_all_project_names(self) -> List[str]:
+        """Fetches all existing project names."""
+        stmt = select(Project.name).order_by(Project.name)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_or_create_project_by_name(
+        self, project_name: Optional[str]
+    ) -> Optional[Project]:
         """
-        Updates a project's embedding or creates a new one.
-        
-        Args:
-            project_name: Name of the project to learn
-            text_context: Text context to learn from
+        Retrieves a project by its name or creates a new one if it doesn't exist.
+        Returns None if project_name is None or empty.
+        Uses embeddings to find similar projects and merge duplicates.
         """
-        logger.info(f"Learning project '{project_name}'")
+        if not project_name:
+            return None
+
+        # Normalize the project name first
+        normalized_name = self._normalize_project_name(project_name)
+
+        # First, try to find the existing project (case-insensitive)
+        stmt = select(Project).where(Project.name.ilike(normalized_name))
+        result = await self.session.execute(stmt)
+        project = result.scalar_one_or_none()
+
+        if project:
+            return project
+
+        # --- Embedding similarity check ---
+        embedding_service = get_embedding_service()
+        new_embedding = embedding_service.generate_project_embedding(normalized_name)
         
-        new_vector = self.vectorizer.vectorize_text(text_context)
-        existing_project = self.repository.find_project_by_name(project_name)
+        # Fetch all existing projects and their embeddings
+        stmt = select(Project)
+        result = await self.session.execute(stmt)
+        all_projects = result.scalars().all()
         
-        if existing_project:
-            self._update_existing_project(existing_project, new_vector)
+        # Use a lower threshold for better matching of similar projects
+        high_confidence_threshold = 0.75
+        best_match = None
+        best_score = 0.0
+
+        for existing_project in all_projects:
+            if existing_project.embedding:
+                similarity = embedding_service.compute_similarity(new_embedding, existing_project.embedding)
+                if similarity >= high_confidence_threshold and similarity > best_score:
+                    best_match = existing_project
+                    best_score = similarity
+            else:
+                # Generate embedding for existing project if it doesn't have one
+                existing_embedding = embedding_service.generate_project_embedding(existing_project.name)
+                existing_project.embedding = existing_embedding
+                self.session.add(existing_project)
+                
+                similarity = embedding_service.compute_similarity(new_embedding, existing_embedding)
+                if similarity >= high_confidence_threshold and similarity > best_score:
+                    best_match = existing_project
+                    best_score = similarity
+
+        if best_match:
+            logger.info(f"Project '{normalized_name}' is highly similar to existing project '{best_match.name}' (score={best_score:.2f}), reusing existing.")
+            return best_match
+
+        # If no similar project, create it
+        logger.info(f"Project '{normalized_name}' not found, creating new one.")
+        try:
+            new_project = Project(
+                id=uuid.uuid4(),
+                name=normalized_name,
+                embedding=new_embedding
+            )
+            self.session.add(new_project)
+            await self.session.flush()
+            await self.session.refresh(new_project)
+            logger.info(f"Created project '{normalized_name}' with embedding")
+            return new_project
+        except IntegrityError:
+            # In case of a race condition where another process created it
+            await self.session.rollback()
+            stmt = select(Project).where(Project.name.ilike(normalized_name))
+            result = await self.session.execute(stmt)
+            return result.scalar_one_or_none()
+
+    def _normalize_project_name(self, project_name: str) -> str:
+        """
+        Normalize project names to handle LLM inconsistencies.
+        """
+        if not project_name:
+            return project_name
+        
+        # Common delimiters used by LLMs
+        delimiters = [' / ', ' & ', ' - ', ' + ', ' | ']
+        
+        # Find which delimiter is used (if any)
+        delimiter_used = None
+        for delimiter in delimiters:
+            if delimiter in project_name:
+                delimiter_used = delimiter
+                break
+        
+        if delimiter_used:
+            # Split by delimiter, normalize each part, sort, and rejoin
+            parts = [part.strip() for part in project_name.split(delimiter_used)]
+            # Remove empty parts
+            parts = [part for part in parts if part]
+            # Normalize each part (title case)
+            parts = [part.title() for part in parts]
+            # Sort alphabetically for consistency
+            parts.sort()
+            # Use standard delimiter
+            return ' / '.join(parts)
         else:
-            self._create_new_project(project_name, new_vector)
-
-    def resolve(self, text_context: str) -> Optional[str]:
-        """
-        Finds the best matching project for a given text context.
-        
-        Args:
-            text_context: Text to match against known projects
-            
-        Returns:
-            Project name if match found above threshold, None otherwise
-        """
-        query_vector = self.vectorizer.vectorize_text(text_context)
-        query_vector_list = self._convert_to_float_list(query_vector)
-        
-        result = self.repository.find_best_matching_project(query_vector_list)
-        
-        if result:
-            project_name, similarity = result
-            if similarity >= self.settings.PROJECT_SIMILARITY_THRESHOLD:
-                logger.debug(f"Resolved project '{project_name}' with similarity {similarity:.2f}")
-                return project_name
-        
-        return None
-    
-    def _update_existing_project(self, existing_project: tuple, new_vector: np.ndarray) -> None:
-        """Update an existing project's embedding."""
-        project_id, old_vector_list = existing_project
-        old_vector = np.array(old_vector_list)
-        updated_vector = self.embedding_updater.update_with_moving_average(old_vector, new_vector)
-        self.repository.update_project_embedding(project_id, updated_vector.tolist())
-    
-    def _create_new_project(self, project_name: str, vector: np.ndarray) -> None:
-        """Create a new project with its embedding."""
-        vector_list = self._convert_to_float_list(vector)
-        self.repository.create_project_with_embedding(project_name, vector_list)
-    
-    def _convert_to_float_list(self, vector: np.ndarray) -> List[float]:
-        """Convert numpy array to list of floats for DuckDB compatibility."""
-        return [float(np.float32(x)) for x in vector]
+            # Single project name, just normalize capitalization
+            return project_name.title()

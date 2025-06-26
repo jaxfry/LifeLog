@@ -1,5 +1,4 @@
 import time
-import duckdb
 import logging
 import random
 from functools import wraps
@@ -9,7 +8,7 @@ log = logging.getLogger(__name__)
 def with_db_write_retry(max_retries: int = 5, initial_delay_seconds: float = 0.5, backoff_factor: float = 2.0):
     """
     A decorator to retry a function call with exponential backoff and jitter
-    if a DuckDB IOException (write lock) occurs.
+    if a database write lock occurs (Postgres version).
     """
     def decorator(func):
         @wraps(func)
@@ -19,9 +18,10 @@ def with_db_write_retry(max_retries: int = 5, initial_delay_seconds: float = 0.5
             while retries < max_retries:
                 try:
                     return func(*args, **kwargs)
-                except duckdb.IOException as e:
-                    # Check if the error is specifically a lock error
-                    if "Could not set lock" in str(e) or "database is locked" in str(e).lower():
+                except Exception as e:
+                    # Check if the error is specifically a lock error (Postgres style)
+                    pgcode = getattr(e, 'pgcode', None)
+                    if pgcode == '55P03':  # 55P03: lock_not_available
                         retries += 1
                         if retries >= max_retries:
                             log.error(f"DB write lock error: Max retries ({max_retries}) reached for {func.__name__}. Aborting.")
@@ -40,7 +40,7 @@ def with_db_write_retry(max_retries: int = 5, initial_delay_seconds: float = 0.5
                         # Increase delay for next retry
                         delay *= backoff_factor
                     else:
-                        # Re-raise if it's a different, unexpected IO error
+                        # Re-raise if it's a different, unexpected error
                         raise
         return wrapper
     return decorator

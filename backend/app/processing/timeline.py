@@ -5,27 +5,37 @@ This module processes pending events into enriched timeline entries using LLM-ba
 It's adapted from the original timeline generator but redesigned for the new database architecture.
 """
 
-import asyncio
-import hashlib
-import logging
 import os
+import sys
+import logging
+import hashlib
 import json
+import uuid
+import polars as pl
 from datetime import datetime, timezone, timedelta, date, time
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from pathlib import Path
-
-import polars as pl
-import duckdb
 from pydantic import BaseModel, Field, field_validator, model_validator
 from google import genai
 from google.genai import types as genai_types
 from zoneinfo import ZoneInfo
 
+# Add project root to sys.path
+CURR_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(CURR_DIR, '../../..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from backend.app.core.settings import Settings
 from backend.app.processing import prompts
 from backend.app.processing.project_resolver import ProjectResolver
 from backend.app.core.utils import with_db_write_retry
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, or_, update, delete as sqla_delete
+from sqlalchemy.exc import IntegrityError
+from backend.app.models import event_state
+from backend.app.models import Event, DigitalActivityData, TimelineEntry as TimelineEntryORM, TimelineSourceEvent, Project
 
 log = logging.getLogger(__name__)
 
@@ -85,7 +95,7 @@ class LLMResponseCache:
         else:
             log.info("LLM cache disabled")
 
-    def _generate_cache_key(self, events_df_chunk: pl.DataFrame, local_day: date) -> str:
+    def _generate_cache_key(self, events_df_chunk: pl.DataFrame, local_day: date, project_names: List[str]) -> str:
         if events_df_chunk.is_empty():
             return f"empty_{local_day.isoformat()}"
         data_str = (
@@ -96,7 +106,11 @@ class LLMResponseCache:
             .to_string()
         )
         data_hash = hashlib.md5(data_str.encode()).hexdigest()
-        return f"{local_day.isoformat()}_{data_hash}"
+        
+        # Add project names to the hash to ensure prompt changes invalidate cache
+        project_hash = hashlib.md5(" ".join(sorted(project_names)).encode()).hexdigest()
+        
+        return f"{local_day.isoformat()}_{data_hash}_{project_hash}"
 
     def get_cached_response(self, cache_key: str) -> Optional[List[TimelineEntry]]:
         if not self.cache_enabled:
@@ -185,7 +199,6 @@ class LLMProcessor:
         self.cache = LLMResponseCache(settings)
         self._initialize_client()
 
-    #+ REVERTED: This method is now identical to your original working code.
     def _initialize_client(self):
         """Initialize the Gemini client."""
         try:
@@ -200,9 +213,20 @@ class LLMProcessor:
             log.error(f"Failed to initialize Gemini client: {e}")
             self.client = None
 
-    def _build_prompt(self, events_df_chunk: pl.DataFrame, local_day: date) -> str:
+    def _build_prompt(self, events_df_chunk: pl.DataFrame, local_day: date, project_names: List[str]) -> str:
         if events_df_chunk.is_empty():
             return ""
+
+        # Generate project guidance text
+        if project_names:
+            project_list_str = ", ".join(f'"{name}"' for name in sorted(project_names))
+            project_list_guidance = (
+                "If an activity is part of a project, assign it to one of these existing projects: "
+                f"{project_list_str}. You can also create a new, descriptive project name if it's a new project."
+            )
+        else:
+            project_list_guidance = "If an activity clearly relates to a new project, create a descriptive project name for it, but if it's just a part of a project (e.g. LifeLog and LifeLog Dockerization) then just put it as that project."
+
         required_cols = ["time_display", "duration_s", "app", "title", "url"]
         missing_cols = [
             pl.lit("", dtype=pl.Utf8).alias(col)
@@ -227,12 +251,12 @@ class LLMProcessor:
         prompt = prompts.TIMELINE_ENRICHMENT_SYSTEM_PROMPT.format(
             day_iso=local_day.isoformat(),
             schema_description=schema_description,
-            events_table_md=events_table_md
+            events_table_md=events_table_md,
+            project_list_guidance=project_list_guidance
         )
         return prompt
 
-    #+ REVERTED: This is now the original synchronous implementation.
-    def process_chunk_with_llm(self, events_df_chunk: pl.DataFrame, local_day: date) -> List[TimelineEntry]:
+    def process_chunk_with_llm(self, events_df_chunk: pl.DataFrame, local_day: date, project_names: List[str]) -> List[TimelineEntry]:
         if events_df_chunk.is_empty():
             return []
 
@@ -240,12 +264,12 @@ class LLMProcessor:
             log.error("Gemini client not initialized - cannot process with LLM")
             return []
 
-        cache_key = self.cache._generate_cache_key(events_df_chunk, local_day)
+        cache_key = self.cache._generate_cache_key(events_df_chunk, local_day, project_names)
         cached_response = self.cache.get_cached_response(cache_key)
         if cached_response is not None:
             return cached_response
 
-        prompt = self._build_prompt(events_df_chunk, local_day)
+        prompt = self._build_prompt(events_df_chunk, local_day, project_names)
         if not prompt:
             return []
 
@@ -255,8 +279,6 @@ class LLMProcessor:
                 temperature=0.3,
             )
 
-            # Use 'config' parameter, which is what the installed library version expects.
-            # The fallback logic for 'generation_config' has been removed for simplicity and to fix linting errors.
             response = self.client.models.generate_content(
                 model=self.settings.ENRICHMENT_MODEL_NAME,
                 contents=prompt,
@@ -306,18 +328,13 @@ class TimelineProcessor:
             log.warning(f"Failed to get timezone {self.settings.LOCAL_TZ}: {e}, using UTC")
             return ZoneInfo("UTC")
 
-    def get_processing_windows(self, con: duckdb.DuckDBPyConnection) -> List[ProcessingWindow]:
-        query = """
-            SELECT DISTINCT e.local_day
-            FROM events e
-            LEFT JOIN event_state es ON e.id = es.event_id
-            WHERE es.event_id IS NULL
-            ORDER BY e.local_day
-        """
-        result = con.execute(query).fetchall()
+    async def get_processing_windows(self, session: AsyncSession) -> List[ProcessingWindow]:
+        stmt = select(Event.local_day).distinct().outerjoin(event_state, Event.id == event_state.c.event_id).where(event_state.c.event_id == None).order_by(Event.local_day)
+        result = await session.execute(stmt)
+        local_days = result.scalars().all()
         windows = []
         local_tz = self.get_local_timezone()
-        for (local_day,) in result:
+        for local_day in local_days:
             start_local = datetime.combine(local_day, time.min, tzinfo=local_tz)
             end_local = datetime.combine(local_day, time.max, tzinfo=local_tz)
             windows.append(ProcessingWindow(
@@ -327,18 +344,11 @@ class TimelineProcessor:
             ))
         return windows
 
-    def fetch_events_for_window(self, con: duckdb.DuckDBPyConnection, window: ProcessingWindow) -> List[Dict[str, Any]]:
-        df = con.execute("""
-            SELECT e.id, e.start_time, e.end_time, dad.app, dad.title, dad.url
-            FROM events e
-            LEFT JOIN digital_activity_data dad ON e.id = dad.event_id
-            LEFT JOIN event_state es ON e.id = es.event_id
-            WHERE es.event_id IS NULL AND e.local_day = ?
-            ORDER BY e.start_time
-        """, [window.local_day]).pl()
-        if 'id' in df.columns:
-            df = df.with_columns(pl.col('id').cast(pl.Utf8))
-        return df.to_dicts()
+    async def fetch_events_for_window(self, session: AsyncSession, window: ProcessingWindow) -> List[dict]:
+        stmt = select(Event.id, Event.start_time, Event.end_time, DigitalActivityData.app, DigitalActivityData.title, DigitalActivityData.url).join(DigitalActivityData, Event.id == DigitalActivityData.event_id).outerjoin(event_state, Event.id == event_state.c.event_id).where(and_(event_state.c.event_id == None, Event.local_day == window.local_day)).order_by(Event.start_time)
+        result = await session.execute(stmt)
+        rows = result.all()
+        return [dict(row._mapping) for row in rows]
 
     def merge_consecutive_entries(self, entries: List[TimelineEntry]) -> List[TimelineEntry]:
         if not entries: return []
@@ -375,166 +385,218 @@ class TimelineProcessor:
             filled.append(TimelineEntry(start=last_end, end=window.end_time, activity=DEFAULT_IDLE_ACTIVITY, notes="Device idle or user away at end of day."))
         return sorted(filled, key=lambda e: e.start)
 
-    def resolve_projects(self, con: duckdb.DuckDBPyConnection, entries: List[TimelineEntry]) -> List[TimelineEntry]:
+    async def resolve_projects(self, session: AsyncSession, entries: List[TimelineEntry]) -> List[TimelineEntry]:
+        """
+        If the LLM didn't assign a project to an entry, this method attempts to
+        find a matching existing project using embedding-based similarity.
+        It does not use heuristics or create new projects.
+        """
         try:
-            resolver = ProjectResolver(con, self.settings)
+            project_resolver = ProjectResolver(session)
             for entry in entries:
-                context = f"{entry.activity} | {entry.notes or ''}"
                 if not entry.project:
-                    resolved_project = resolver.resolve(context)
-                    if resolved_project:
-                        entry.project = resolved_project
+                    # No embedding-based similarity implemented; fallback to no resolution
+                    log.debug(f"No project assigned for activity: '{entry.activity}'. No resolver available.")
             return entries
         except Exception as e:
-            log.warning(f"Project resolution failed: {e}. Continuing without.")
+            log.warning(f"Project resolution with embeddings failed: {e}. Continuing without.")
             return entries
 
-    @with_db_write_retry()
-    def save_timeline_entries(self, con: duckdb.DuckDBPyConnection, entries: List[TimelineEntry], source_events: List[Dict[str, Any]], local_day: date) -> None:
+    def _normalize_project_name(self, project_name: str) -> str:
+        """
+        Normalize project names to handle LLM inconsistencies.
+        
+        This method standardizes project names by:
+        1. Splitting on common delimiters
+        2. Sorting components alphabetically
+        3. Capitalizing properly
+        4. Rejoining with standard delimiter
+        """
+        if not project_name:
+            return project_name
+        
+        # Common delimiters used by LLMs
+        delimiters = [' / ', ' & ', ' - ', ' + ', ' | ']
+        
+        # Find which delimiter is used (if any)
+        delimiter_used = None
+        for delimiter in delimiters:
+            if delimiter in project_name:
+                delimiter_used = delimiter
+                break
+        
+        if delimiter_used:
+            # Split by delimiter, normalize each part, sort, and rejoin
+            parts = [part.strip() for part in project_name.split(delimiter_used)]
+            # Remove empty parts
+            parts = [part for part in parts if part]
+            # Normalize each part (title case)
+            parts = [part.title() for part in parts]
+            # Sort alphabetically for consistency (LifeLog comes before Hack Club)
+            parts.sort()
+            # Use standard delimiter
+            return ' / '.join(parts)
+        else:
+            # Single project name, just normalize capitalization
+            return project_name.title()
+
+    async def _get_all_project_names(self, session: AsyncSession) -> List[str]:
+        """Fetches all existing project names from the database."""
+        try:
+            stmt = select(Project.name).order_by(Project.name)
+            result = await session.execute(stmt)
+            return [name for name in result.scalars().all() if name]
+        except Exception as e:
+            log.warning(f"Could not fetch project list: {e}")
+            return []
+
+    async def _create_project_if_not_exists(self, session: AsyncSession, project_name: str) -> Optional[uuid.UUID]:
+        """
+        Create a project if it doesn't exist, using ProjectResolver for smart duplicate detection.
+        Returns the project ID (existing or newly created).
+        """
+        if not project_name:
+            return None
+        
+        try:
+            project_resolver = ProjectResolver(session)
+            project = await project_resolver.get_or_create_project_by_name(project_name)
+            return project.id if project else None
+        except Exception as e:
+            log.warning(f"Failed to create/resolve project '{project_name}': {e}")
+            return None
+
+    async def _get_project_id_by_name(self, session: AsyncSession, project_name: str) -> Optional[uuid.UUID]:
+        """Get project ID by name (case-insensitive lookup)."""
+        try:
+            from sqlalchemy import text
+            stmt = select(Project.id).where(text("lower(name) = lower(:project_name)")).params(project_name=project_name)
+            result = await session.execute(stmt)
+            row = result.first()
+            return row[0] if row else None
+        except Exception as e:
+            log.warning(f"Failed to lookup project ID for '{project_name}': {e}")
+            return None
+
+    async def save_timeline_entries(self, session: AsyncSession, entries: List[TimelineEntry], source_events: List[Dict[str, Any]], local_day: date) -> None:
         is_empty_day = not entries
-        con.begin()
         try:
             # 1. Mark all source events for the day as processed using the new event_state table.
-            # This is an idempotent insert, so it's safe to run even if some events are already marked.
             if source_events:
                 log.debug(f"Marking {len(source_events)} events as processed for {local_day}.")
-                event_ids_to_mark = [(e['id'],) for e in source_events]
-                con.executemany(
-                    "INSERT INTO event_state (event_id) VALUES (?) ON CONFLICT DO NOTHING",
-                    event_ids_to_mark,
-                )
+                event_ids_to_mark = [dict(event_id=e['id']) for e in source_events]
+                # Use PostgreSQL-specific ON CONFLICT DO NOTHING syntax instead of SQLite's OR IGNORE
+                from sqlalchemy.dialects.postgresql import insert as pg_insert
+                stmt = pg_insert(event_state).on_conflict_do_nothing()
+                await session.execute(stmt, event_ids_to_mark)
 
             # 2. Clear existing timeline data for the day to ensure idempotency.
             log.debug(f"Deleting existing timeline data for {local_day} to ensure idempotency.")
-            # Correctly order deletion to respect foreign key constraints.
-            # 1. Get IDs of timeline entries to be deleted.
-            entry_ids_to_delete = [row[0] for row in con.execute("SELECT id FROM timeline_entries WHERE local_day = ?", [local_day]).fetchall()]
-
+            entry_ids_result = await session.execute(select(TimelineEntryORM.id).where(TimelineEntryORM.local_day == local_day))
+            entry_ids_to_delete = [row for row in entry_ids_result.scalars().all()]
             if entry_ids_to_delete:
-                placeholders = ", ".join(["?"] * len(entry_ids_to_delete))
-                
-                # 2. Delete from timeline_source_events, which references timeline_entries.
-                con.execute(f"DELETE FROM timeline_source_events WHERE entry_id IN ({placeholders})", entry_ids_to_delete)
-                
-                # 3. Now it's safe to delete from timeline_entries.
-                con.execute(f"DELETE FROM timeline_entries WHERE id IN ({placeholders})", entry_ids_to_delete)
-
-            # 4. Clean up projects that are no longer referenced by any timeline entries.
-            con.execute("""
-                DELETE FROM project_aliases pa
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM timeline_entries te WHERE te.project_id = pa.project_id
-                );
-            """)
-            con.execute("""
-                DELETE FROM projects p
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM timeline_entries te WHERE te.project_id = p.id
-                );
-            """)
+                await session.execute(sqla_delete(TimelineSourceEvent).where(TimelineSourceEvent.entry_id.in_(entry_ids_to_delete)))
+                await session.execute(sqla_delete(TimelineEntryORM).where(TimelineEntryORM.id.in_(entry_ids_to_delete)))
 
             # 3. Insert new timeline entries and link to source events.
             if not is_empty_day:
-                project_map = {row[0].lower(): row[1] for row in con.execute("SELECT name, id FROM projects").fetchall()}
-                source_events_df = pl.from_dicts(source_events)
-                resolver = ProjectResolver(con, self.settings)
-
-                log.debug(f"Inserting {len(entries)} new timeline entries.")
                 for entry in entries:
+                    # Automatically create project and get ID if project name is set
                     project_id = None
                     if entry.project:
-                        project_name_lower = entry.project.lower()
-                        if project_name_lower not in project_map:
-                            # Project does not exist, create it
-                            log.info(f"Creating new project: {entry.project}")
-                            context = f"{entry.activity} | {entry.notes or ''}"
-                            resolver.learn(entry.project, context)
-                            # Refresh project map
-                            project_map = {row[0].lower(): row[1] for row in con.execute("SELECT name, id FROM projects").fetchall()}
-                        
-                        project_id = project_map.get(project_name_lower)
-
-                    entry_id_result = con.execute("INSERT INTO timeline_entries (id, start_time, end_time, title, summary, project_id) VALUES (gen_random_uuid(), ?, ?, ?, ?, ?) RETURNING id", [entry.start, entry.end, entry.activity, entry.notes, project_id]).fetchone()
-                    if not entry_id_result: continue
-                    entry_id = entry_id_result[0]
-                    overlapping_events = source_events_df.filter((pl.col("start_time") < entry.end) & (pl.col("end_time") > entry.start))
-                    if not overlapping_events.is_empty():
-                        link_params = [(str(entry_id), str(event_id)) for event_id in overlapping_events['id']]
-                        con.executemany("INSERT INTO timeline_source_events (entry_id, event_id) VALUES (?, ?)", link_params)
-
-            con.commit()
+                        project_id = await self._create_project_if_not_exists(session, entry.project)
+                        if project_id:
+                            log.debug(f"Using project ID {project_id} for project '{entry.project}'")
+                        else:
+                            log.warning(f"Failed to create/find project ID for project name '{entry.project}'")
+                    
+                    new_entry = TimelineEntryORM(
+                        start_time=entry.start,
+                        end_time=entry.end,
+                        title=entry.activity,
+                        summary=entry.notes,
+                        project_id=project_id,
+                        # Note: local_day is automatically computed by PostgreSQL as a generated column
+                    )
+                    session.add(new_entry)
+                    await session.flush()
+                    # Link to source events
+                    for src in source_events:
+                        if src['start_time'] < entry.end and src['end_time'] > entry.start:
+                            session.add(TimelineSourceEvent(entry_id=new_entry.id, event_id=src['id']))
+            await session.commit()
             if not is_empty_day:
                 log.info(f"Successfully saved {len(entries)} timeline entries for {local_day}.")
             else:
                 log.info(f"Successfully cleared old data and marked events as processed for empty day: {local_day}.")
+        except IntegrityError as e:
+            log.error(f"Integrity error during timeline save for {local_day}: {e}")
+            await session.rollback()
         except Exception as e:
             log.error(f"Transaction to save timeline entries failed for {local_day}. Rolling back. Error: {e}", exc_info=True)
-            con.rollback()
+            await session.rollback()
             raise
 
-    def process_timeline_for_window(self, con: duckdb.DuckDBPyConnection, window: ProcessingWindow) -> None:
-        log.info(f"Processing timeline for {window.local_day}")
-        
-        #+ REVERTED: Check for the client object, not the model object.
+    async def process_timeline_for_window(self, session: AsyncSession, window: ProcessingWindow) -> None:
+        log.info(f"Processing timeline for {window.local_day} (async)")
         if not self.llm_processor.client:
-             log.error(f"LLM client is not initialized. Cannot process window for {window.local_day}.")
-             return
-
+            log.error(f"LLM client is not initialized. Cannot process window for {window.local_day}.")
+            return
         try:
-            source_events = self.fetch_events_for_window(con, window)
+            project_names = await self._get_all_project_names(session)
+            if project_names:
+                log.info(f"Found {len(project_names)} existing projects to include in prompt.")
+            
+            source_events = await self.fetch_events_for_window(session, window)
             if not source_events:
                 log.info(f"No pending events for {window.local_day}.")
+                await self.save_timeline_entries(session, [], [], window.local_day)
                 return
-
             all_timeline_entries = []
             total_events = len(source_events)
             num_chunks = (total_events + PROCESSING_CHUNK_SIZE - 1) // PROCESSING_CHUNK_SIZE
             log.info(f"Total events to process: {total_events}. Splitting into {num_chunks} chunk(s).")
-            
             for i in range(0, total_events, PROCESSING_CHUNK_SIZE):
                 chunk_of_event_dicts = source_events[i : i + PROCESSING_CHUNK_SIZE]
                 current_chunk_num = (i // PROCESSING_CHUNK_SIZE) + 1
                 log.info(f"--- Processing Chunk {current_chunk_num}/{num_chunks} ({len(chunk_of_event_dicts)} events) ---")
                 events_df_chunk = self.aggregator.aggregate_events(chunk_of_event_dicts)
-                chunk_entries = self.llm_processor.process_chunk_with_llm(events_df_chunk, window.local_day)
+                chunk_entries = self.llm_processor.process_chunk_with_llm(events_df_chunk, window.local_day, project_names)
                 if chunk_entries:
                     log.info(f"LLM returned {len(chunk_entries)} entries for chunk {current_chunk_num}.")
                     all_timeline_entries.extend(chunk_entries)
                 else:
                     log.warning(f"LLM returned no entries for chunk {current_chunk_num}.")
-
             if all_timeline_entries:
                 log.info(f"Aggregating {len(all_timeline_entries)} total entries from all chunks.")
                 processed_entries = self.merge_consecutive_entries(all_timeline_entries)
                 filled_entries = self.fill_gaps(processed_entries, window)
-                final_entries = self.resolve_projects(con, filled_entries)
+                # Use smart resolver as a fallback for entries the LLM didn't assign a project to
+                final_entries = await self.resolve_projects(session, filled_entries)
             else:
                 log.warning(f"LLM returned no entries for any chunk. The day will be marked as idle.")
                 final_entries = self.fill_gaps([], window)
-            
-            self.save_timeline_entries(con, final_entries, source_events, window.local_day)
-            log.info(f"Successfully processed and saved {len(final_entries)} timeline entries for {window.local_day}")
-
+            await self.save_timeline_entries(session, final_entries, source_events, window.local_day)
+            log.info(f"Successfully processed and saved {len(final_entries)} timeline entries for {window.local_day} (async)")
         except Exception as e:
-            log.error(f"A critical error occurred in process_timeline_for_window: {e}", exc_info=True)
+            log.error(f"A critical error occurred in process_timeline_for_window (async): {e}", exc_info=True)
             raise
 
-# Public API functions
-def process_pending_events(con: duckdb.DuckDBPyConnection, settings: Settings) -> None:
-    log.info("Starting timeline processing for pending events")
+async def process_pending_events(session: AsyncSession, settings: Settings) -> None:
+    log.info("Starting timeline processing for pending events (async/ORM)")
     processor = TimelineProcessor(settings)
-    windows = processor.get_processing_windows(con)
+    windows = await processor.get_processing_windows(session)
     if not windows:
         log.info("No pending events to process")
         return
     log.info(f"Found {len(windows)} day(s) with pending events to process.")
     for window in windows:
         try:
-            processor.process_timeline_for_window(con, window)
+            await processor.process_timeline_for_window(session, window)
         except Exception as e:
             log.error(f"Failed to process window for {window.local_day}. Moving to next window. Error: {e}")
             continue
     log.info("Timeline processing completed")
 
-def process_pending_events_sync(con: duckdb.DuckDBPyConnection, settings: Settings) -> None:
-    process_pending_events(con, settings)
+async def process_pending_events_sync(session: AsyncSession, settings: Settings) -> None:
+    await process_pending_events(session, settings)
