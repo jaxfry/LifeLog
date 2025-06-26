@@ -10,10 +10,13 @@ from abc import ABC, abstractmethod
 import polars as pl
 from aw_client import ActivityWatchClient
 from aw_core.models import Event as AWEvent
-import duckdb
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from backend.app.core.settings import Settings
 from backend.app.core.utils import with_db_write_retry
+from backend.app.models import Event, DigitalActivityData
 
 log = logging.getLogger(__name__)
 
@@ -26,21 +29,20 @@ DIGITAL_ACTIVITY_EVENT_TYPE = "digital_activity"
 ACTIVITYWATCH_SOURCE = "activitywatch"
 PENDING_STATUS = "pending"
 
-# Database operation constants
-MILLISECONDS_MULTIPLIER = 1000
-EMPTY_STRING = ""
-STATUS_COLUMN = "status"
-
-# Bucket type identifiers
-AFK_BUCKET_TYPE = "afk"
-WINDOW_BUCKET_TYPE = "window"
-WEB_BUCKET_TYPE = "web"
-
 # Hash generation components
 TIMESTAMP_PREFIX = "ts:"
 APP_PREFIX = "|app:"
 TITLE_PREFIX = "|title:"
 URL_PREFIX = "|url:"
+
+# Database operation constants
+MILLISECONDS_MULTIPLIER = 1000
+EMPTY_STRING = ""
+STATUS_COLUMN = "status"
+# Bucket type identifiers
+AFK_BUCKET_TYPE = "afk"
+WINDOW_BUCKET_TYPE = "window"
+WEB_BUCKET_TYPE = "web"
 
 @dataclass
 class BucketInfo:
@@ -453,58 +455,8 @@ class DataFrameEnricher:
 # 4. DATABASE OPERATIONS LAYER
 # ==============================================================================
 
-class DatabaseWriter:
-    """Handles writing processed events to the database."""
-    
-    @with_db_write_retry()
-    def write_events(self, con: duckdb.DuckDBPyConnection, df_events: pl.DataFrame) -> None:
-        """Atomically writes event data to DuckDB."""
-        if df_events.is_empty():
-            log.info("No events to write to database.")
-            return
-        
-        self._register_dataframe_for_insertion(con, df_events)
-        
-        try:
-            self._perform_database_operations(con)
-            log.info(f"Successfully wrote {df_events.height} events to database.")
-        except Exception as e:
-            log.error(f"Database write operation failed: {e}", exc_info=True)
-            raise
-        finally:
-            self._cleanup_registered_dataframe(con)
-    
-    def _register_dataframe_for_insertion(self, con: duckdb.DuckDBPyConnection, df_events: pl.DataFrame) -> None:
-        """Registers the DataFrame with DuckDB for SQL operations."""
-        con.register('df_to_insert', df_events)
-    
-    def _perform_database_operations(self, con: duckdb.DuckDBPyConnection) -> None:
-        """Performs the actual database insert operations."""
-        self._insert_events(con)
-        self._insert_activity_data(con)
-    
-    def _cleanup_registered_dataframe(self, con: duckdb.DuckDBPyConnection) -> None:
-        """Cleans up registered DataFrame from DuckDB."""
-        con.unregister('df_to_insert')
-    
-    def _insert_events(self, con: duckdb.DuckDBPyConnection) -> None:
-        """Inserts events into the main events table."""
-        con.execute("""
-            INSERT INTO events (id, source, event_type, start_time, end_time, payload_hash)
-            SELECT gen_random_uuid(), source, event_type::event_kind, start_time, end_time, payload_hash
-            FROM df_to_insert
-            ON CONFLICT (payload_hash) DO NOTHING;
-        """)
-    
-    def _insert_activity_data(self, con: duckdb.DuckDBPyConnection) -> None:
-        """Inserts digital activity data into the specialized table."""
-        con.execute("""
-            INSERT INTO digital_activity_data (event_id, hostname, app, title, url)
-            SELECT e.id, i.hostname, i.app, i.title, i.url
-            FROM df_to_insert AS i
-            JOIN events AS e ON i.payload_hash = e.payload_hash
-            ON CONFLICT (event_id) DO NOTHING;
-        """)
+# REMOVED: DatabaseWriter class and all DuckDB-based methods (write_events, _register_dataframe_for_insertion, etc.)
+# All database operations should now use Postgres via SQLAlchemy AsyncSession.
 
 
 # ==============================================================================
@@ -521,36 +473,59 @@ class ActivityWatchIngestionOrchestrator:
         self.afk_processor = AfkEventProcessor()
         self.activity_processor = ActivityEventProcessor(settings)
         self.enricher = DataFrameEnricher(settings)
-        self.db_writer = DatabaseWriter()
     
     async def ingest_time_window(
-        self, 
-        con: duckdb.DuckDBPyConnection, 
-        start_utc: datetime, 
+        self,
+        session: AsyncSession,
+        start_utc: datetime,
         end_utc: datetime
     ) -> None:
-        """Orchestrates the complete ingestion process for a time window."""
+        """Orchestrates the complete ingestion process for a time window using async ORM."""
         log.info(f"Starting ActivityWatch ingestion for time window: {start_utc} -> {end_utc}")
-        
         try:
             raw_data = await self._fetch_raw_data(start_utc, end_utc)
-            
             if self._is_raw_data_empty(raw_data):
                 log.info("No raw data found in the specified time range. Ingestion complete.")
                 return
-            
             processed_data = self._process_raw_data(raw_data, start_utc, end_utc)
             enriched_data = self._enrich_processed_data(processed_data)
-            
             if not enriched_data.is_empty():
-                self.db_writer.write_events(con, enriched_data)
+                # Convert DataFrame to list of dicts
+                event_dicts = enriched_data.to_dicts()
+                # Insert events, deduplicating by payload_hash
+                for event in event_dicts:
+                    # Check if event already exists by payload_hash
+                    stmt = select(Event).where(Event.payload_hash == event["payload_hash"])
+                    result = await session.execute(stmt)
+                    existing = result.scalar_one_or_none()
+                    if not existing:
+                        new_event = Event(
+                            source=event["source"],
+                            event_type=event["event_type"],
+                            start_time=event["start_time"],
+                            end_time=event["end_time"],
+                            payload_hash=event["payload_hash"],
+                            # Note: local_day is automatically computed by PostgreSQL as a generated column
+                        )
+                        session.add(new_event)
+                        await session.flush()  # get new_event.id
+                        session.add(DigitalActivityData(
+                            event_id=new_event.id,
+                            hostname=event["hostname"],
+                            app=event["app"],
+                            title=event["title"],
+                            url=event["url"]
+                        ))
+                await session.commit()
                 log.info(f"ActivityWatch ingestion completed successfully for: {start_utc} -> {end_utc}")
             else:
                 log.info("No events to ingest after processing and enrichment.")
-                
+        except IntegrityError as e:
+            log.warning(f"Integrity error during ingestion: {e}")
+            await session.rollback()
         except Exception as e:
             log.error(f"ActivityWatch ingestion failed for {start_utc} -> {end_utc}: {e}", exc_info=True)
-            raise
+            await session.rollback()
     
     async def _fetch_raw_data(self, start_utc: datetime, end_utc: datetime) -> tuple:
         """Fetches raw data from all ActivityWatch buckets."""
@@ -587,35 +562,18 @@ class ActivityWatchIngestionOrchestrator:
 
 
 # ==============================================================================
-# 6. PUBLIC API FUNCTIONS (LEGACY COMPATIBILITY)
+# 6. PUBLIC API FUNCTIONS (ASYNC/POSTGRES)
 # ==============================================================================
 
-def ingest_activitywatch_data(
-    con: duckdb.DuckDBPyConnection, 
-    settings: Settings, 
-    start_utc: datetime, 
+async def ingest_activitywatch_data(
+    session: AsyncSession,
+    settings: Settings,
+    start_utc: datetime,
     end_utc: datetime
 ) -> None:
     """
-    Legacy function maintained for backward compatibility.
-    Delegates to the new orchestrator implementation.
+    Async version for Postgres/SQLAlchemy ORM.
+    Orchestrates ActivityWatch ingestion using AsyncSession.
     """
-    async def run_ingestion():
-        orchestrator = ActivityWatchIngestionOrchestrator(settings)
-        await orchestrator.ingest_time_window(con, start_utc, end_utc)
-    
-    asyncio.run(run_ingestion())
-
-
-def ingest_aw_window(
-    con: duckdb.DuckDBPyConnection, 
-    settings: Settings, 
-    start_utc: datetime, 
-    end_utc: datetime
-) -> None:
-    """
-    Legacy function maintained for backward compatibility.
-    Ingests ActivityWatch data for the specified time window.
-    """
-    log.info(f"Starting ActivityWatch data ingestion: {start_utc} -> {end_utc}")
-    ingest_activitywatch_data(con, settings, start_utc, end_utc)
+    orchestrator = ActivityWatchIngestionOrchestrator(settings)
+    await orchestrator.ingest_time_window(session, start_utc, end_utc)

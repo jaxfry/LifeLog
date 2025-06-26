@@ -6,10 +6,9 @@ import threading # Added for typing
 from datetime import datetime, timezone, timedelta
 
 from aw_client import ActivityWatchClient
-from duckdb import DuckDBPyConnection
 import polars as pl
 
-from backend.app.core.db import get_db_connection, close_db_connection
+from backend.app.core.db import get_db  # Use async session
 from backend.app.core.settings import settings
 from backend.app.core.utils import with_db_write_retry
 from backend.app.ingestion.activitywatch import (
@@ -28,88 +27,68 @@ POLLING_INTERVAL_SECONDS = 10  # How often to check for new events. 5-15s is a g
 QUERY_OVERLAP_SECONDS = 5    # Increased overlap slightly for more robustness
 
 
+import asyncio
+from sqlalchemy import text
+
 @with_db_write_retry()
-def write_events_to_db(events_df: pl.DataFrame):
+async def write_events_to_db(events_df: pl.DataFrame):
     """
-    Writes a DataFrame of new events to the database in a single transaction.
-    This is much more efficient than writing event by event.
+    Writes a DataFrame of new events to the database in a single transaction (Postgres version, async).
     """
     if events_df.is_empty():
         return
 
-    con: DuckDBPyConnection | None = None
-    try:
-        con = get_db_connection()
-        con.register('df_to_insert', events_df)
-        # Use a single transaction for the whole batch
-        con.begin()
-        
-        # Insert base events
-        con.execute("""
-            INSERT INTO events (id, source, event_type, start_time, end_time, payload_hash)
-            SELECT gen_random_uuid(), source, event_type::event_kind, start_time, end_time, payload_hash
-            FROM df_to_insert
-            ON CONFLICT (payload_hash) DO NOTHING;
-        """)
-        
-        # Get the IDs of the events we just inserted (or that already existed)
-        # and then insert the detailed data.
-        con.execute("""
-            CREATE OR REPLACE TEMP TABLE new_events_to_process AS
-            SELECT e.id, i.hostname, i.app, i.title, i.url
-            FROM df_to_insert AS i
-            JOIN events AS e ON i.payload_hash = e.payload_hash;
-        """)
-
-        con.execute("""
-            INSERT INTO digital_activity_data (event_id, hostname, app, title, url)
-            SELECT id, hostname, app, title, url
-            FROM new_events_to_process
-            ON CONFLICT (event_id) DO NOTHING;
-        """)
-        
-        con.commit()
-        log.debug(f"COLD_PATH: Wrote {events_df.height} new events to DB for later processing.")
-    except Exception as e:
-        log.error(f"Failed to write batch of real-time events to DB: {e}")
-        if con:
-            con.rollback()
-    finally:
-        if con:
-            con.unregister('df_to_insert')
-            close_db_connection(con) # Ensures thread-local is cleared
+    async for session in get_db():
+        try:
+            # Insert base events using SQLAlchemy text queries
+            await session.execute(text("""
+                INSERT INTO events (id, source, event_type, start_time, end_time, payload_hash)
+                SELECT gen_random_uuid(), source, event_type::event_kind, start_time, end_time, payload_hash
+                FROM df_to_insert
+                ON CONFLICT (payload_hash) DO NOTHING;
+            """))
+            await session.execute(text("""
+                CREATE TEMP TABLE new_events_to_process AS
+                SELECT e.id, i.hostname, i.app, i.title, i.url
+                FROM df_to_insert AS i
+                JOIN events AS e ON i.payload_hash = e.payload_hash;
+            """))
+            await session.execute(text("""
+                INSERT INTO digital_activity_data (event_id, hostname, app, title, url)
+                SELECT id, hostname, app, title, url
+                FROM new_events_to_process
+                ON CONFLICT (event_id) DO NOTHING;
+            """))
+            await session.commit()
+            log.debug(f"COLD_PATH: Wrote {events_df.height} new events to DB for later processing.")
+        except Exception as e:
+            log.error(f"Failed to write batch of real-time events to DB: {e}")
+            await session.rollback()
 
 
-def main(watcher_status: dict | None = None): # Accept shared status object
+def main(watcher_status: dict | None = None):
     log.info("--- Starting LifeLog Real-Time Watcher (Polling Mode) ---")
     if watcher_status:
         log.info("Watcher status object is enabled for heartbeat and timestamp.")
     aw_client = ActivityWatchClient("lifelog-realtime-watcher")
-    # db_con = get_db_connection() # This connection was not used directly in the loop
 
-    # The buckets we want to watch for real-time events
     bucket_ids = [
         settings.AW_WINDOW_BUCKET,
         settings.AW_WEB_BUCKET 
     ]
     log.info(f"Watching buckets: {bucket_ids}")
 
-    # --- STATE VARIABLES ---
     last_event_timestamp = datetime.now(timezone.utc)
-    # NEW: A globally persistent set to track all hashes processed in this session.
-    # This prevents re-processing events from the query overlap.
     globally_processed_hashes = set()
 
     try:
         while True:
             try:
-                # Define the time window for the new query
                 query_start_time = last_event_timestamp - timedelta(seconds=QUERY_OVERLAP_SECONDS)
                 query_end_time = datetime.now(timezone.utc)
 
                 all_new_events = []
                 for bucket_id in bucket_ids:
-                    # Fetch events from the AW server
                     events = aw_client.get_events(
                         bucket_id=bucket_id,
                         start=query_start_time,
@@ -120,11 +99,8 @@ def main(watcher_status: dict | None = None): # Accept shared status object
                         all_new_events.extend(events)
 
                 if not all_new_events:
-                    # No new events, but still signal alive and update timestamp
                     if watcher_status:
                         with watcher_status['lock']:
-                            # last_event_timestamp here is the timestamp of the last *actual* event seen,
-                            # or the initialization time if no events ever seen.
                             watcher_status['last_event_ts'] = last_event_timestamp
                         watcher_status['alive_event'].set()
                         log.debug(f"Signalled alive (no new events). Last actual event ts: {last_event_timestamp.isoformat() if last_event_timestamp else 'N/A'}")
@@ -180,7 +156,7 @@ def main(watcher_status: dict | None = None): # Accept shared status object
                 
                 if records_for_db:
                     events_df = pl.from_dicts(records_for_db)
-                    write_events_to_db(events_df)
+                    asyncio.run(write_events_to_db(events_df))
 
                 # Signal that the main loop iteration is complete, watcher is alive, and update timestamp
                 if watcher_status:
@@ -198,12 +174,9 @@ def main(watcher_status: dict | None = None): # Accept shared status object
             
             # Wait for the next polling interval
             time.sleep(POLLING_INTERVAL_SECONDS)
-
     except KeyboardInterrupt:
         log.info("Real-time watcher stopped by user.")
     finally:
-        # The db_con initialized at the start of main was removed, so no close needed here.
-        # Connections for write_events_to_db are handled within that function.
         log.info("--- LifeLog Real-Time Watcher Shutdown ---")
 
 if __name__ == "__main__":

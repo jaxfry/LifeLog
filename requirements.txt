@@ -10,7 +10,6 @@ aw-client
 aw-core
 pytest
 google.genai
-duckdb
 pyarrow
 schedule
 pytz
@@ -23,3 +22,8 @@ bcrypt
 nest-asyncio
 python-multipart
 apscheduler
+asyncpg
+psycopg[binary]
+sqlalchemy
+pgvector
+greenlet

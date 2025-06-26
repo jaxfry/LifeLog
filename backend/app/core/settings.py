@@ -16,6 +16,8 @@ class Settings(BaseSettings):
         env_file_encoding='utf-8',
         extra='ignore'  # <-- ADD THIS LINE
     )
+    
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
     # --- Gemini API ---
     GEMINI_API_KEY: str = "YOUR_API_KEY_HERE"

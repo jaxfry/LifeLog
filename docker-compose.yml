@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17       # ← Docker Hub image with Postgres 17 + pgvector
+    container_name: lifelog_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lifelog
+      POSTGRES_PASSWORD: lifelogpassword
+      POSTGRES_DB: lifelog
+      TZ: America/Vancouver
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d   # 01_extensions.sql, 02_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifelog -d lifelog"]
+      interval: 10s
+      retries: 5
+
+volumes:
+  postgres_data:

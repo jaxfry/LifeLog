@@ -1,19 +1,19 @@
-import duckdb
+import asyncio
 from backend.app.core.settings import Settings
 from backend.app.processing.timeline import process_pending_events_sync
+from backend.app.core.db import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 
-def main():
+async def main():
     settings = Settings()
-    con = duckdb.connect(database=str(settings.DB_FILE), read_only=False)
-    
-    print("Clearing event_state table...")
-    con.execute("DELETE FROM event_state")
-    
-    print("Reprocessing timeline...")
-    process_pending_events_sync(con, settings)
-    
-    print("Done.")
-    con.close()
+    async for session in get_db():
+        print("Clearing event_state table...")
+        await session.execute(text("DELETE FROM event_state"))
+        print("Reprocessing timeline...")
+        await process_pending_events_sync(session, settings)
+        print("Done.")
+        await session.commit()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

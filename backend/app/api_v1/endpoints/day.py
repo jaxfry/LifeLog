@@ -1,18 +1,18 @@
 import uuid
 from typing import List, Optional, Annotated, Dict, Any
 from datetime import date, datetime
-import duckdb
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, Path as FastAPIPath
 
 from backend.app import schemas
-from backend.app.api_v1.deps import get_db
+from backend.app.core.db import get_db
 from backend.app.api_v1.auth import get_current_active_user
 from backend.app.api_v1.endpoints.timeline import get_timeline_entries_db
 
 router = APIRouter()
 
 CurrentUserDep = Annotated[schemas.User, Depends(get_current_active_user)]
-DBDep = Annotated[duckdb.DuckDBPyConnection, Depends(get_db)]
+DBDep = Annotated[AsyncSession, Depends(get_db)]
 
 class DateValidator:
     """Validates and parses date strings."""
@@ -90,12 +90,12 @@ class DailySummaryService:
 class DayDataService:
     """Service for retrieving and processing day data."""
     
-    def __init__(self, db: duckdb.DuckDBPyConnection):
+    def __init__(self, db: AsyncSession):
         self.db = db
         self.stats_calculator = DayStatsCalculator()
         self.summary_service = DailySummaryService()
     
-    def get_day_data(self, target_date: date) -> schemas.DayDataResponse:
+    async def get_day_data(self, target_date: date) -> schemas.DayDataResponse:
         """
         Get complete day data including timeline entries and summary.
         
@@ -105,7 +105,7 @@ class DayDataService:
         Returns:
             Complete day data response
         """
-        timeline_entries = self._fetch_timeline_entries(target_date)
+        timeline_entries = await self._fetch_timeline_entries(target_date)
         stats = self.stats_calculator.calculate_stats(timeline_entries)
         summary = self.summary_service.create_placeholder_summary(target_date, stats)
         
@@ -114,9 +114,9 @@ class DayDataService:
             summary=summary
         )
     
-    def _fetch_timeline_entries(self, target_date: date) -> List[schemas.TimelineEntry]:
+    async def _fetch_timeline_entries(self, target_date: date) -> List[schemas.TimelineEntry]:
         """Fetch timeline entries for the specified date."""
-        return get_timeline_entries_db(
+        return await get_timeline_entries_db(
             db=self.db,
             start_date=target_date,
             end_date=target_date,
@@ -124,7 +124,7 @@ class DayDataService:
         )
 
 @router.get("/{date_string}", response_model=schemas.DayDataResponse)
-def read_day_data(
+async def read_day_data(
     db: DBDep,
     current_user: CurrentUserDep,
     date_string: str = FastAPIPath(
@@ -139,4 +139,4 @@ def read_day_data(
     """
     target_date = DateValidator.parse_date_string(date_string)
     day_service = DayDataService(db)
-    return day_service.get_day_data(target_date)
+    return await day_service.get_day_data(target_date)

@@ -1,3 +1,5 @@
+
+
 """
 This file contains all the LLM prompts used in the LifeLog application.
 """
@@ -35,7 +37,20 @@ Adhere strictly to this JSON schema for each entry:
 * Good: “Debugging payment API bug”.  Avoid: “Using VS Code”.
 
 #### 4 · Determine `project` (optional)
-* Name the project/course if obviously identifiable from filenames, repo paths, meeting titles, etc.; otherwise `null`.
+* **BE VERY CONSERVATIVE** - Only assign a project if the activity involves SUBSTANTIAL, FOCUSED WORK (coding, development, writing, research, building).
+* **DO NOT** create projects for:
+  - Casual browsing, reading articles, or brief mentions
+  - Social media, Discord, Slack conversations (unless it's actual work discussion)
+  - General browsing of websites, GitHub repos, or documentation
+  - Short diversions or quick look-ups
+  - Entertainment, videos, or personal activities
+* **ONLY CREATE** projects for:
+  - Active coding/development sessions (minimum 10+ minutes of focused work)
+  - Writing substantial documentation or content
+  - Building, designing, or creating something specific
+  - Major assignments or structured work efforts
+* {project_list_guidance}
+* **If in doubt, DON'T assign a project** - it's better to have no project than a meaningless one.
 
 #### 5 · Write rich `notes` (1–2 sentences)
 * Pull concrete nouns from `title` and `url` (file names, PR numbers, video titles, Discord channels…).
