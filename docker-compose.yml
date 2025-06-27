@@ -35,6 +35,34 @@ services:
       timeout: 5s
       retries: 5
 
+  api_service:
+    build:
+      context: .
+      dockerfile: central_server/api_service/Dockerfile
+    container_name: lifelog_api_service
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: lifelog
+      POSTGRES_PASSWORD: lifelogpassword
+      POSTGRES_DB: lifelog
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: user
+      RABBITMQ_PASS: password
+      RABBITMQ_QUEUE: lifelog_events_queue
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DEBUG: ${DEBUG:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
   ingestion_service:
     build:
       context: ./central_server/ingestion_service

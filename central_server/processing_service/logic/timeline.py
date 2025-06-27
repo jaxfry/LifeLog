@@ -16,6 +16,7 @@ import logging
 import json  # FIX: Add missing import
 import hashlib  # FIX: Add missing import
 import polars as pl  # FIX: Add missing import
+import asyncio
 
 # Google GenAI
 from google import genai
@@ -254,7 +255,7 @@ class LLMProcessor:
         )
         return prompt
 
-    def process_chunk_with_llm(self, events_df_chunk: pl.DataFrame, local_day: date, project_names: List[str]) -> List[TimelineEntry]:
+    async def process_chunk_with_llm(self, events_df_chunk: pl.DataFrame, local_day: date, project_names: List[str]) -> List[TimelineEntry]:
         if events_df_chunk.is_empty():
             log.warning("Empty event chunk provided to LLM processor.")
             return []
@@ -282,7 +283,8 @@ class LLMProcessor:
                 response_mime_type="application/json",
                 temperature=0.3,
             )
-            response = self.client.models.generate_content(
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
                 model=self.settings.ENRICHMENT_MODEL_NAME,
                 contents=prompt_text,
                 config=config
@@ -401,7 +403,7 @@ class TimelineProcessorService:
             
         return sorted(filled, key=lambda e: e.start) # Ensure sorted
 
-    def process_events_batch(
+    async def process_events_batch(
         self,
         source_events_data: List[ProcessingEventData],
         batch_local_day: date,
@@ -433,7 +435,7 @@ class TimelineProcessorService:
         events_df = self.aggregator.aggregate_events_from_data(source_events_data)
 
         # Process the aggregated events_df with LLM
-        entries = self.llm_processor.process_chunk_with_llm(events_df, batch_local_day, known_project_names or [])
+        entries = await self.llm_processor.process_chunk_with_llm(events_df, batch_local_day, known_project_names or [])
         if entries:
             log.info(f"LLM returned {len(entries)} entries for the day.")
             # Merge and fill gaps as before
