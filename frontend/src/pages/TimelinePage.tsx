@@ -47,9 +47,12 @@ export default function TimelinePage() {
     const date = "2025-05-22";
     fetchDayData(date)
       .then((data) => {
-        const sortedData = data.entries.sort((a, b) => 
-          new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-        );
+        // Fix: Check if data and data.entries exist before sorting
+        const sortedData = (data && Array.isArray(data.entries))
+          ? data.entries.sort((a, b) => 
+              new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+            )
+          : [];
         setEntries(sortedData);
         setLoading(false);
       })

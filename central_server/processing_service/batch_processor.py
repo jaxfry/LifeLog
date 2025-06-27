@@ -139,7 +139,7 @@ async def run_batch_processing(target_day: date, process_at_utc: datetime | None
         known_project_names = [row[0] for row in result.all()]
 
         # 3. Process the full day's events to generate timeline entries.
-        timeline_pydantic_entries = timeline_processor.process_events_batch(
+        timeline_pydantic_entries = await timeline_processor.process_events_batch(
             source_events_data=events_for_processing,
             batch_local_day=target_day,
             known_project_names=known_project_names

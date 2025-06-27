@@ -12,15 +12,15 @@ A personal life logging and timeline management system that ingests data from va
 
 ## Architecture
 
-- **Central Server Components (New):**
-    - **Data Ingestion Service**: FastAPI (Python) - Receives data and queues it in RabbitMQ.
-    - **Data Processing Service**: Python Worker - Consumes data from RabbitMQ, processes it, and stores it in PostgreSQL.
-    - **Message Queue**: RabbitMQ - For decoupling services.
-    - **Database**: PostgreSQL with pgvector - For storing processed data and embeddings.
-- **Old Backend (Being Phased Out)**: FastAPI (Python) with DuckDB database
-- **Frontend**: React + TypeScript + Vite
-- **AI Processing**: Google Gemini API for intelligent categorization (used by Data Processing Service)
-- **Data Sources**: Local daemons (e.g., ActivityWatch integration) pushing to Data Ingestion Service.
+- **Central Server Components:**
+    - **API Service**: Unified FastAPI service with authentication, data management, and analytics (Port 8000)
+    - **Data Ingestion Service**: FastAPI service for receiving data from local daemons (Port 8001)
+    - **Data Processing Service**: Python worker for consuming data from RabbitMQ and processing it
+    - **Message Queue**: RabbitMQ for decoupling services
+    - **Database**: PostgreSQL with pgvector for storing processed data and embeddings
+- **Frontend**: React + TypeScript + Vite (Port 5173 in development, Port 80 in production)
+- **AI Processing**: Google Gemini API for intelligent categorization
+- **Data Sources**: Local daemons (e.g., ActivityWatch integration) pushing to Data Ingestion Service
 
 ## Getting Started
 
@@ -86,21 +86,20 @@ The new central server architecture (ingestion, processing, RabbitMQ, PostgreSQL
     docker-compose up -d --build
     ```
     This will:
-    *   Build the Docker images for the `ingestion_service` and `processing_service`.
-    *   Start containers for `ingestion_service`, `processing_service`, `rabbitmq`, and `postgres`.
+    *   Build the Docker images for the `api_service`, `ingestion_service`, and `processing_service`.
+    *   Start containers for all services including `postgres` and `rabbitmq`.
     *   The `postgres` service will initialize the database schema using scripts from `./postgres/init/`.
-    *   The `ingestion_service` will be accessible (e.g., at `http://localhost:8001` by default, check `docker-compose.yml` for port mappings).
-    *   The `processing_service` will start consuming messages from RabbitMQ.
+    *   The **API Service** will be accessible at `http://localhost:8000` (API docs at `http://localhost:8000/api/v1/docs`).
+    *   The **Ingestion Service** will be accessible at `http://localhost:8001`.
+    *   The **Processing Service** will start consuming messages from RabbitMQ.
+    *   The **Frontend** will be accessible at `http://localhost:5173`.
     *   RabbitMQ management UI will be available at `http://localhost:15672` (default credentials: user/password).
 
-4.  **Running the Frontend (Optional, if needed for testing with new backend):**
-    If you want to run the existing frontend:
-    ```bash
-    cd frontend
-    npm install # if you haven't already
-    npm run dev
-    ```
-    Access the frontend at `http://localhost:5173`. You might need to update frontend API configurations to point to the new `ingestion_service` if it's handling direct client interactions, or adjust how data flows if the frontend is meant to read processed data. *(This part might need further refinement based on how the frontend interacts with the new backend pipeline).*
+4.  **Access the application:**
+    *   **Frontend**: `http://localhost:5173`
+    *   **API Documentation**: `http://localhost:8000/api/v1/docs`
+    *   **RabbitMQ Management**: `http://localhost:15672` (user/password)
+    *   **Login credentials**: Use `admin/admin123` for development
 
 5.  **Stopping the services:**
     ```bash
@@ -131,32 +130,38 @@ If you need to run the older backend and frontend manually:
 
 3. Access the application at `http://localhost:5173`
 
+## Development Setup
+
+If you want to run individual services for development:
+
 ## Project Structure
 
 ```
 LifeLog/
-├── central_server/       # New central server components
-│   ├── ingestion_service/  # FastAPI service for data ingestion
-│   ├── processing_service/ # Python worker for data processing
-├── backend/              # Old FastAPI backend (being phased out)
-│   ├── app/
-│   │   ├── api_v1/      # API endpoints
-│   │   ├── core/        # Core functionality (DB, settings)
-│   │   ├── daemon/      # Background processing
-│   │   ├── ingestion/   # Data ingestion modules
-│   │   └── processing/  # Data processing and AI integration
-├── frontend/            # React frontend
+├── central_server/           # Central server components
+│   ├── api_service/         # Main FastAPI service (authentication, data management)
+│   ├── ingestion_service/   # FastAPI service for data ingestion
+│   └── processing_service/  # Python worker for data processing
+├── frontend/                # React frontend
 │   └── src/
-├── postgres/             # PostgreSQL configuration and init scripts
+├── postgres/                # PostgreSQL configuration and init scripts
 │   └── init/
-├── tests/              # Test files
-└── tools/              # Utility scripts
+├── tests/                   # Test files
+├── tools/                   # Utility scripts
+└── local_daemon/           # Local daemon for data collection
 ```
 
 ## API Documentation
 
-- **New Data Ingestion Service**: If running via Docker Compose, API docs (Swagger UI) typically at `http://localhost:8001/docs` (check `docker-compose.yml` for port mapping).
-- **Old Backend API**: If running, visit `http://localhost:8000/docs`.
+- **Main API Service**: `http://localhost:8000/api/v1/docs` (Swagger UI)
+- **Data Ingestion Service**: `http://localhost:8001/docs` (Swagger UI)
+- **API v1 Endpoints**:
+  - Authentication: `/api/v1/auth/`
+  - Projects: `/api/v1/projects/`
+  - Timeline: `/api/v1/timeline/`
+  - Events: `/api/v1/events/`
+  - Daily Data: `/api/v1/day/`
+  - System: `/api/v1/system/`
 
 ## Development
 

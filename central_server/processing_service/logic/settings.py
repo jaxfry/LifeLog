@@ -1,7 +1,12 @@
 # central_server/processing_service/logic/settings.py
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Configure logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Define project root for this service if needed, or rely on env vars
 # For simplicity, we assume .env is in central_server/processing_service/
@@ -10,9 +15,9 @@ DOTENV_PATH = SERVICE_ROOT / '.env'
 
 if DOTENV_PATH.exists():
     load_dotenv(DOTENV_PATH)
-    print(f"Loaded .env file from {DOTENV_PATH}")
+    logger.info(f"Loaded .env file from {DOTENV_PATH}")
 else:
-    print(f".env file not found at {DOTENV_PATH}. Relying on environment variables.")
+    logger.info(f".env file not found at {DOTENV_PATH}. Relying on environment variables.")
 
 class Settings:
     # --- Gemini API ---
