@@ -1,14 +1,11 @@
 // src/lib/timeline-utils.ts
 
 import { 
-  Code2, 
   MessageSquare, 
   Moon, 
   MousePointerClick,
-  Coffee,
   Globe,
   Terminal,
-  Users,
   type LucideIcon 
 } from "lucide-react";
 

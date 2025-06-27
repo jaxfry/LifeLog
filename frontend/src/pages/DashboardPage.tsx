@@ -1,4 +1,3 @@
-import React from 'react';
 import DashboardLayout from "@/layouts/DashboardLayout";
 import TodaysSummaryCard from '@/components/TodaysSummaryCard'; // Use alias path
 import YesterdaysSummaryCard from '@/components/YesterdaysSummaryCard'; // Use alias path

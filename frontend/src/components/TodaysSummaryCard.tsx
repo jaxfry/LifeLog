@@ -1,5 +1,4 @@
 // filepath: /Users/jaxon/Coding/LifeLog/frontend/src/components/TodaysSummaryCard.tsx
-import React from 'react';
 import { useTodayData } from '@/hooks/useTodayData'; // Updated to use alias
 import SummaryCard from './SummaryCard';
 
