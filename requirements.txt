@@ -27,3 +27,4 @@ psycopg[binary]
 sqlalchemy
 pgvector
 greenlet
+requests

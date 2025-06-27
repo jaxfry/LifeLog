@@ -371,6 +371,7 @@ run_ingestion_test.py
 backend/app/data/lifelog.db
 backend/app/data/lifelog.db.wal
 backend/app/data/cache
+*.sqlite
 
 # Backups
 backend/app/data/backups/

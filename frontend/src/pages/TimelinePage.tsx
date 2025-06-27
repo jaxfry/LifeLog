@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { fetchDayData } from "@/api/client";
 import type { TimelineEntry } from "@/types";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock } from "lucide-react"; // Removed Calendar, MessageSquare, ChevronRight
 import { format, formatRelative } from "date-fns";

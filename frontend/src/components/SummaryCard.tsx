@@ -1,7 +1,6 @@
 import React from 'react';
 import { Clock, Calendar, Target, TrendingUp, Activity, AlertTriangle, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { DayDataResponse } from '@/types'; // Corrected import path
 
 interface SummaryCardProps {
