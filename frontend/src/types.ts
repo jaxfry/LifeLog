@@ -25,23 +25,23 @@ export interface TimelineEntry {
 }
 
 /**
- * Represents statistics for a daily summary, aligning with backend `schemas.DailySummaryStats`.
+ * Represents statistics for a day, aligning with backend `schemas.DayStats`.
  */
-export interface DailySummaryStats {
-  total_active_time_min: number;
-  focus_time_min: number;
-  number_blocks: number;
-  top_project?: string | null;
-  top_activity?: string | null;
+export interface DayStats {
+  total_events: number;
+  total_duration_hours: number;
+  top_project: string | null;
+  active_time_hours: number;
+  break_time_hours: number;
 }
 
 /**
  * Represents a daily summary, aligning with backend `schemas.DailySummary`.
  */
 export interface DailySummary {
-  day_summary: string;
-  stats: DailySummaryStats;
-  version: number;
+  date: string; // ISO date string
+  summary: string;
+  insights: string[] | null;
 }
 
 /**
@@ -49,8 +49,10 @@ export interface DailySummary {
  * aligning with backend `schemas.DayDataResponse`.
  */
 export interface DayDataResponse {
-  entries: TimelineEntry[];
-  summary: DailySummary;
+  date: string; // ISO date string
+  timeline_entries: TimelineEntry[];
+  stats: DayStats;
+  summary: DailySummary | null;
 }
 
 /**

@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 # Constants
 TIMELINE_SOURCE = "timeline_processor_service" # Modified source name
 DEFAULT_IDLE_ACTIVITY = "Idle / Away"
-PROCESSING_CHUNK_SIZE = 1000  # Restore chunking for large days
+PROCESSING_CHUNK_SIZE = 500
 
 @dataclass
 class ProcessingWindowStub:
@@ -430,16 +430,30 @@ class TimelineProcessorService:
                 project=None,
                 notes=f"Limited activity recorded ({len(source_events_data)} events). Day processed without full analysis."
             )]
-        # --- REFACTORED: NO MORE CHUNKING ---
-        log.info(f"Aggregating all {len(source_events_data)} events for a single LLM call.")
         events_df = self.aggregator.aggregate_events_from_data(source_events_data)
-
-        # Process the aggregated events_df with LLM
-        entries = await self.llm_processor.process_chunk_with_llm(events_df, batch_local_day, known_project_names or [])
-        if entries:
-            log.info(f"LLM returned {len(entries)} entries for the day.")
-            # Merge and fill gaps as before
-            processed_entries = self.merge_consecutive_entries(entries)
+        
+        all_entries = []
+        if not events_df.is_empty():
+            if events_df.height > PROCESSING_CHUNK_SIZE:
+                log.info(f"Large day detected ({events_df.height} events), processing in chunks of {PROCESSING_CHUNK_SIZE}.")
+                
+                tasks = []
+                for i in range(0, events_df.height, PROCESSING_CHUNK_SIZE):
+                    chunk_df = events_df.slice(i, PROCESSING_CHUNK_SIZE)
+                    tasks.append(
+                        self.llm_processor.process_chunk_with_llm(chunk_df, batch_local_day, known_project_names or [])
+                    )
+                
+                chunk_results = await asyncio.gather(*tasks)
+                for entry_list in chunk_results:
+                    all_entries.extend(entry_list)
+            else:
+                log.info(f"Processing {events_df.height} events in a single call.")
+                all_entries = await self.llm_processor.process_chunk_with_llm(events_df, batch_local_day, known_project_names or [])
+        
+        if all_entries:
+            log.info(f"LLM returned a total of {len(all_entries)} entries for the day.")
+            processed_entries = self.merge_consecutive_entries(all_entries)
             filled_entries = self.fill_gaps(processed_entries, current_processing_window)
             final_entries = filled_entries
         else:

@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import List
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
@@ -42,14 +43,20 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     
     # CORS Configuration
-    ALLOWED_ORIGINS: list = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000", 
-        "http://127.0.0.1:5173",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080"
-    ]
+    ALLOWED_ORIGINS_STR: str = os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080",
+    )
+
+    @property
+    def ALLOWED_ORIGINS(self) -> List[str]:
+        """
+        Returns a list of allowed origins for CORS.
+        Reads from the ALLOWED_ORIGINS_STR environment variable.
+        """
+        if not self.ALLOWED_ORIGINS_STR:
+            return []
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS_STR.split(",")]
     
     # Development settings
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"

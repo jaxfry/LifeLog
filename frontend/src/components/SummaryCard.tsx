@@ -15,17 +15,17 @@ interface SummaryCardProps {
 }
 
 // Helper function to format time in hours and minutes
-function formatTime(minutes: number): string {
-  if (minutes < 0) return '0m'; // Handle potential negative values if data is imperfect
-  if (minutes < 60) {
-    return `${minutes}m`;
+function formatTime(hours: number): string {
+  if (hours < 0) return "0h 0m";
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (h > 0 && m > 0) {
+    return `${h}h ${m}m`;
+  } else if (h > 0) {
+    return `${h}h`;
+  } else {
+    return `${m}m`;
   }
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (remainingMinutes === 0) {
-    return `${hours}h`;
-  }
-  return `${hours}h ${remainingMinutes}m`;
 }
 
 // Helper function to get an icon based on top activity
@@ -137,7 +137,7 @@ export default function SummaryCard({
         <div className="flex items-center gap-3">
           {/* Icon based on top activity or a default calendar icon */} 
           <div className="p-2 bg-muted rounded-lg">
-            {dayData?.summary?.stats?.top_activity ? getActivityIcon(dayData.summary.stats.top_activity) : <Calendar className="w-6 h-6 text-primary" />}
+            {dayData?.stats?.top_project ? getActivityIcon(dayData.stats.top_project) : <Calendar className="w-6 h-6 text-primary" />}
           </div>
           <div className="flex-1 group">
             <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white group-hover:text-primary transition-colors">
@@ -155,37 +155,36 @@ export default function SummaryCard({
             <Clock className="w-5 h-5 text-primary" />
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Active Time</p>
-              <p className="text-base font-semibold text-gray-700 dark:text-gray-200">{formatTime(dayData?.summary?.stats?.total_active_time_min ?? 0)}</p>
+              <p className="text-base font-semibold text-gray-700 dark:text-gray-200">{formatTime(dayData?.stats?.active_time_hours ?? 0)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Target className="w-5 h-5 text-green-500" />
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Focus Time</p>
-              <p className="text-base font-semibold text-gray-700 dark:text-gray-200">{formatTime(dayData?.summary?.stats?.focus_time_min ?? 0)}</p>
+              <p className="text-base font-semibold text-gray-700 dark:text-gray-200">{formatTime(dayData?.stats?.break_time_hours ?? 0)}</p>
             </div>
           </div>
         </div>
 
-        {dayData?.summary?.stats?.top_project && (
+        {dayData?.stats?.top_project && (
           <div className="mb-4 p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Top Project</p>
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-indigo-500" />
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate" title={dayData.summary.stats.top_project}>
-                {dayData.summary.stats.top_project}
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate" title={dayData.stats.top_project}>
+                {dayData.stats.top_project}
               </p>
             </div>
           </div>
         )}
 
-        {dayData?.summary?.stats?.top_activity && (
+        {dayData?.summary?.summary && (
            <div className="mb-1 p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Top Activity</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Summary</p>
             <div className="flex items-center gap-2">
-              {getActivityIcon(dayData.summary.stats.top_activity)} 
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate" title={dayData.summary.stats.top_activity}>
-                {dayData.summary.stats.top_activity}
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {dayData.summary.summary}
               </p>
             </div>
           </div>

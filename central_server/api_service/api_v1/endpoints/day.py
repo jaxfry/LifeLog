@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status, Path as FastAPIPath, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from central_server.api_service import schemas
 from central_server.api_service.core.database import get_db
@@ -23,6 +24,7 @@ def parse_date_string(date_string: str) -> date:
 async def get_timeline_entries_for_date(db: AsyncSession, target_date: date) -> List[schemas.TimelineEntry]:
     result = await db.execute(
         select(TimelineEntryModel)
+        .options(selectinload(TimelineEntryModel.project))
         .where(TimelineEntryModel.local_day == target_date)
         .order_by(TimelineEntryModel.start_time)
     )
