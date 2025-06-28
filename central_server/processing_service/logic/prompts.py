@@ -24,7 +24,7 @@ Adhere strictly to this JSON schema for each entry:
 * Short context-preserving app switches (quick look-ups, alt-tabs) stay inside the surrounding block.
 * A substantial context switch on an unrelated task starts a new block.
 * Preserve distinct short events if they constitute a complete action.
-* Create a rough maximum of 50 timeline entries for the day to keep the summary concise.
+* Create a rough maximum of 30 timeline entries for the day to keep the summary concise.
 * Fill major gaps (>15 min) with an "Idle / Away" activity.
 
 #### 2 · Define `start` / `end`

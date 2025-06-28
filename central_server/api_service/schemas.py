@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 import uuid
+import json
 
 # Base schemas
 class BaseSchema(BaseModel):
@@ -44,6 +45,18 @@ class ProjectUpdate(BaseSchema):
 class Project(ProjectBase):
     id: uuid.UUID
     embedding: Optional[List[float]] = None
+
+    @validator("embedding", pre=True)
+    def parse_embedding(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                # Handle cases where the string is not valid JSON
+                # This might involve cleaning the string or raising an error
+                # For now, we'll raise a ValueError
+                raise ValueError("Invalid string format for embedding")
+        return v
 
 # Timeline Entry schemas
 class TimelineEntryBase(BaseSchema):
