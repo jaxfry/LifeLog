@@ -1,4 +1,3 @@
-import React from 'react';
 import { useYesterdayData } from '@/hooks/useYesterdayData'; // Updated to use specific hook and alias
 import SummaryCard from './SummaryCard';
 
