@@ -11,10 +11,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
 } from "@/components/ui/sidebar"
 import { navData } from "@/data/navData"
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ sidebarFooter, ...props }: React.ComponentProps<typeof Sidebar> & { sidebarFooter?: React.ReactNode }) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -37,6 +38,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain items={navData.navMain} />
       </SidebarContent>
+      <SidebarFooter>{sidebarFooter}</SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )

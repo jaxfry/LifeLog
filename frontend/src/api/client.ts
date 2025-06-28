@@ -1,12 +1,10 @@
 import type {
   TimelineEntry,
-  DailySummary,
   DayDataResponse,
   Project,
   Event,
   TokenResponse,
-  User, // Assuming you might want to fetch user profile later
-  PaginatedResponse, // If using pagination for lists
+  User // Assuming you might want to fetch user profile later
 } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";

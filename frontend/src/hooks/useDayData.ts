@@ -11,6 +11,8 @@ export function useDayData(dateString: string | null) {
   const { isAuthenticated } = useAuth(); // Get auth state
 
   useEffect(() => {
+    let isMounted = true; // Track if the component is mounted
+
     if (!dateString) {
       setLoading(false);
       setError("No date provided.");
@@ -19,39 +21,44 @@ export function useDayData(dateString: string | null) {
       return;
     }
 
-    // Don't fetch if not authenticated and trying to load data for a specific day
-    // (unless some day data is public, which is not the case here)
     if (!isAuthenticated) {
       setLoading(false);
-      // setError("User not authenticated."); // Or let ProtectedRoute handle it
       setData(null);
       setHasData(false);
       return;
     }
 
     const fetchDataForDay = async () => {
+      setLoading(true);
+      setError(null);
+      setData(null);
+      setHasData(false);
       try {
-        setLoading(true);
-        setError(null);
-        setData(null);
-        setHasData(false);
-        const dayData = await apiClient.fetchDayData(dateString); // Use new client
-        setData(dayData);
-        // Ensure alignment with new TimelineEntry structure if needed for 'hasData' logic
-        setHasData(!!(dayData && (dayData.entries?.length > 0 || dayData.summary?.stats)));
+        const dayData = await apiClient.fetchDayData(dateString);
+        if (isMounted) {
+          setData(dayData);
+          setHasData(!!(dayData && (dayData.timeline_entries?.length > 0 || dayData.stats)));
+        }
       } catch (err) {
         console.error("useDayData fetch error:", err);
-        setError(err instanceof Error ? err.message : `Failed to fetch data for ${dateString}`);
-        setData(null);
-        setHasData(false);
-        // If 401, AuthContext/ProtectedRoute should ideally handle redirection.
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : `Failed to fetch data for ${dateString}`);
+          setData(null);
+          setHasData(false);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchDataForDay();
-  }, [dateString, isAuthenticated]); // Re-run effect if dateString or auth status changes
+
+    return () => {
+      isMounted = false; // Set to false when the component unmounts or effect re-runs
+    };
+  }, [dateString, isAuthenticated]);
 
   return { data, loading, error, hasData };
 }

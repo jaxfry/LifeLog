@@ -1,0 +1,143 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17       # ← Docker Hub image with Postgres 17 + pgvector
+    container_name: lifelog_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lifelog
+      POSTGRES_PASSWORD: lifelogpassword
+      POSTGRES_DB: lifelog
+      TZ: America/Vancouver
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d   # 01_extensions.sql, 02_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifelog -d lifelog"]
+      interval: 10s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: lifelog_rabbitmq
+    ports:
+      - "5672:5672"  # AMQP protocol
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api_service:
+    build:
+      context: .
+      dockerfile: central_server/api_service/Dockerfile
+    container_name: lifelog_api_service
+    ports:
+      - "8000:8000"
+    environment:
+      ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: lifelog
+      POSTGRES_PASSWORD: lifelogpassword
+      POSTGRES_DB: lifelog
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: user
+      RABBITMQ_PASS: password
+      RABBITMQ_QUEUE: lifelog_events_queue
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DEBUG: ${DEBUG:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --app-dir /app/central_server/api_service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  ingestion_service:
+    build:
+      context: ./central_server/ingestion_service
+      dockerfile: Dockerfile
+    container_name: lifelog_ingestion_service
+    ports:
+      - "8001:8000"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_QUEUE: lifelog_events_queue
+      RABBITMQ_USER: user
+      RABBITMQ_PASS: password
+      # Add any other necessary environment variables
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  processing_service:
+    build:
+      context: .
+      dockerfile: central_server/processing_service/Dockerfile
+    container_name: lifelog_processing_service
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_INGESTION_QUEUE: lifelog_events_queue
+      RABBITMQ_PROCESSING_QUEUE: lifelog_processing_queue
+      RABBITMQ_USER: user
+      RABBITMQ_PASS: password
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: lifelog
+      POSTGRES_PASSWORD: lifelogpassword
+      POSTGRES_DB: lifelog
+      POSTGRES_PORT: 5432
+      # Add any other necessary environment variables
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  processing_scheduler:
+    image: mcuadros/ofelia:latest
+    container_name: lifelog_processing_scheduler
+    restart: unless-stopped
+    depends_on:
+      - processing_service
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: daemon --docker
+    labels:
+      ofelia.job-exec.lifelog-batch-processor.schedule: "@daily"
+      ofelia.job-exec.lifelog-batch-processor.container: "lifelog_processing_service"
+      ofelia.job-exec.lifelog-batch-processor.command: "python batch_processor.py"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lifelog_frontend
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  rabbitmq_data: # Define volume for RabbitMQ persistence
