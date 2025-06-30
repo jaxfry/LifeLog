@@ -128,6 +128,12 @@ class EmbeddingService:
 _embedding_service_instance: Optional[EmbeddingService] = None
 
 def get_embedding_service() -> EmbeddingService:
+    """
+    Returns a singleton instance of the EmbeddingService.
+
+    Returns:
+        An instance of the EmbeddingService.
+    """
     global _embedding_service_instance
     if _embedding_service_instance is None:
         _embedding_service_instance = EmbeddingService()

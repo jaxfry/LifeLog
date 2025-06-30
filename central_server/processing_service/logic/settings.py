@@ -20,8 +20,9 @@ else:
     logger.info(f".env file not found at {DOTENV_PATH}. Relying on environment variables.")
 
 class Settings:
+    """Manages application-wide settings and configurations for the processing service."""
     # --- Gemini API ---
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "YOUR_API_KEY_HERE")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
     # --- Caching ---
     # Cache dir relative to this service's root
@@ -78,7 +79,7 @@ class Settings:
     POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
     POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "lifelog_user")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "lifelog_pass")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "lifelog_db")
     
     #SQLALCHEMY_DATABASE_URL: str = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"

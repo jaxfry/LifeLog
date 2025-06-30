@@ -1,5 +1,6 @@
 pika
 pydantic
+pydantic-settings
 google.genai
 polars
 numpy

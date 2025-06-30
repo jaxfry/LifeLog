@@ -6,8 +6,11 @@ import pika
 from pika.exceptions import AMQPConnectionError
 from fastapi import FastAPI, HTTPException
 from typing import Dict, Any
+from dotenv import load_dotenv
 
 from models import LogPayload
+
+load_dotenv()
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

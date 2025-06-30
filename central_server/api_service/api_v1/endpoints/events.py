@@ -8,7 +8,7 @@ from sqlalchemy import select
 from central_server.api_service import schemas
 from central_server.api_service.core.database import get_db
 from central_server.api_service.core.models import Event as EventModel, DigitalActivityData
-from central_server.api_service.auth import get_current_active_user
+from central_server.api_service.auth import require_auth
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ async def read_events(
     skip: int = Query(0, ge=0, description="Number of items to skip."),
     limit: int = Query(100, ge=1, le=500, description="Number of items to return."),
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)  # Require authentication but don't need user info
 ):
     query = select(EventModel)
     if start_time:
@@ -65,7 +65,6 @@ async def read_events(
             end_time=event.end_time,
             payload_hash=event.payload_hash,
             local_day=event.local_day,
-            user_id=event.user_id,
             details=payload
         ))
     return out
@@ -74,7 +73,7 @@ async def read_events(
 async def read_event(
     event_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)  # Require authentication but don't need user info
 ):
     event = await get_event_by_id(db, event_id)
     payload = await get_event_payload(db, event)
@@ -86,6 +85,5 @@ async def read_event(
         end_time=event.end_time,
         payload_hash=event.payload_hash,
         local_day=event.local_day,
-        user_id=event.user_id,
         details=payload
     )

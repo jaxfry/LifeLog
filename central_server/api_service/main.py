@@ -2,12 +2,10 @@ import logging
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from sqlalchemy import select, func
 
 from central_server.api_service.core.database import init_db
 from central_server.api_service.core.settings import settings
 from central_server.api_service.api_v1.endpoints import auth, projects, timeline, events, day, system
-from central_server.api_service.core.models import User
 
 # Configure logging
 logging.basicConfig(
@@ -23,24 +21,7 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         logger.info("Database initialized successfully.")
-        # --- Ensure test user exists if users table is empty ---
-        from sqlalchemy.ext.asyncio import AsyncSession
-        from central_server.api_service.auth import create_user, get_user_by_username
-        from central_server.api_service import schemas
-        from central_server.api_service.core.database import AsyncSessionLocal
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(select(func.count()).select_from(User))
-            user_count = result.scalar()
-            if user_count == 0:
-                logger.info(f"No users found. Creating test user: {settings.TEST_USER_USERNAME}")
-                user_create = schemas.UserCreate(
-                    username=settings.TEST_USER_USERNAME,
-                    password=settings.TEST_USER_PASSWORD
-                )
-                await create_user(session, user_create)
-                logger.info("Test user created.")
-            else:
-                logger.info(f"User table not empty (count={user_count}), not creating test user.")
+        logger.info(f"Using single-user authentication with username: {settings.LIFELOG_USERNAME}")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise

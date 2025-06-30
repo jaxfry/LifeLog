@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from central_server.api_service.core.database import get_db
 from central_server.api_service.core.models import Project as ProjectModel
-from central_server.api_service.auth import get_current_active_user
+from central_server.api_service.auth import require_auth
 from central_server.api_service import schemas
 
 router = APIRouter()
@@ -28,7 +28,7 @@ async def get_project_by_name(db: AsyncSession, name: str) -> ProjectModel | Non
 async def create_project(
     project_in: schemas.ProjectCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     existing_project = await get_project_by_name(db, project_in.name)
     if existing_project:
@@ -47,7 +47,7 @@ async def get_projects(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Number of items to return"),
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     result = await db.execute(
         select(ProjectModel)
@@ -62,7 +62,7 @@ async def get_projects(
 async def get_project(
     project_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     project = await get_project_by_id(db, project_id)
     return schemas.Project.model_validate(project)
@@ -72,7 +72,7 @@ async def update_project(
     project_id: str,
     project_update: schemas.ProjectUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     project = await get_project_by_id(db, project_id)
     if project_update.name and project_update.name != project.name:
@@ -91,7 +91,7 @@ async def update_project(
 async def delete_project(
     project_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     project = await get_project_by_id(db, project_id)
     await db.delete(project)

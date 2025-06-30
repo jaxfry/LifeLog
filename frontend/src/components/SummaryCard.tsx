@@ -102,7 +102,7 @@ export default function SummaryCard({
           <div className="flex flex-col items-center text-red-500 dark:text-red-400">
             <AlertTriangle className="w-10 h-10 mb-2" />
             <p className="font-semibold">Error loading data</p>
-            <p className="text-xs">{error}</p>
+            <p className="text-xs">{String(error)}</p>
           </div>
         </CardContent>
       </Card>

@@ -11,6 +11,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
+    """Manages application-wide settings and configurations for the API service."""
     # API Configuration
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "LifeLog API"
@@ -20,7 +21,7 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
     POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "lifelog")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "lifelogpassword")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "lifelog")
     
     @property
@@ -31,11 +32,11 @@ class Settings(BaseSettings):
     RABBITMQ_HOST: str = os.getenv("RABBITMQ_HOST", "localhost")
     RABBITMQ_PORT: int = int(os.getenv("RABBITMQ_PORT", "5672"))
     RABBITMQ_USER: str = os.getenv("RABBITMQ_USER", "user")
-    RABBITMQ_PASS: str = os.getenv("RABBITMQ_PASS", "password")
+    RABBITMQ_PASS: str = os.getenv("RABBITMQ_PASS", "")
     RABBITMQ_QUEUE: str = os.getenv("RABBITMQ_QUEUE", "lifelog_events_queue")
     
     # JWT Configuration
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
@@ -61,9 +62,9 @@ class Settings(BaseSettings):
     # Development settings
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     
-    # Test user for development
-    TEST_USER_USERNAME: str = "admin"
-    TEST_USER_PASSWORD: str = "admin123"
+    # Single user configuration (this is a single-user system)
+    LIFELOG_USERNAME: str = os.getenv("LIFELOG_USERNAME", "admin")
+    LIFELOG_PASSWORD: str = os.getenv("LIFELOG_PASSWORD", "admin123")
     
     class Config:
         case_sensitive = True
