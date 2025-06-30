@@ -1,13 +1,12 @@
 import { useDayData } from './useDayData';
+import { formatDate } from '@/lib/utils';
 
 // Helper function to get yesterday's date in YYYY-MM-DD format
 function getYesterdayString(): string {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-  return yesterday.getFullYear() + '-' +
-    String(yesterday.getMonth() + 1).padStart(2, '0') + '-' +
-    String(yesterday.getDate()).padStart(2, '0');
+  return formatDate(yesterday);
 }
 
 export function useYesterdayData() {

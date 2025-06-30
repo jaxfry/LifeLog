@@ -18,6 +18,12 @@ export interface ActivityMetadata {
   borderClass: string;
 }
 
+/**
+ * Returns metadata for a given activity string, such as an icon and color.
+ *
+ * @param activity - The activity string to get metadata for.
+ * @returns An object containing metadata for the activity.
+ */
 export function getActivityMetadata(activity: string): ActivityMetadata {
   const lowerCaseActivity = activity.toLowerCase();
   
@@ -75,6 +81,13 @@ export function getActivityMetadata(activity: string): ActivityMetadata {
   };
 }
 
+/**
+ * Formats the duration between two dates into a human-readable string.
+ *
+ * @param start - The start date.
+ * @param end - The end date.
+ * @returns A string representing the duration (e.g., "1h 30m").
+ */
 export function formatDuration(start: Date, end: Date): string {
   const diff = end.getTime() - start.getTime();
   const hours = Math.floor(diff / (1000 * 60 * 60));

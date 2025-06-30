@@ -135,77 +135,10 @@ class ActivityWatchCollector:
         }
         return processed_event
 
-    def collect_and_store_events(self):
+    def _collect_events(self, start_time: datetime, end_time: datetime) -> List[Dict[str, Any]]:
         """
-        Main collection loop. Fetches new events from configured AW buckets
-        and stores them in the local cache.
-        """
-        if not self.aw_client:
-            log.warning("ActivityWatch client not initialized. Cannot collect events.")
-            return 0
-
-        collected_count = 0
-        now_utc = datetime.now(timezone.utc)
-        device_id = config.DEVICE_ID # Get device ID from config
-
-        bucket_map = {
-            config.AW_WINDOW_BUCKET_ID: EVENT_TYPE_WINDOW,
-            config.AW_AFK_BUCKET_ID: EVENT_TYPE_AFK,
-            config.AW_WEB_BROWSER_BUCKET_ID: EVENT_TYPE_WEB,
-        }
-
-        for bucket_id, event_type_prefix in bucket_map.items():
-            if not bucket_id: # Skip if bucket_id is not configured
-                log.warning(f"Bucket ID for {event_type_prefix} not configured. Skipping.")
-                continue
-
-            last_ts = self.last_collection_times.get(bucket_id)
-            if last_ts:
-                start_time = last_ts - self.collection_overlap
-            else:
-                # On first run for a bucket, go back a defined period (e.g., collection interval)
-                # Or make it configurable, for now, let's use the collection interval
-                start_time = now_utc - timedelta(seconds=config.COLLECTION_INTERVAL_SECONDS) - self.collection_overlap
-            
-            end_time = now_utc # Collect up to the current time
-
-            log.info(f"Attempting collection for bucket: {bucket_id} ({event_type_prefix})")
-            raw_aw_events = self._fetch_events_from_bucket(bucket_id, start_time, end_time)
-
-            if not raw_aw_events:
-                log.debug(f"No new events from {bucket_id} for period {start_time.isoformat()} to {end_time.isoformat()}")
-                self.last_collection_times[bucket_id] = end_time # Update last collection time even if no events
-                continue
-
-            # Minimal processing: remove exact duplicate consecutive events (based on data, not hash yet)
-            # This is a simple filter; more complex filtering can be added.
-            # For now, we rely on the event_hash for deduplication in the cache.
-            
-            new_events_for_bucket = 0
-            for aw_event in raw_aw_events:
-                processed_event = self._process_aw_event(aw_event, event_type_prefix, device_id)
-                if processed_event:
-                    if cache.add_event_to_cache(processed_event):
-                        collected_count += 1
-                        new_events_for_bucket +=1
-            
-            if new_events_for_bucket > 0:
-                log.info(f"Added {new_events_for_bucket} new events from {bucket_id} to cache.")
-
-            # Update the last collection timestamp for this bucket to the end_time of this run
-            self.last_collection_times[bucket_id] = end_time
-        
-        if collected_count > 0:
-            log.info(f"Total new events collected and added to cache in this run: {collected_count}")
-        else:
-            log.info("No new events collected in this run.")
-        
-        return collected_count
-
-    def collect_all_events(self, start_time: datetime, end_time: datetime) -> list:
-        """
-        Collects and processes all ActivityWatch events from all configured buckets for the given time range.
-        Returns a flat list of processed events (ready for sending to server).
+        Core event collection logic. Fetches events from all configured buckets
+        within a specified time range.
         """
         if not self.aw_client:
             log.warning("ActivityWatch client not initialized. Cannot collect events.")
@@ -218,16 +151,81 @@ class ActivityWatchCollector:
             config.AW_WEB_BROWSER_BUCKET_ID: EVENT_TYPE_WEB,
         }
         all_events = []
+
         for bucket_id, event_type_prefix in bucket_map.items():
             if not bucket_id:
                 log.warning(f"Bucket ID for {event_type_prefix} not configured. Skipping.")
                 continue
+
+            log.info(f"Attempting collection for bucket: {bucket_id} ({event_type_prefix}) from {start_time.isoformat()} to {end_time.isoformat()}")
             raw_aw_events = self._fetch_events_from_bucket(bucket_id, start_time, end_time)
+
             for aw_event in raw_aw_events:
                 processed_event = self._process_aw_event(aw_event, event_type_prefix, device_id)
                 if processed_event:
                     all_events.append(processed_event)
+        
         return all_events
+
+    def collect_and_store_events(self) -> int:
+        """
+        Main collection loop for continuous operation. Fetches new events since the
+        last run and stores them in the local cache. Returns the number of new events collected.
+        """
+        now_utc = datetime.now(timezone.utc)
+        collected_count = 0
+
+        # We need to determine the overall start time for this run.
+        # This is tricky because each bucket has its own last collection time.
+        # For simplicity, we'll process each bucket from its last known timestamp.
+        
+        bucket_map = {
+            config.AW_WINDOW_BUCKET_ID: EVENT_TYPE_WINDOW,
+            config.AW_AFK_BUCKET_ID: EVENT_TYPE_AFK,
+            config.AW_WEB_BROWSER_BUCKET_ID: EVENT_TYPE_WEB,
+        }
+
+        for bucket_id, event_type_prefix in bucket_map.items():
+            if not bucket_id:
+                continue
+
+            last_ts = self.last_collection_times.get(bucket_id)
+            if last_ts:
+                start_time = last_ts - self.collection_overlap
+            else:
+                start_time = now_utc - timedelta(seconds=config.COLLECTION_INTERVAL_SECONDS) - self.collection_overlap
+            
+            end_time = now_utc
+            
+            events_for_bucket = self._collect_events(start_time, end_time)
+            
+            new_events_for_bucket = 0
+            for event in events_for_bucket:
+                # We only care about events from the correct bucket type, even though _collect_events fetches all.
+                # This is slightly inefficient but simplifies the logic.
+                if event['event_type'] == event_type_prefix:
+                    if cache.add_event_to_cache(event):
+                        collected_count += 1
+                        new_events_for_bucket += 1
+
+            if new_events_for_bucket > 0:
+                log.info(f"Added {new_events_for_bucket} new events from {bucket_id} to cache.")
+
+            self.last_collection_times[bucket_id] = end_time
+
+        if collected_count > 0:
+            log.info(f"Total new events collected and added to cache in this run: {collected_count}")
+        else:
+            log.info("No new events collected in this run.")
+            
+        return collected_count
+
+    def collect_all_events(self, start_time: datetime, end_time: datetime) -> list:
+        """
+        Collects and processes all ActivityWatch events from all configured buckets for a given time range.
+        Returns a flat list of processed events (ready for sending to server).
+        """
+        return self._collect_events(start_time, end_time)
 
 
 if __name__ == '__main__':

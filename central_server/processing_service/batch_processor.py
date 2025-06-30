@@ -119,13 +119,8 @@ async def run_batch_processing(target_day: date, process_at_utc: datetime | None
     else:
         logger.info(f"On-demand run for {target_day}, triggered at {process_at_utc}.")
 
-
-    try:
-        timeline_processor = TimelineProcessorService(settings=service_settings)
-        logger.info("TimelineProcessorService initialized successfully.")
-    except Exception as e:
-        logger.error(f"Failed to initialize TimelineProcessorService: {e}. Aborting.", exc_info=True)
-        return
+    timeline_processor = TimelineProcessorService(settings=service_settings)
+    logger.info("TimelineProcessorService initialized successfully.")
 
     async with get_db_session_async() as db_session:
         # 1. Fetch all events for the target day.

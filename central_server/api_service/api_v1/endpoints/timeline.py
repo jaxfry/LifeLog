@@ -7,7 +7,7 @@ import uuid
 
 from central_server.api_service.core.database import get_db
 from central_server.api_service.core.models import TimelineEntry as TimelineEntryModel, Project as ProjectModel
-from central_server.api_service.auth import get_current_active_user
+from central_server.api_service.auth import require_auth
 from central_server.api_service import schemas
 
 router = APIRouter()
@@ -30,7 +30,7 @@ async def get_timeline_entry_by_id(db: AsyncSession, entry_id: uuid.UUID) -> Tim
 async def create_timeline_entry(
     entry_in: schemas.TimelineEntryCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     if entry_in.project_id:
         result = await db.execute(select(ProjectModel).where(ProjectModel.id == entry_in.project_id))
@@ -63,7 +63,7 @@ async def get_timeline_entries(
     sort_by: str = Query("start_time", regex="^(start_time|end_time|title|local_day)$", description="Sort field"),
     order: str = Query("desc", regex="^(asc|desc)$", description="Sort order"),
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     query = select(TimelineEntryModel).options(selectinload(TimelineEntryModel.project))
     conditions = []
@@ -89,7 +89,7 @@ async def get_timeline_entries(
 async def get_timeline_entry(
     entry_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     entry = await get_timeline_entry_by_id(db, entry_id)
     return schemas.TimelineEntry.model_validate(entry)
@@ -99,7 +99,7 @@ async def update_timeline_entry(
     entry_id: uuid.UUID,
     entry_update: schemas.TimelineEntryUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     entry = await get_timeline_entry_by_id(db, entry_id)
     if entry_update.project_id:
@@ -129,7 +129,7 @@ async def update_timeline_entry(
 async def delete_timeline_entry(
     entry_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     entry = await get_timeline_entry_by_id(db, entry_id)
     await db.delete(entry)

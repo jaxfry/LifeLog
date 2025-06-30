@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from central_server.api_service import schemas
 from central_server.api_service.core.database import get_db
 from central_server.api_service.core.models import TimelineEntry as TimelineEntryModel, Project as ProjectModel
-from central_server.api_service.auth import get_current_active_user
+from central_server.api_service.auth import require_auth
 
 router = APIRouter()
 
@@ -68,7 +68,7 @@ async def read_day_data(
         regex=r"^\d{4}-\d{2}-\d{2}$"
     ),
     db: AsyncSession = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_active_user)
+    _: str = Depends(require_auth)
 ):
     target_date = parse_date_string(date_string)
     timeline_entries = await get_timeline_entries_for_date(db, target_date)

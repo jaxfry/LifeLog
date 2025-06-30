@@ -27,6 +27,12 @@ class ProjectResolver:
         self._project_cache: Dict[str, ProjectOrm] = {}
 
     async def get_all_project_names(self) -> List[str]:
+        """
+        Retrieves a list of all project names from the database.
+
+        Returns:
+            A list of all project names.
+        """
         stmt = select(ProjectOrm.name).order_by(ProjectOrm.name)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())

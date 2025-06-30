@@ -13,6 +13,7 @@ import enum
 from .database import Base
 
 class EventKind(str, enum.Enum):
+    """Enumeration for the different kinds of events that can be logged."""
     DIGITAL_ACTIVITY = "digital_activity"
     HEALTH_METRIC = "health_metric"
     LOCATION_VISIT = "location_visit"
@@ -20,6 +21,7 @@ class EventKind(str, enum.Enum):
     PHOTO = "photo"
 
 class User(Base):
+    """Represents a user of the LifeLog application."""
     __tablename__ = "users"
     
     id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
@@ -27,6 +29,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(Text, nullable=False)
 
 class Project(Base):
+    """Represents a project that timeline entries can be associated with."""
     __tablename__ = "projects"
     
     id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
@@ -38,6 +41,7 @@ class Project(Base):
     aliases = relationship("ProjectAlias", back_populates="project", cascade="all, delete-orphan")
 
 class ProjectAlias(Base):
+    """Represents an alias for a project name for easier reference."""
     __tablename__ = "project_aliases"
     
     alias: Mapped[str] = mapped_column(CITEXT, primary_key=True)
@@ -47,6 +51,7 @@ class ProjectAlias(Base):
     project = relationship("Project", back_populates="aliases")
 
 class Event(Base):
+    """Represents a single, raw event captured from a data source."""
     __tablename__ = "events"
     
     id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
@@ -68,6 +73,7 @@ class Event(Base):
     # Indexes are defined in the SQL schema
 
 class TimelineEntry(Base):
+    """Represents an entry in the user's timeline, often generated from multiple events."""
     __tablename__ = "timeline_entries"
     
     id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
@@ -87,6 +93,7 @@ class TimelineEntry(Base):
     source_events = relationship("TimelineSourceEvent", back_populates="timeline_entry", cascade="all, delete-orphan")
 
 class TimelineSourceEvent(Base):
+    """Associates a raw event with a generated timeline entry."""
     __tablename__ = "timeline_source_events"
     
     entry_id: Mapped[uuid_pkg.UUID] = mapped_column(
@@ -105,6 +112,7 @@ class TimelineSourceEvent(Base):
     event = relationship("Event")
 
 class DigitalActivityData(Base):
+    """Stores detailed information about digital activity events."""
     __tablename__ = "digital_activity_data"
     
     event_id: Mapped[uuid_pkg.UUID] = mapped_column(
@@ -121,6 +129,7 @@ class DigitalActivityData(Base):
     event = relationship("Event", back_populates="digital_activity")
 
 class EventState(Base):
+    """Tracks the processing state of an event (e.g., processed, ignored)."""
     __tablename__ = "event_state"
     
     event_id: Mapped[uuid_pkg.UUID] = mapped_column(
@@ -133,6 +142,7 @@ class EventState(Base):
     event = relationship("Event", back_populates="event_state")
 
 class PhotoData(Base):
+    """Stores metadata and information related to a photo event."""
     __tablename__ = "photo_data"
     
     event_id: Mapped[uuid_pkg.UUID] = mapped_column(
@@ -149,6 +159,7 @@ class PhotoData(Base):
     event = relationship("Event", back_populates="photo_data")
 
 class LocationData(Base):
+    """Stores data related to a location visit event."""
     __tablename__ = "location_data"
     
     event_id: Mapped[uuid_pkg.UUID] = mapped_column(
@@ -166,6 +177,7 @@ class LocationData(Base):
     event = relationship("Event", back_populates="location_data")
 
 class Meta(Base):
+    """A key-value store for application-level metadata."""
     __tablename__ = "meta"
     
     key: Mapped[str] = mapped_column(Text, primary_key=True)

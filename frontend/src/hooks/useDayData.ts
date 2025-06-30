@@ -3,6 +3,12 @@ import * as apiClient from "@/api/client"; // Updated import
 import type { DayDataResponse } from "@/types"; // Updated import
 import { useAuth } from "@/context/AuthContext"; // To handle potential auth errors
 
+/**
+ * Custom hook to fetch and manage data for a specific day.
+ *
+ * @param dateString - The date string in 'YYYY-MM-DD' format.
+ * @returns An object containing the day's data, loading state, error state, and a boolean indicating if data exists.
+ */
 export function useDayData(dateString: string | null) {
   const [data, setData] = useState<DayDataResponse | null>(null);
   const [loading, setLoading] = useState(true);

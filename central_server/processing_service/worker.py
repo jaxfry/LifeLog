@@ -116,7 +116,15 @@ def store_raw_events(db_session: SQLAlchemySession, payload: InputLogPayload) ->
 
 
 def process_ingestion_message(channel, method, properties, body):
-    """Callback function to process a message from the ingestion queue."""
+    """
+    Callback function to process a message from the ingestion queue.
+
+    Args:
+        channel: The channel object.
+        method: The method frame.
+        properties: The properties of the message.
+        body: The message body.
+    """
     logger.info(f"Received ingestion message with delivery tag {method.delivery_tag}")
 
     try:
@@ -149,7 +157,15 @@ def process_ingestion_message(channel, method, properties, body):
 
 
 def process_processing_message(channel, method, properties, body):
-    """Callback function to process a message from the processing queue."""
+    """
+    Callback function to process a message from the processing queue.
+
+    Args:
+        channel: The channel object.
+        method: The method frame.
+        properties: The properties of the message.
+        body: The message body.
+    """
     logger.info(f"Received processing request with delivery tag {method.delivery_tag}")
 
     try:

@@ -12,14 +12,25 @@ const TOKEN_KEY = "authToken";
 
 // --- Token Management ---
 
+/**
+ * Stores the authentication token in local storage.
+ * @param token - The authentication token to store.
+ */
 export function storeToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+/**
+ * Retrieves the authentication token from local storage.
+ * @returns The authentication token, or null if it doesn't exist.
+ */
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+/**
+ * Removes the authentication token from local storage.
+ */
 export function removeToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
@@ -72,6 +83,11 @@ async function request<T>(
 
 // --- Authentication Endpoints ---
 
+/**
+ * Logs a user in and stores the authentication token.
+ * @param formData - The form data containing the user's credentials.
+ * @returns A promise that resolves to the token response.
+ */
 export async function login(
   formData: URLSearchParams // FastAPI's OAuth2PasswordRequestForm expects form data
 ): Promise<TokenResponse> {
@@ -92,6 +108,9 @@ export async function login(
   return tokenResponse;
 }
 
+/**
+ * Logs the current user out by removing the authentication token.
+ */
 export function logout(): void {
   removeToken();
   // Optionally, notify backend about logout if there's an endpoint for it
@@ -99,6 +118,11 @@ export function logout(): void {
 
 // --- Project Endpoints ---
 
+/**
+ * Creates a new project.
+ * @param projectData - The data for the new project.
+ * @returns A promise that resolves to the created project.
+ */
 export async function createProject(projectData: { name: string }): Promise<Project> {
   return request<Project>("/projects", {
     method: "POST",
@@ -106,16 +130,33 @@ export async function createProject(projectData: { name: string }): Promise<Proj
   });
 }
 
+/**
+ * Retrieves a list of projects.
+ * @param skip - The number of projects to skip for pagination.
+ * @param limit - The maximum number of projects to return.
+ * @returns A promise that resolves to a list of projects.
+ */
 export async function getProjects(skip: number = 0, limit: number = 100): Promise<Project[]> {
   // Assuming the backend returns a simple list for now.
   // If it's a PaginatedResponse, adjust the return type and parsing.
   return request<Project[]>(`/projects?skip=${skip}&limit=${limit}`);
 }
 
+/**
+ * Retrieves a project by its ID.
+ * @param projectId - The ID of the project to retrieve.
+ * @returns A promise that resolves to the requested project.
+ */
 export async function getProjectById(projectId: string): Promise<Project> {
   return request<Project>(`/projects/${projectId}`);
 }
 
+/**
+ * Updates an existing project.
+ * @param projectId - The ID of the project to update.
+ * @param projectData - The data to update the project with.
+ * @returns A promise that resolves to the updated project.
+ */
 export async function updateProject(
   projectId: string,
   projectData: Partial<{ name: string }>
@@ -126,6 +167,11 @@ export async function updateProject(
   });
 }
 
+/**
+ * Deletes a project.
+ * @param projectId - The ID of the project to delete.
+ * @returns A promise that resolves when the project has been deleted.
+ */
 export async function deleteProject(projectId: string): Promise<void> {
   return request<void>(`/projects/${projectId}`, { method: "DELETE" });
 }
@@ -150,6 +196,11 @@ export interface TimelineEntryUpdateData {
   source_event_ids?: string[] | null;
 }
 
+/**
+ * Creates a new timeline entry.
+ * @param entryData - The data for the new timeline entry.
+ * @returns A promise that resolves to the created timeline entry.
+ */
 export async function createTimelineEntry(entryData: TimelineEntryCreateData): Promise<TimelineEntry> {
   return request<TimelineEntry>("/timeline", {
     method: "POST",
@@ -167,6 +218,11 @@ export interface GetTimelineEntriesParams {
   order?: "asc" | "desc";
 }
 
+/**
+ * Retrieves a list of timeline entries.
+ * @param params - The query parameters for filtering and pagination.
+ * @returns A promise that resolves to a list of timeline entries.
+ */
 export async function getTimelineEntries(params: GetTimelineEntriesParams = {}): Promise<TimelineEntry[]> {
   const queryParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -177,10 +233,21 @@ export async function getTimelineEntries(params: GetTimelineEntriesParams = {}):
   return request<TimelineEntry[]>(`/timeline?${queryParams.toString()}`);
 }
 
+/**
+ * Retrieves a timeline entry by its ID.
+ * @param entryId - The ID of the timeline entry to retrieve.
+ * @returns A promise that resolves to the requested timeline entry.
+ */
 export async function getTimelineEntryById(entryId: string): Promise<TimelineEntry> {
   return request<TimelineEntry>(`/timeline/${entryId}`);
 }
 
+/**
+ * Updates an existing timeline entry.
+ * @param entryId - The ID of the timeline entry to update.
+ * @param entryData - The data to update the timeline entry with.
+ * @returns A promise that resolves to the updated timeline entry.
+ */
 export async function updateTimelineEntry(
   entryId: string,
   entryData: TimelineEntryUpdateData
@@ -191,6 +258,11 @@ export async function updateTimelineEntry(
   });
 }
 
+/**
+ * Deletes a timeline entry.
+ * @param entryId - The ID of the timeline entry to delete.
+ * @returns A promise that resolves when the timeline entry has been deleted.
+ */
 export async function deleteTimelineEntry(entryId: string): Promise<void> {
   return request<void>(`/timeline/${entryId}`, { method: "DELETE" });
 }
@@ -205,6 +277,11 @@ export interface GetEventsParams {
   limit?: number;
 }
 
+/**
+ * Retrieves a list of events.
+ * @param params - The query parameters for filtering and pagination.
+ * @returns A promise that resolves to a list of events.
+ */
 export async function getEvents(params: GetEventsParams = {}): Promise<Event[]> {
   const queryParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -215,6 +292,11 @@ export async function getEvents(params: GetEventsParams = {}): Promise<Event[]> 
   return request<Event[]>(`/events?${queryParams.toString()}`);
 }
 
+/**
+ * Retrieves an event by its ID.
+ * @param eventId - The ID of the event to retrieve.
+ * @returns A promise that resolves to the requested event.
+ */
 export async function getEventById(eventId: string): Promise<Event> {
   return request<Event>(`/events/${eventId}`);
 }
@@ -231,17 +313,29 @@ export async function fetchDayData(day: string): Promise<DayDataResponse> {
 
 // --- System Endpoints ---
 
+/**
+ * Triggers a manual processing run on the backend.
+ * @returns A promise that resolves to a confirmation message.
+ */
 export async function triggerProcessing(): Promise<{ message: string }> {
   return request<{ message: string }>("/system/process-now", {
     method: "POST",
   });
 }
 
+/**
+ * Retrieves the current status of the system.
+ * @returns A promise that resolves to the system status object.
+ */
 export async function getSystemStatus(): Promise<Record<string, any>> {
   return request<Record<string, any>>("/system/status");
 }
 
 // Optional: Fetch current user details if there's an endpoint like /users/me
+/**
+ * Retrieves the currently authenticated user.
+ * @returns A promise that resolves to the current user.
+ */
 export async function getCurrentUser(): Promise<User> {
   return request<User>("/users/me"); // Assuming you have a /users/me endpoint
 }

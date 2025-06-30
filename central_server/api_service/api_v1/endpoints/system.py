@@ -4,13 +4,13 @@ from sqlalchemy import text
 
 from central_server.api_service.core.database import get_db
 from central_server.api_service.core.settings import settings
-from central_server.api_service.auth import get_current_active_user
+from central_server.api_service.auth import require_auth
 from central_server.api_service import schemas
 
 router = APIRouter()
 
 @router.get("/status", response_model=schemas.SystemStatus)
-async def get_system_status(current_user: schemas.User = Depends(get_current_active_user), db: AsyncSession = Depends(get_db)):
+async def get_system_status(_: str = Depends(require_auth), db: AsyncSession = Depends(get_db)):
     """
     Get the current status of the system.
     Returns system metrics including processing status, last processing time, and service health information.
@@ -31,7 +31,7 @@ async def get_system_status(current_user: schemas.User = Depends(get_current_act
     )
 
 @router.post("/process-now")
-async def trigger_processing(current_user: schemas.User = Depends(get_current_active_user)):
+async def trigger_processing(_: str = Depends(require_auth)):
     """
     Trigger on-demand processing of all pending events to generate timeline entries.
     This is a placeholder for background processing logic.
