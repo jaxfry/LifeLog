@@ -175,17 +175,16 @@ class ActivityWatchCollector:
         now_utc = datetime.now(timezone.utc)
         collected_count = 0
 
-        # We need to determine the overall start time for this run.
-        # This is tricky because each bucket has its own last collection time.
-        # For simplicity, we'll process each bucket from its last known timestamp.
-        
+        # Determine the earliest start time across all buckets to fetch all events once
+        earliest_start_time = now_utc
         bucket_map = {
             config.AW_WINDOW_BUCKET_ID: EVENT_TYPE_WINDOW,
             config.AW_AFK_BUCKET_ID: EVENT_TYPE_AFK,
             config.AW_WEB_BROWSER_BUCKET_ID: EVENT_TYPE_WEB,
         }
 
-        for bucket_id, event_type_prefix in bucket_map.items():
+        # Find the earliest start time needed
+        for bucket_id in bucket_map.keys():
             if not bucket_id:
                 continue
 
@@ -195,15 +194,37 @@ class ActivityWatchCollector:
             else:
                 start_time = now_utc - timedelta(seconds=config.COLLECTION_INTERVAL_SECONDS) - self.collection_overlap
             
-            end_time = now_utc
-            
-            events_for_bucket = self._collect_events(start_time, end_time)
-            
+            if start_time < earliest_start_time:
+                earliest_start_time = start_time
+
+        # Fetch all events once for the entire time range
+        all_events = self._collect_events(earliest_start_time, now_utc)
+        
+        # Group events by bucket type and track counts
+        events_by_type = {}
+        for event in all_events:
+            event_type = event['event_type']
+            if event_type not in events_by_type:
+                events_by_type[event_type] = []
+            events_by_type[event_type].append(event)
+
+        # Process each bucket's events and update collection times
+        for bucket_id, event_type_prefix in bucket_map.items():
+            if not bucket_id:
+                continue
+
+            last_ts = self.last_collection_times.get(bucket_id)
+            if last_ts:
+                bucket_start_time = last_ts - self.collection_overlap
+            else:
+                bucket_start_time = now_utc - timedelta(seconds=config.COLLECTION_INTERVAL_SECONDS) - self.collection_overlap
+
+            events_for_bucket = events_by_type.get(event_type_prefix, [])
             new_events_for_bucket = 0
+            
             for event in events_for_bucket:
-                # We only care about events from the correct bucket type, even though _collect_events fetches all.
-                # This is slightly inefficient but simplifies the logic.
-                if event['event_type'] == event_type_prefix:
+                # Only process events that are within this bucket's time range and newer than last collection
+                if event['timestamp'] >= bucket_start_time:
                     if cache.add_event_to_cache(event):
                         collected_count += 1
                         new_events_for_bucket += 1
@@ -211,7 +232,7 @@ class ActivityWatchCollector:
             if new_events_for_bucket > 0:
                 log.info(f"Added {new_events_for_bucket} new events from {bucket_id} to cache.")
 
-            self.last_collection_times[bucket_id] = end_time
+            self.last_collection_times[bucket_id] = now_utc
 
         if collected_count > 0:
             log.info(f"Total new events collected and added to cache in this run: {collected_count}")
