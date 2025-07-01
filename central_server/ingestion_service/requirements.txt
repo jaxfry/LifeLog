@@ -2,5 +2,5 @@ fastapi
 uvicorn[standard]
 pydantic
 pydantic-settings
-pika
+aio-pika
 python-dotenv
