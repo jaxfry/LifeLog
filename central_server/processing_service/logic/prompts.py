@@ -8,65 +8,28 @@ Data Processing Service.
 # --- Timeline Enrichment Prompts ---
 
 TIMELINE_ENRICHMENT_SYSTEM_PROMPT = """
-You are an expert timeline curator and analyst. Your objective is to transform a raw log of computer events for the date {day_iso}
-into a concise, meaningful, user-centric narrative of the day.
+You are a timeline analysis AI. Your task is to convert a log of raw computer events from {day_iso} into a structured JSON timeline.
 
-The events are provided in a markdown table with columns: **time_display, duration_s, app, title, url**.
-Your output MUST be a single, valid JSON array of objects, where each object represents a curated timeline entry.
-Adhere strictly to this JSON schema for each entry:
-{schema_description}
+**Output Requirements:**
+- A single, valid JSON array of objects.
+- Adhere strictly to this schema for each object: {schema_description}
+- Be as concise as possible to reduce token count.
 
-──────────────────────────────────────────────────────────
+**Instructions:**
+1.  **Group Events:** Group related consecutive events into meaningful blocks (5-30 mins). Process events in order. A major context switch begins a new block.
+2.  **Set Timestamps:** `start` is the start_time of the first event; `end` is the end_time of the last. No overlaps. Use UTC ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ).
+3.  **Define Activity:** Use a short verb phrase (max 6 words) for the `activity` field (e.g., "Debugging payment API" not "Using VS Code").
+4.  **Assign Project:**
+    - If the activity clearly belongs to one of the projects in the list below, use its exact name for the `project` field.
+    - For all other activities, including general tasks (browsing, email) or work that does not fit an existing project, set `project` to `null`.
+    - **Do not propose new project names.**
+    - **Existing Projects:** {project_list}
+5.  **Write Notes:** In 1-2 sentences, summarize the activity in the `notes` field. Pull specific details (filenames, PR numbers, URLs) from the event data. For idle time, use "Device idle or user away."
+6.  **Handle Gaps:** Fill gaps >15 minutes with an "Idle / Away" activity.
+7.  **Empty Input:** If the event table is empty, return an empty JSON array `[]`.
 
-#### 1 · Identify coherent activity blocks & keep them sequential
-* Group similar consecutive activities into meaningful blocks (5-30 minutes each).
-* Process raw rows strictly in order; each row can belong to only one block.
-* Short context-preserving app switches (quick look-ups, alt-tabs) stay inside the surrounding block.
-* A substantial context switch on an unrelated task starts a new block.
-* Preserve distinct short events if they constitute a complete action.
-* Create a rough maximum of 30 timeline entries for the day to keep the summary concise.
-* Fill major gaps (>15 min) with an "Idle / Away" activity.
-
-#### 2 · Define `start` / `end`
-* `start` = `start_time` of the first event in the block.
-* `end`   = `end_time` of the last event in that block.
-* No overlaps: every new block must start ≥ the previous block’s end.
-* Timestamps must be in UTC ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ).
-
-#### 3 · Craft a specific `activity`
-* A concise verb phrase (≤ 6 words) that captures the user’s primary focus.
-* Good: “Debugging payment API bug”.  Avoid: “Using VS Code”.
-
-#### 4 · Determine `project` (optional)
-* **Assign projects for focused development work** - Look for activities involving coding, development, writing, research, or building.
-* **DO assign projects for**:
-  - Coding/development sessions (even 5+ minutes of focused work)
-  - Working with specific codebases, repositories, or applications
-  - Writing documentation, content, or substantial text
-  - Building, designing, or creating something specific
-  - Research or learning related to a specific project
-  - Configuration, setup, or maintenance work for projects
-* **DO NOT** assign projects for:
-  - Pure entertainment (videos, games, social media for fun)
-  - Brief general browsing or news reading
-  - System maintenance unrelated to development
-* {project_list_guidance}
-* **When working on LifeLog**: Use "LifeLog" as the project name for any development work related to this application (frontend, backend, configuration, etc.)
-* **Err on the side of assignment** - it's better to have a project than miss important work activity.
-
-#### 5 · Write rich `notes` (1–2 sentences)
-* Pull concrete nouns from `title` and `url` (file names, PR numbers, video titles, Discord channels…).
-* Reflect narrative flow if the block contains multiple stages (e.g., research → code → test).
-* Summarise many similar items (e.g., “Reviewed 5 PRs, incl. #101, #103”).
-* For idle blocks, use notes like "Device idle or user away."
-
-#### General quality bar
-* Accurate, gap-free, easy to scan, and genuinely useful to the user.
-* If the input table is empty or contains no usable data, return an empty JSON array: `[]`.
-
-──────────────────────────────────────────────────────────
-Raw Usage Events for {day_iso}:
+**Event Data for {day_iso}:**
 {events_table_md}
 
-JSON Output (strictly follow the schema – single array, no comments, no trailing commas):
+**JSON Output (single array, no comments, no trailing commas):**
 """

@@ -3,7 +3,8 @@ import uuid
 import enum
 from sqlalchemy import (
     Column, DateTime, ForeignKey, Text, String, Enum as SQLAlchemyEnum,
-    PrimaryKeyConstraint, JSON, Date, Double, LargeBinary, Table, Index
+    PrimaryKeyConstraint, JSON, Date, Double, LargeBinary, Table, Index, Float,
+    Boolean, Computed
 )
 from sqlalchemy.dialects.postgresql import UUID, CITEXT
 from sqlalchemy.orm import relationship, declarative_base
@@ -43,7 +44,7 @@ class Event(Base):
     end_time = Column(DateTime(timezone=True), nullable=True)
     payload_hash = Column(Text, unique=True, nullable=False)
     details = Column(JSON, nullable=True)
-    local_day = Column(Date, server_default=func.current_date(), index=True)
+    local_day = Column(Date, Computed("(start_time AT TIME ZONE 'America/Vancouver')::date", persisted=True))
 
     digital_activity = relationship("DigitalActivityData", back_populates="event", uselist=False, cascade="all, delete-orphan")
     # Add other relationships (photo_data, location_data) here as you implement them
@@ -65,8 +66,29 @@ class Project(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(CITEXT, unique=True, nullable=False)
     embedding = Column(Vector(128)) if PGVECTOR_AVAILABLE else Column(Vector)
+    manual_creation = Column(Boolean, nullable=False, default=False)
 
     timeline_entries = relationship("TimelineEntryOrm", back_populates="project")
+
+
+class SuggestionStatus(enum.Enum):
+    PENDING = 'pending'
+    ACCEPTED = 'accepted'
+    REJECTED = 'rejected'
+
+
+class ProjectSuggestion(Base):
+    __tablename__ = 'project_suggestions'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    suggested_name = Column(CITEXT, nullable=False)
+    embedding = Column(Vector(128)) if PGVECTOR_AVAILABLE else Column(Vector)
+    confidence_score = Column(Float, nullable=False)
+    rationale = Column(JSON, nullable=True)
+    status = Column(SQLAlchemyEnum(SuggestionStatus, name='suggestion_status', values_callable=lambda x: [e.value for e in x]), nullable=False, default=SuggestionStatus.PENDING)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 
 class TimelineEntryOrm(Base):
     __tablename__ = "timeline_entries"
@@ -77,7 +99,7 @@ class TimelineEntryOrm(Base):
     title = Column(Text, nullable=False)
     summary = Column(Text)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
-    local_day = Column(Date, server_default=func.current_date(), index=True)
+    local_day = Column(Date, Computed("(start_time AT TIME ZONE 'America/Vancouver')::date", persisted=True))
 
     project = relationship("Project", back_populates="timeline_entries")
     source_events = relationship(

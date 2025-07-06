@@ -3,6 +3,7 @@ import { Clock } from "lucide-react"
 import { Link } from "react-router-dom"
 
 import { NavMain } from "@/components/nav-main"
+import { NavProjects } from "@/components/nav-projects"
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +38,7 @@ export function AppSidebar({ sidebarFooter, ...props }: React.ComponentProps<typ
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navData.navMain} />
+        <NavProjects />
       </SidebarContent>
       <SidebarFooter>{sidebarFooter}</SidebarFooter>
       <SidebarRail />
