@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 # Constants
 TIMELINE_SOURCE = "timeline_processor_service"
 DEFAULT_IDLE_ACTIVITY = "Idle / Away"
-PROCESSING_CHUNK_SIZE = 500
+PROCESSING_CHUNK_SIZE = 300
 
 @dataclass
 class ProcessingWindowStub:
