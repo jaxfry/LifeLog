@@ -9,6 +9,10 @@ from central_server.api_service import schemas
 from central_server.api_service.core.database import get_db
 from central_server.api_service.core.models import TimelineEntry as TimelineEntryModel, Project as ProjectModel
 from central_server.api_service.auth import require_auth
+from central_server.processing_service.db_models import DailyReflectionOrm
+from central_server.shared.utils import extract_summary_from_reflection
+import asyncio
+import re
 
 router = APIRouter()
 
@@ -53,13 +57,6 @@ def calculate_day_stats(timeline_entries: List[schemas.TimelineEntry]) -> schema
         break_time_hours=break_time_hours
     )
 
-def create_placeholder_summary(target_date: date, stats: schemas.DayStats) -> schemas.DailySummary:
-    return schemas.DailySummary(
-        date=target_date,
-        summary=f"Placeholder summary for {target_date.isoformat()}. Actual summary generation is pending.",
-        insights=None
-    )
-
 @router.get("/{date_string}", response_model=schemas.DayDataResponse)
 async def read_day_data(
     date_string: str = FastAPIPath(
@@ -73,10 +70,38 @@ async def read_day_data(
     target_date = parse_date_string(date_string)
     timeline_entries = await get_timeline_entries_for_date(db, target_date)
     stats = calculate_day_stats(timeline_entries)
-    summary = create_placeholder_summary(target_date, stats)
+    # Try to fetch the real LLM summary/reflection
+    reflection_obj = await db.execute(
+        select(DailyReflectionOrm).where(DailyReflectionOrm.local_day == target_date)
+    )
+    reflection = reflection_obj.scalar_one_or_none()
+    if reflection:
+        summary_text = str(reflection.summary) if not isinstance(reflection.summary, str) else reflection.summary
+        insights = None  # Optionally parse more tags from reflection.reflection
+    else:
+        summary_text = f"LLM summary not available in API service for {target_date.isoformat()}."
+        insights = None
+    summary = schemas.DailySummary(
+        date=target_date,
+        summary=summary_text,
+        insights=insights
+    )
     return schemas.DayDataResponse(
         date=target_date,
         timeline_entries=timeline_entries,
         stats=stats,
         summary=summary
     )
+
+@router.get("/{date_string}/solace_reflection", response_model=dict)
+async def get_solace_daily_reflection(
+    date_string: str = FastAPIPath(
+        ..., 
+        description="Date in YYYY-MM-DD format.", 
+        regex=r"^\d{4}-\d{2}-\d{2}$"
+    ),
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_auth)
+):
+    # This endpoint cannot provide LLM reflection in this context
+    return {"reflection": "LLM Solace reflection not available in API service."}

@@ -27,23 +27,29 @@ engine = create_engine(
     pool_pre_ping=True,  # Enable connection health checking
     pool_recycle=3600    # Recycle connections after 1 hour (optional)
 )
-
-# Create an async engine instance
-async_engine = create_async_engine(
-    settings.SQLALCHEMY_DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://'),
-    pool_pre_ping=True,
-    pool_recycle=3600
-)
-
-# Create a configured "Session" class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create a configured async session class
-AsyncSessionLocal = async_sessionmaker(
-    bind=async_engine,
-    expire_on_commit=False,
-    class_=AsyncSession
-)
+# --- ASYNC ENGINE/SESSION FACTORIES ---
+def get_async_engine():
+    """
+    Returns a new async engine instance bound to the current event loop.
+    """
+    return create_async_engine(
+        settings.SQLALCHEMY_DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://'),
+        pool_pre_ping=True,
+        pool_recycle=3600
+    )
+
+def get_async_sessionmaker():
+    """
+    Returns a new async sessionmaker bound to a new async engine.
+    """
+    async_engine = get_async_engine()
+    return async_sessionmaker(
+        bind=async_engine,
+        expire_on_commit=False,
+        class_=AsyncSession
+    )
 
 @contextmanager
 def get_db_session() -> Generator[SQLAlchemySession, None, None]: # Changed type hint
@@ -67,7 +73,11 @@ def get_db_session() -> Generator[SQLAlchemySession, None, None]: # Changed type
 
 @asynccontextmanager
 async def get_db_session_async() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
+    """
+    Yields an async DB session bound to a new engine/sessionmaker per event loop.
+    """
+    async_session_maker = get_async_sessionmaker()
+    async with async_session_maker() as session:
         try:
             yield session
             await session.commit()
@@ -92,6 +102,7 @@ def check_db_connection():
 
 async def check_db_connection_async():
     try:
+        async_engine = get_async_engine()
         async with async_engine.connect() as conn:
             await conn.execute(text('SELECT 1'))
             logger.info("Successfully connected to the PostgreSQL database (async).")

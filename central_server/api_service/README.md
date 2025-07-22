@@ -45,6 +45,7 @@ The API service uses:
 
 ### Daily Data (`/api/v1/day`)
 - `GET /{date}` - Get comprehensive day data (timeline + stats)
+- `GET /{date}/solace_reflection` - Get Solace daily reflection insights (LLM-generated, tag format)
 
 ### System (`/api/v1/system`)
 - `GET /status` - Get system status

@@ -178,6 +178,41 @@ async def run_batch_processing(target_day: date, process_at_utc: datetime | None
         await db_session.commit()
         logger.info(f"Successfully stored {len(timeline_pydantic_entries)} new timeline entries for {target_day}.")
 
+        # --- Generate and store daily insight/reflection after timeline processing ---
+        try:
+            # Import here to avoid circular import issues
+            from central_server.processing_service.logic.llm_processing import LLMProcessor
+            timeline_entries_for_reflection = timeline_pydantic_entries
+            llm_processor = LLMProcessor(service_settings)
+            reflection = await llm_processor.generate_solace_daily_reflection(
+                timeline_entries_for_reflection, target_day
+            )
+            if reflection:
+                logger.info(f"Solace daily reflection for {target_day}:\n{reflection}")
+                # Store the reflection in the database
+                from central_server.processing_service.db_models import DailyReflectionOrm
+                from central_server.shared.utils import extract_summary_from_reflection
+                summary = extract_summary_from_reflection(reflection)
+                # Upsert: if a reflection for this day exists, update it; else insert
+                existing = await db_session.execute(
+                    select(DailyReflectionOrm).where(DailyReflectionOrm.local_day == target_day)
+                )
+                existing_ref = existing.scalar_one_or_none()
+                if existing_ref:
+                    existing_ref.summary = summary
+                    existing_ref.reflection = reflection
+                else:
+                    db_session.add(DailyReflectionOrm(
+                        local_day=target_day,
+                        summary=summary,
+                        reflection=reflection
+                    ))
+                await db_session.commit()
+            else:
+                logger.warning(f"No Solace daily reflection generated for {target_day}.")
+        except Exception as e:
+            logger.error(f"Failed to generate/store Solace daily reflection for {target_day}: {e}", exc_info=True)
+
 
 async def main():
     """

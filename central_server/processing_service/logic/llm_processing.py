@@ -265,3 +265,60 @@ class LLMProcessor:
         except Exception as e:
             log.error(f"LLM processing failed for chunk on {local_day}: {e}", exc_info=True)
             return []
+
+    async def generate_solace_daily_reflection(self, timeline_entries: list, local_day: date) -> str:
+        """
+        Generates a Solace daily reflection summary using the LLM.
+
+        Args:
+            timeline_entries: List of TimelineEntry objects for the day.
+            local_day: The date for which to generate the reflection.
+
+        Returns:
+            A string containing the LLM's tag-formatted reflection.
+        """
+        if not timeline_entries:
+            log.info("No timeline entries for Solace reflection.")
+            return ""
+
+        if not self._client_initialized:
+            log.info("Initializing LLM client on first use...")
+            self._initialize_client()
+
+        if not self.client:
+            log.error("LLM client not available. Cannot generate Solace reflection.")
+            return ""
+
+        # Prepare a simple activity log as text
+        activity_log_lines = []
+        for entry in timeline_entries:
+            start = entry.start.strftime("%H:%M")
+            end = entry.end.strftime("%H:%M")
+            duration_min = int((entry.end - entry.start).total_seconds() // 60)
+            project = entry.project if hasattr(entry, "project") and entry.project else ""
+            activity_log_lines.append(
+                f"{start}-{end} ({duration_min} min): {entry.activity}" +
+                (f" [{project}]" if project else "")
+            )
+        activity_log = "\n".join(activity_log_lines)
+
+        prompt = prompts.SOLACE_DAILY_REFLECTION_PROMPT.format(activity_log=activity_log)
+
+        try:
+            config = genai_types.GenerateContentConfig(
+                response_mime_type="text/plain",
+                temperature=0.5,
+            )
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=self.settings.ENRICHMENT_MODEL_NAME,
+                contents=prompt,
+                config=config
+            )
+            if response.prompt_feedback and response.prompt_feedback.block_reason:
+                log.error(f"Prompt blocked by Gemini: {response.prompt_feedback.block_reason}")
+                return ""
+            return response.text.strip() if response.text else ""
+        except Exception as e:
+            log.error(f"LLM Solace reflection failed for {local_day}: {e}", exc_info=True)
+            return ""
