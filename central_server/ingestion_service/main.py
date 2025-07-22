@@ -2,8 +2,9 @@ import logging
 import datetime
 import os
 import json
-import pika
-from pika.exceptions import AMQPConnectionError
+import aio_pika
+from aio_pika import Message, DeliveryMode
+from aio_pika.exceptions import AMQPException
 from fastapi import FastAPI, HTTPException
 from typing import Dict, Any
 from dotenv import load_dotenv
@@ -29,44 +30,41 @@ app = FastAPI(
     version="0.2.0"
 )
 
-def publish_to_rabbitmq(payload: LogPayload):
-    """
-    Publishes the validated payload to RabbitMQ.
-    """
+async def publish_to_rabbitmq(payload: LogPayload) -> bool:
+    """Publish the validated payload to RabbitMQ asynchronously."""
     try:
-        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
-        connection_params = pika.ConnectionParameters(
+        connection = await aio_pika.connect_robust(
             host=RABBITMQ_HOST,
             port=RABBITMQ_PORT,
-            credentials=credentials
+            login=RABBITMQ_USER,
+            password=RABBITMQ_PASS,
         )
-        connection = pika.BlockingConnection(connection_params)
-        channel = connection.channel()
+        async with connection:
+            channel = await connection.channel()
+            await channel.declare_queue(RABBITMQ_QUEUE, durable=True)
 
-        # Declare the queue, idempotent operation
-        channel.queue_declare(queue=RABBITMQ_QUEUE, durable=True)
-
-        # Convert Pydantic model to JSON string
-        # FastAPI/Pydantic's .dict() is deprecated, use .model_dump()
-        # .json() is deprecated, use .model_dump_json()
-        message_body = payload.model_dump_json()
-
-        channel.basic_publish(
-            exchange='',
-            routing_key=RABBITMQ_QUEUE,
-            body=message_body,
-            properties=pika.BasicProperties(
-                delivery_mode=pika.DeliveryMode.Persistent  # Make message persistent
+            message_body = payload.model_dump_json().encode()
+            await channel.default_exchange.publish(
+                Message(
+                    body=message_body,
+                    delivery_mode=DeliveryMode.PERSISTENT,
+                ),
+                routing_key=RABBITMQ_QUEUE,
             )
+        logger.info(
+            f"Successfully published message for source_id: {payload.source_id} to queue '{RABBITMQ_QUEUE}'"
         )
-        logger.info(f"Successfully published message for source_id: {payload.source_id} to queue '{RABBITMQ_QUEUE}'")
-        connection.close()
         return True
-    except AMQPConnectionError as e:
-        logger.error(f"Failed to connect to RabbitMQ at {RABBITMQ_HOST}:{RABBITMQ_PORT}. Error: {e}")
+    except AMQPException as e:
+        logger.error(
+            f"Failed to connect or publish to RabbitMQ at {RABBITMQ_HOST}:{RABBITMQ_PORT}. Error: {e}"
+        )
         return False
     except Exception as e:
-        logger.error(f"An unexpected error occurred during RabbitMQ publishing: {e}", exc_info=True)
+        logger.error(
+            f"An unexpected error occurred during RabbitMQ publishing: {e}",
+            exc_info=True,
+        )
         return False
 
 @app.post("/api/v1/ingest")
@@ -90,7 +88,7 @@ async def ingest_data(payload: LogPayload) -> Dict[str, Any]:
         #     logger.debug(f"Event {i+1}: Timestamp={event.timestamp}, Type={event.type}, Data={event.data}")
 
         # Publish to RabbitMQ
-        if publish_to_rabbitmq(payload):
+        if await publish_to_rabbitmq(payload):
             return {
                 "status": "success",
                 "message": "Data received and published to RabbitMQ.",

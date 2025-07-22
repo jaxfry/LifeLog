@@ -51,7 +51,7 @@ def send_data_to_server(events: List[Dict[str, Any]]) -> bool:
     headers = {
         "Content-Type": "application/json",
         # Potentially add an API key or auth token here in the future
-        # "Authorization": f"Bearer {config.SERVER_AUTH_TOKEN}" 
+        "Authorization": f"Bearer {config.SERVER_AUTH_TOKEN}" 
     }
 
     log.info(f"Attempting to send {len(events)} events to {CENTRAL_SERVER_URL}")

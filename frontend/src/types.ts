@@ -88,6 +88,18 @@ export interface TokenResponse {
   token_type: string; // e.g., "bearer"
 }
 
+/**
+ * Represents a project suggestion, aligning with backend `schemas.ProjectSuggestion`.
+ */
+export interface ProjectSuggestion {
+  id: string; // UUID
+  suggested_name: string;
+  confidence_score: number;
+  rationale?: Record<string, any> | null;
+  status: "pending" | "accepted" | "rejected";
+  created_at: string; // ISO datetime string
+}
+
 // Generic type for paginated responses if you implement pagination widely
 export interface PaginatedResponse<T> {
   items: T[];

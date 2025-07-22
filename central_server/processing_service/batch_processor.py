@@ -158,7 +158,19 @@ async def run_batch_processing(target_day: date, process_at_utc: datetime | None
         event_orm_map = {str(event.id): event for event in orm_events_for_day}
 
         for pydantic_entry in timeline_pydantic_entries:
-            project_orm = await project_resolver.get_or_create_project_by_name(pydantic_entry.project)
+            project_orm = None
+            if pydantic_entry.project:
+                # This will return a project ID if it's a valid, manually created project.
+                # Otherwise, it will create a suggestion and return None.
+                project_id = await project_resolver.handle_new_project_name(
+                    name=pydantic_entry.project,
+                    timeline_entries=[pydantic_entry]
+                )
+                if project_id:
+                    # If we got an ID, it means the project exists and is valid.
+                    # We can fetch it (likely from cache) to associate with the timeline entry.
+                    project_orm = await project_resolver.get_project_by_name(pydantic_entry.project)
+
             source_events_for_entry = [
                 event_orm_map[proc_event.event_id]
                 for proc_event in events_for_processing
@@ -171,7 +183,7 @@ async def run_batch_processing(target_day: date, process_at_utc: datetime | None
                 end_time=pydantic_entry.end,
                 title=pydantic_entry.activity,
                 summary=pydantic_entry.notes,
-                project=project_orm,
+                project=project_orm, # This will be None if no valid project was found
                 source_events=source_events_for_entry
             )
             db_session.add(db_entry)

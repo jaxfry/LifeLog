@@ -26,7 +26,7 @@ class ProjectBase(BaseSchema):
 
 class ProjectCreate(ProjectBase):
     """Schema for creating a new project."""
-    pass
+    manual_creation: bool = True
 
 class ProjectUpdate(BaseSchema):
     """Schema for updating an existing project."""
@@ -36,6 +36,7 @@ class Project(ProjectBase):
     """Schema for a project as returned by the API."""
     id: uuid.UUID
     embedding: Optional[List[float]] = None
+    manual_creation: bool
 
     @validator("embedding", pre=True)
     def parse_embedding(cls, v):
@@ -48,6 +49,16 @@ class Project(ProjectBase):
                 # For now, we'll raise a ValueError
                 raise ValueError("Invalid string format for embedding")
         return v
+
+# Project Suggestion Schemas
+class ProjectSuggestion(BaseSchema):
+    """Schema for a project suggestion as returned by the API."""
+    id: uuid.UUID
+    suggested_name: str
+    confidence_score: float
+    rationale: Optional[Dict[str, Any]] = None
+    status: str
+    created_at: datetime
 
 # Timeline Entry schemas
 class TimelineEntryBase(BaseSchema):

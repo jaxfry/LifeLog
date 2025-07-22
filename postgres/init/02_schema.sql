@@ -36,7 +36,8 @@ CREATE INDEX events_local_day_idx  ON events(local_day);
 CREATE TABLE projects (
   id        UUID PRIMARY KEY,
   name      CITEXT UNIQUE NOT NULL,      -- case-insensitive
-  embedding VECTOR(128)
+  embedding VECTOR(128),
+  manual_creation BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX project_embedding_idx
@@ -47,6 +48,28 @@ CREATE TABLE project_aliases (
   alias      CITEXT PRIMARY KEY,
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE
 );
+
+/* Project Suggestions */
+CREATE TYPE suggestion_status AS ENUM ('pending', 'accepted', 'rejected');
+
+CREATE TABLE project_suggestions (
+    id               UUID PRIMARY KEY,
+    suggested_name   CITEXT NOT NULL,
+    embedding        VECTOR(128), -- For semantic comparison
+    confidence_score FLOAT NOT NULL,
+    rationale        JSONB,
+    status           suggestion_status NOT NULL DEFAULT 'pending',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Index for finding pending suggestions quickly
+CREATE INDEX project_suggestions_pending_idx ON project_suggestions(status) WHERE (status = 'pending');
+
+-- Vector index for similarity search on pending suggestions
+CREATE INDEX project_suggestions_embedding_idx
+  ON project_suggestions USING hnsw (embedding vector_cosine_ops)
+  WHERE (status = 'pending');
 
 /* =========================================================
    Timeline & linking

@@ -4,6 +4,7 @@ Standalone script to process events for a specific day by directly invoking the 
 This script does NOT use RabbitMQ; it runs the same logic as the scheduled 3:00 AM job, but on demand.
 """
 
+import asyncio
 import logging
 import sys
 from datetime import datetime, date, timedelta
@@ -36,7 +37,7 @@ def process_day(target_date_str: str):
         log.error(f"Invalid date format: {target_date_str}. Please use YYYY-MM-DD.")
         return
 
-    run_batch_processing(target_day)
+    asyncio.run(run_batch_processing(target_day))
     log.info(f"--- Batch processing for {target_date_str} finished ---")
 
 

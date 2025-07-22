@@ -11,6 +11,12 @@ import uuid as uuid_pkg
 import enum
 
 from .database import Base
+from sqlalchemy import Float # Import Float for confidence_score
+
+class SuggestionStatus(str, enum.Enum):
+    pending = 'pending'
+    accepted = 'accepted'
+    rejected = 'rejected'
 
 class EventKind(str, enum.Enum):
     """Enumeration for the different kinds of events that can be logged."""
@@ -35,10 +41,25 @@ class Project(Base):
     id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     name: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)
     embedding: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
+    manual_creation: Mapped[bool] = mapped_column(default=False, nullable=False)
     
     # Relationships
     timeline_entries = relationship("TimelineEntry", back_populates="project")
     aliases = relationship("ProjectAlias", back_populates="project", cascade="all, delete-orphan")
+
+
+class ProjectSuggestion(Base):
+    """Represents a suggested project that needs user review."""
+    __tablename__ = "project_suggestions"
+
+    id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    suggested_name: Mapped[str] = mapped_column(CITEXT, nullable=False)
+    embedding: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True) # Using JSONB for vector in API service
+    confidence_score: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[SuggestionStatus] = mapped_column(Enum(SuggestionStatus, name="suggestion_status"), nullable=False, default=SuggestionStatus.pending)
+    rationale: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 class ProjectAlias(Base):
     """Represents an alias for a project name for easier reference."""

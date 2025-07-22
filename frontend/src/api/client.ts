@@ -4,7 +4,8 @@ import type {
   Project,
   Event,
   TokenResponse,
-  User // Assuming you might want to fetch user profile later
+  User, // Assuming you might want to fetch user profile later
+  ProjectSuggestion
 } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
@@ -174,6 +175,41 @@ export async function updateProject(
  */
 export async function deleteProject(projectId: string): Promise<void> {
   return request<void>(`/projects/${projectId}`, { method: "DELETE" });
+}
+
+/**
+ * Retrieves a list of project suggestions.
+ * @param status - Optional status to filter suggestions by.
+ * @returns A promise that resolves to a list of project suggestions.
+ */
+export async function getProjectSuggestions(status?: "pending" | "accepted" | "rejected"): Promise<ProjectSuggestion[]> {
+  const params = new URLSearchParams();
+  if (status) {
+    params.append("status", status);
+  }
+  return request<ProjectSuggestion[]>(`/projects/suggestions/?${params.toString()}`);
+}
+
+/**
+ * Accepts a project suggestion.
+ * @param suggestionId - The ID of the suggestion to accept.
+ * @returns A promise that resolves to the newly created project.
+ */
+export async function acceptProjectSuggestion(suggestionId: string): Promise<Project> {
+  return request<Project>(`/projects/suggestions/${suggestionId}/accept`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Rejects a project suggestion.
+ * @param suggestionId - The ID of the suggestion to reject.
+ * @returns A promise that resolves when the suggestion has been rejected.
+ */
+export async function rejectProjectSuggestion(suggestionId: string): Promise<void> {
+  return request<void>(`/projects/suggestions/${suggestionId}/reject`, {
+    method: "POST",
+  });
 }
 
 // --- Timeline Entry Endpoints ---
