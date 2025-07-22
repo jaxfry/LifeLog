@@ -70,3 +70,53 @@ Raw Usage Events for {day_iso}:
 
 JSON Output (strictly follow the schema – single array, no comments, no trailing commas):
 """
+
+# --- Solace Daily Reflection Prompt ---
+
+SOLACE_DAILY_REFLECTION_PROMPT = """
+You are a reflective assistant that turns structured LifeLog activity data into high-level summaries and ambient insights, designed for display on a small personal dashboard device.
+
+The data you receive is from *yesterday*. Each entry includes:
+– Timestamp and duration
+– Description of activity
+– Project (if available)
+
+Your goal is to generate useful insights in a structured format that the device (Solace) can use to show an ambient daily reflection. Keep the language natural, warm, and compact. Structure your response like this:
+
+<summary>
+A concise, natural-language summary of what yesterday was like. Mention overall focus, energy, and what the day revolved around.
+</summary>
+
+<work_time>
+Total active time spent working (in hours and minutes).
+</work_time>
+
+<top_projects>
+List the top 3 projects or areas (e.g. “Solace design”, “LifeLog coding”, “Math prep”), with rough time estimates.
+</top_projects>
+
+<peak_focus>
+A sentence identifying the time block of strongest flow or focus (e.g. “You hit your stride around 1–3 PM.”)
+</peak_focus>
+
+<energy_pattern>
+Brief reflection on energy or focus trends during the day — e.g. whether it started strong, dipped mid-day, or ended scattered.
+</energy_pattern>
+
+<highlight>
+One meaningful thing you made progress on yesterday.
+</highlight>
+
+<friction>
+One challenge or interruption you faced (e.g. “Lots of tab switching” or “Low energy after 5 PM”).
+</friction>
+
+<reflection>
+A simple, reflective thought to close the day (e.g. “Nice progress — stay consistent.” or “Even small steps move the needle.”)
+</reflection>
+
+Here is the raw activity log for yesterday:
+{activity_log}
+
+Now output the insights in the tag format above.
+"""

@@ -35,8 +35,29 @@ class EventAggregator:
         if not events_data:
             return pl.DataFrame()
 
-        dict_events = [event.model_dump() for event in events_data]
-        df = pl.from_dicts(dict_events)
+        # Ensure all dicts have the same keys and types
+        all_keys = set()
+        dict_events_raw = [event.model_dump() for event in events_data]
+        for d in dict_events_raw:
+            all_keys.update(d.keys())
+        # Set default values for missing keys (None for non-str, "" for str fields)
+        normalized_dicts = []
+        for d in dict_events_raw:
+            norm = {}
+            for k in all_keys:
+                v = d.get(k, None)
+                # If any value is a string, default to "" if missing
+                if v is None:
+                    # Guess type by checking other dicts
+                    for other in dict_events_raw:
+                        if k in other and other[k] is not None:
+                            v = "" if isinstance(other[k], str) else None
+                            break
+                    else:
+                        v = None
+                norm[k] = v
+            normalized_dicts.append(norm)
+        df = pl.from_dicts(normalized_dicts)
 
         if "start_time" not in df.columns or "end_time" not in df.columns:
             log.error("DataFrame from ProcessingEventData is missing 'start_time' or 'end_time'.")

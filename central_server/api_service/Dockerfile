@@ -20,8 +20,8 @@ RUN apt-get update \
 COPY central_server/api_service/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-# Copy the API service code
-COPY central_server/api_service ./central_server/api_service
+# Copy the entire central_server directory so all modules are available
+COPY central_server ./central_server
 
 # Set the working directory to the API service
 WORKDIR /app/central_server/api_service

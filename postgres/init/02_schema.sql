@@ -128,3 +128,16 @@ CREATE TABLE meta (
   key   TEXT PRIMARY KEY,
   value TEXT
 );
+
+/* =========================================================
+   Daily Reflections (LLM Summaries)
+   ========================================================= */
+CREATE TABLE daily_reflections (
+  id         UUID PRIMARY KEY,
+  local_day  DATE NOT NULL UNIQUE,
+  summary    TEXT NOT NULL, -- The <summary>...</summary> extracted from the LLM
+  reflection TEXT NOT NULL, -- The full LLM tag-formatted reflection
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX daily_reflections_day_idx ON daily_reflections(local_day);

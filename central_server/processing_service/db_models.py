@@ -86,5 +86,14 @@ class TimelineEntryOrm(Base):
         backref="timeline_entries"
     )
 
+class DailyReflectionOrm(Base):
+    __tablename__ = "daily_reflections"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    local_day = Column(Date, nullable=False, unique=True, index=True)
+    summary = Column(Text, nullable=False)      # The <summary>...</summary> extracted from the LLM
+    reflection = Column(Text, nullable=False)   # The full LLM tag-formatted reflection
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
 if not PGVECTOR_AVAILABLE:
     print("WARNING: pgvector.sqlalchemy not found. VECTOR type support in ORM is limited.")
