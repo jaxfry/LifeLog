@@ -156,13 +156,10 @@ class LLMProcessor:
         if events_df_chunk.is_empty():
             return ""
 
-        project_list_guidance = "If an activity clearly relates to a new project, create a descriptive project name for it."
         if project_names:
-            project_list_str = ", ".join(f'"{name}"' for name in sorted(project_names))
-            project_list_guidance = (
-                "If an activity is part of a project, assign it to one of these existing projects: "
-                f"{project_list_str}. You can also create a new, descriptive project name if it's a new project."
-            )
+            project_list = ", ".join(f'"{name}"' for name in sorted(project_names))
+        else:
+            project_list = "No projects have been created yet."
 
         required_cols = ["time_display", "duration_s", "app", "title", "url"]
         missing_cols = [
@@ -190,7 +187,7 @@ class LLMProcessor:
             day_iso=local_day.isoformat(),
             schema_description=schema_description,
             events_table_md=events_table_md,
-            project_list_guidance=project_list_guidance
+            project_list=project_list
         )
         return prompt
 
@@ -255,6 +252,17 @@ class LLMProcessor:
 
             try:
                 timeline_data = json.loads(cleaned_text)
+
+                # Hotfix: Prepend date to time-only strings from LLM
+                for entry in timeline_data:
+                    for key in ['start', 'end']:
+                        if key in entry and isinstance(entry[key], str):
+                            # If 'T' is not in the string, it's likely a time-only value.
+                            if 'T' not in entry[key].upper():
+                                original_time = entry[key]
+                                entry[key] = f"{local_day.isoformat()}T{original_time}"
+                                log.warning(f"Corrected partial timestamp from LLM. Original: '{original_time}', New: '{entry[key]}'")
+
                 entries = [TimelineEntry.model_validate(entry) for entry in timeline_data]
                 self.cache.save_to_cache(cache_key, entries)
                 return entries

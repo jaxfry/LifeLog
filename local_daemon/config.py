@@ -6,6 +6,7 @@ import socket
 
 # Placeholder for the central server's data ingestion endpoint
 CENTRAL_SERVER_ENDPOINT = os.getenv("CENTRAL_SERVER_ENDPOINT", "http://localhost:8001/api/v1/ingest")
+SERVER_AUTH_TOKEN = os.getenv("SERVER_AUTH_TOKEN", "your_secret_token_here") # TODO: Replace with a secure token
 
 # Interval for collecting data from sources (e.g., ActivityWatch) in seconds
 COLLECTION_INTERVAL_SECONDS = int(os.getenv("COLLECTION_INTERVAL_SECONDS", 60)) # 1 minute
