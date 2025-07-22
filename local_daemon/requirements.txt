@@ -1,4 +1,0 @@
-requests>=2.25.0
-apscheduler>=3.8.0
-aw-client>=0.5.6
-python-dotenv>=0.19.0
