@@ -26,7 +26,7 @@ While it started as a personal tool, the long-term vision is a **modular platfor
 >
 > This is very much a **prototype** and a work-in-progress. I built it to see if the idea was even possible.
 >
-> Right now, it's not built with strong security or privacy in mind. The next major version will focus on a ground-up rewrite to be more **secure, private, and truly modular**, allowing for greater flexibility and customization. For now, think of this as a fun experiment!
+> Right now, it's not built with strong security or privacy in mind. The next major version will focus on a ground-up rewrite to be more **secure, private, and truly modular**, allowing for greater flexibility and customization. For now, think of this as a fun experiment! Also, it's sort of a pain to set up, so be prepared for that. 😅
 
 ## What can it do?
 
