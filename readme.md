@@ -5,7 +5,7 @@
   
   ![License](https://img.shields.io/badge/license-MIT-blue.svg)
   ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-  ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
+  ![FastAPI](https://img.shields.io/badge/FastAPI-green.svg)
   ![React](https://img.shields.io/badge/React-18+-61dafb.svg)
   ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)
   ![Docker](https://img.shields.io/badge/Docker-compose-2496ed.svg)
