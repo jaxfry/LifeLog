@@ -1,0 +1,31 @@
+# Docker Compose configuration for LifeLog DEVELOPMENT (PLEASE DO NOT USE IN PRODUCTION)
+
+services:
+  db:
+    image: postgres
+    container_name: lifelog_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - lifelog_data:/var/lib/postgresql/data
+    env_file:
+      - .env.docker
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+    container_name: lifelog_server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server/src:/app/src
+    env_file:
+      - .env.docker
+    depends_on:
+      - db
+    command: ["uvicorn", "lifelog.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--app-dir", "src"]
+
+volumes:
+  lifelog_data:
+    driver: local
