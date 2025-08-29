@@ -1,0 +1,28 @@
+{
+  "name": "lifelog",
+  "private": true,
+  "version": "1.0.0",
+  "description": "LifeLog data tracker",
+  "author": "JaxFry",
+  "license": "MIT",
+  "homepage": "https://github.com/jaxfry/LifeLog#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaxfry/LifeLog.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jaxfry/LifeLog/issues"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --stream dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "pnpm@8.10.2"
+}
