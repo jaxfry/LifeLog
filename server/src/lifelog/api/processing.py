@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from ..dependencies import get_session
-from .. import models
+from ..services import ProcessingService
 from ..core.actors import actor_registry
+from ..auth import require_auth  # Add authentication for internal APIs
 
 router = APIRouter(
     prefix="/processing",
@@ -15,24 +14,22 @@ router = APIRouter(
 @router.post("/trigger/{raw_log_id}", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_processing(
     raw_log_id: int,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)  # Protect internal API
 ):
     """
     Manually triggers the processing pipeline for a single raw log.
+    Uses service layer to abstract database operations.
     NOTE: In production, this will be replaced by an async task queue.
     """
-    raw_log = await session.get(models.RawLog, raw_log_id)
-    if raw_log:
-        # Eagerly load the source_actor relationship
-        await session.refresh(raw_log, attribute_names=["source_actor"])
+    # Use service layer to get raw log with source actor
+    raw_log = await ProcessingService.get_raw_log_with_source_actor(session, raw_log_id)
+    
     if not raw_log:
         raise HTTPException(status_code=404, detail="RawLog not found")
 
     # This is our temporary routing logic. A real system would have a
     # configurable mapping from source actors to processor actors.
-    # This is our temporary routing logic. A real system would have a
-    # configurable mapping from source actors to processor actors.
-    # For now, we'll hardcode a mapping for the test extension.
     # TODO: Implement a dynamic routing system.
     routing_map = {
         "test-source": "test-processor"

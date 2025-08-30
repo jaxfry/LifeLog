@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from ..dependencies import get_session
-from .. import models, schemas
+from .. import schemas
+from ..services import ExtensionService
+from ..auth import require_auth  # Add authentication for internal APIs
 
 router = APIRouter(
     prefix="/extensions",
@@ -15,42 +15,32 @@ router = APIRouter(
 async def create_extension(
     *,
     extension_in: schemas.ExtensionCreate,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)  # Protect internal API
 ):
-    """Register a new extension along with its associated actors."""
-    # Check for existing extension
-    statement = select(models.Extension).where(models.Extension.slug == extension_in.slug)
-    result = await session.exec(statement)
-    if result.first() is not None:
+    """Register a new extension along with its associated actors using service layer."""
+    try:
+        # Use service layer to create extension with actors
+        extension_data = extension_in.model_dump(exclude={'actors'})
+        actors_data = [actor.model_dump() for actor in extension_in.actors]
+        
+        db_extension = await ExtensionService.create_extension_with_actors(
+            session, extension_data, actors_data
+        )
+        
+        return db_extension
+        
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Extension with slug '{extension_in.slug}' already exists."
+            detail=str(e)
         )
-    
-    # Create extension and actors
-    extension_data = extension_in.model_dump(exclude={'actors'})
-    db_extension = models.Extension(**extension_data)
-
-    for actor_in in extension_in.actors:
-        db_actor = models.Actor.model_validate(actor_in)
-        db_extension.actors.append(db_actor)
-
-    session.add(db_extension)
-    await session.flush()
-    extension_id = db_extension.id
-    await session.commit()
-    
-    # Fetch with relationships loaded
-    statement = select(models.Extension).where(
-        models.Extension.id == extension_id
-    ).options(selectinload(models.Extension.actors))
-    result = await session.exec(statement)
-    
-    return result.one()
 
 @router.get("/", response_model=list[schemas.ExtensionRead])
-async def get_extensions(session: AsyncSession = Depends(get_session)):
-    """List all registered extensions."""
-    statement = select(models.Extension).options(selectinload(models.Extension.actors))
-    result = await session.exec(statement)
-    return result.all()
+async def get_extensions(
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)  # Protect internal API
+):
+    """List all registered extensions using service layer."""
+    extensions = await ExtensionService.get_extensions_with_actors(session)
+    return extensions
