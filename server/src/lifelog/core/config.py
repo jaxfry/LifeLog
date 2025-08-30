@@ -1,9 +1,24 @@
 from pydantic_settings import BaseSettings
+from typing import Optional
 
 class Settings(BaseSettings):
-    DATABASE_URL: str
-    SECRET_KEY: str
+    # Database Configuration
+    DATABASE_URL: str = "sqlite+aiosqlite:///./lifelog.db"
+    
+    # Security Configuration
+    SECRET_KEY: str = "your-secret-key-change-in-production"
+    
+    # Application Configuration
     APP_ENV: str = "development"
+    API_V1_STR: str = "/api/v1"
+    
+    # Authentication Configuration
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ALGORITHM: str = "HS256"
+    
+    # Single-user configuration (for simplicity)
+    LIFELOG_USERNAME: str = "admin"
+    LIFELOG_PASSWORD: str = "admin123"
 
     class Config:
         env_file = ".env"

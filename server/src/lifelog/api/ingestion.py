@@ -4,6 +4,7 @@ from sqlmodel import select  # <-- Import select from sqlmodel directly
 
 from .. import models, schemas
 from ..dependencies import get_session
+from ..auth import require_auth
 
 # Create a router, which is like a mini-FastAPI app
 router = APIRouter(
@@ -17,7 +18,8 @@ router = APIRouter(
 async def ingest_raw_log(
     *,
     log_in: schemas.RawLogIn,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)  # Add authentication
 ):
     """
     The primary endpoint for ingesting raw data from client collectors.
