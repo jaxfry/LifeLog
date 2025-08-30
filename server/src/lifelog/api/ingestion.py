@@ -1,18 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel.ext.asyncio.session import AsyncSession  # <-- Use AsyncSession
-from sqlmodel import select  # <-- Import select from sqlmodel directly
 
 from .. import models, schemas
 from ..dependencies import get_session
 from ..auth import require_auth
+from ..services import IngestionService
 
 # Create a router, which is like a mini-FastAPI app
 router = APIRouter(
     prefix="/ingest",
     tags=["Ingestion"],
 )
-
-# The function signature must now be `async def`
 
 @router.post("/", response_model=schemas.IngestResponse, status_code=status.HTTP_201_CREATED)
 async def ingest_raw_log(
@@ -23,39 +21,31 @@ async def ingest_raw_log(
 ):
     """
     The primary endpoint for ingesting raw data from client collectors.
+    Uses service layer to abstract database operations.
     """
-    # We already have the slug we need for the response message. Let's store it.
-    source_slug = log_in.source_actor_slug
-
-    statement = select(models.Actor).where(models.Actor.slug == source_slug)
-    result = await session.exec(statement)
-    actor = result.first()
-
+    # Use service layer to find the actor
+    actor = await IngestionService.find_source_actor(session, log_in.source_actor_slug)
+    
     if not actor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source actor with slug '{source_slug}' not found."
+            detail=f"Source actor with slug '{log_in.source_actor_slug}' not found."
         )
 
     if actor.actor_type != models.ActorType.SOURCE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Actor '{source_slug}' is not of type SOURCE."
+            detail=f"Actor '{log_in.source_actor_slug}' is not of type SOURCE."
         )
 
-    db_raw_log = models.RawLog(
-        source_actor_id=actor.id,
-        device_id=None,
-        raw_data=log_in.data
+    # Use service layer to create the raw log
+    db_raw_log = await IngestionService.create_raw_log(
+        session, 
+        actor.id, 
+        log_in.data
     )
 
-    session.add(db_raw_log)
-    await session.commit()
-    await session.refresh(db_raw_log)
-
-    # Now, we use the variable we saved before the commit.
-    # This avoids any lazy loading on the potentially expired `actor` object.
     return schemas.IngestResponse(
-        message=f"Data from '{source_slug}' ingested successfully.",
+        message=f"Data from '{log_in.source_actor_slug}' ingested successfully.",
         raw_log_id=db_raw_log.id
     )
