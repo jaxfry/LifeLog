@@ -42,6 +42,16 @@ class TestProcessor(ActorBase):
 
         if not event_type:
             print(f"ERROR: EventType '{event_type_slug}' not found. Cannot process.")
+            # Log failure
+            if actor and actor.id is not None:
+                session.add(models.ActorProcessingLog(
+                    actor_id=actor.id,
+                    actor_version_at_processing=actor.version,
+                    raw_log_id=raw_log.id,
+                    status="FAILURE",
+                    details={"reason": "missing_event_type", "expected": event_type_slug},
+                ))
+                await session.commit()
             return
 
         summary = raw_log.raw_data.get("message", "No message provided")
@@ -60,6 +70,18 @@ class TestProcessor(ActorBase):
         new_event.raw_logs.append(raw_log)
         session.add(new_event)
         await session.commit()
+
+        # Log success
+        if actor.id is not None:
+            session.add(models.ActorProcessingLog(
+                actor_id=actor.id,
+                actor_version_at_processing=actor.version,
+                raw_log_id=raw_log.id,
+                event_id=new_event.id,
+                status="SUCCESS",
+                details={"created_event_id": new_event.id},
+            ))
+            await session.commit()
 
         print(
             f"SUCCESS: Created Event (id={new_event.id}) from RawLog (id={raw_log.id})"

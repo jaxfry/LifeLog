@@ -89,6 +89,20 @@ class Extension(SQLModel, table=True):
     prompt_templates: List["PromptTemplate"] = Relationship(back_populates="owner_extension")
 
 
+class ActorRouting(SQLModel, table=True):
+    """
+    DB-backed mapping from a SOURCE actor to its designated PROCESSOR actor.
+    This replaces ad-hoc hardcoded routing maps in API code.
+    """
+    __table_args__ = (
+        UniqueConstraint("source_actor_id", name="uq_actor_routing_source"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_actor_id: int = Field(foreign_key="actor.id", nullable=False, index=True)
+    processor_actor_id: int = Field(foreign_key="actor.id", nullable=False)
+
+
 # In your models.py file, replace the old Actor class with this one.
 
 class Actor(SQLModel, table=True):

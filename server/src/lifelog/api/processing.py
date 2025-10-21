@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from ..dependencies import get_session
-from ..services import ProcessingService
+from ..services import ProcessingService, ProcessingRoutingService
 from ..core.actors import actor_registry
+from ..core.config import settings
 from ..auth import require_auth  # Add authentication for internal APIs
 
 router = APIRouter(
@@ -28,19 +29,11 @@ async def trigger_processing(
     if not raw_log:
         raise HTTPException(status_code=404, detail="RawLog not found")
 
-    # This is our temporary routing logic. A real system would have a
-    # configurable mapping from source actors to processor actors.
-    # TODO: Implement a dynamic routing system.
-    routing_map = {
-        "test-source": "test-processor"
-    }
-
+    # Resolve processor via DB mapping, fallback to config
     source_actor_slug = raw_log.source_actor.slug
-    processor_slug = routing_map.get(source_actor_slug)
+    processor_slug = await ProcessingRoutingService.resolve_processor_slug(session, source_actor_slug)
 
     if not processor_slug:
-        # If no processor is mapped, we can skip or log a warning.
-        # For now, we'll just return a success message.
         return {"status": "ok", "detail": f"No processor mapped for source '{source_actor_slug}'"}
 
     # Get the actor's logic class from the registry

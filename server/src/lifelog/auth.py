@@ -9,10 +9,15 @@ from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from fastapi import Header
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from .core.config import settings
+from . import models
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import select
+from .dependencies import get_session
 
 # Security setup
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -80,3 +85,40 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> str:
 def require_auth(current_user: str = Depends(get_current_user)) -> str:
     """Dependency to require authentication for endpoints"""
     return current_user
+
+
+# Device authentication for ingestion API
+async def get_device_by_api_key(session: AsyncSession, api_key: str) -> models.Device | None:
+    """
+    Look up a device by its API key. For now, we compare the provided key directly to
+    the stored `encrypted_api_key`. In production, use proper hashing/crypto and rotation.
+    """
+    stmt = select(models.Device).where(models.Device.encrypted_api_key == api_key)
+    result = await session.exec(stmt)
+    return result.one_or_none()
+
+
+async def require_device(
+    api_key: str,
+    session: AsyncSession,
+) -> models.Device:
+    """Dependency to authenticate ingestion requests using a device API key."""
+    device = await get_device_by_api_key(session, api_key)
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid device API key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return device
+
+
+async def device_auth_dependency(
+    api_key: str = Header(..., alias="X-Device-Key"),
+    session: AsyncSession = Depends(get_session),
+) -> models.Device:
+    """
+    FastAPI-friendly dependency that pulls the device API key from the
+    X-Device-Key header and validates it against the database.
+    """
+    return await require_device(api_key, session)

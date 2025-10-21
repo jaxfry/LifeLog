@@ -3,7 +3,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession  # <-- Use AsyncSession
 
 from .. import models, schemas
 from ..dependencies import get_session
-from ..auth import require_auth
+from ..auth import device_auth_dependency, require_auth
+from typing import cast
 from ..services import IngestionService
 
 # Create a router, which is like a mini-FastAPI app
@@ -17,7 +18,7 @@ async def ingest_raw_log(
     *,
     log_in: schemas.RawLogIn,
     session: AsyncSession = Depends(get_session),
-    current_user: str = Depends(require_auth)  # Add authentication
+    device = Depends(device_auth_dependency),  # Device-level auth for ingestion
 ):
     """
     The primary endpoint for ingesting raw data from client collectors.
@@ -38,12 +39,26 @@ async def ingest_raw_log(
             detail=f"Actor '{log_in.source_actor_slug}' is not of type SOURCE."
         )
 
+    # Safety: ensure DB-loaded actor has an ID
+    if actor.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Actor record is invalid (missing id)."
+        )
+
     # Use service layer to create the raw log
     db_raw_log = await IngestionService.create_raw_log(
-        session, 
-        actor.id, 
-        log_in.data
+        session,
+        cast(int, actor.id),
+        log_in.data,
+        device_id=device.id,
     )
+
+    if db_raw_log.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create raw log (missing id).",
+        )
 
     return schemas.IngestResponse(
         message=f"Data from '{log_in.source_actor_slug}' ingested successfully.",

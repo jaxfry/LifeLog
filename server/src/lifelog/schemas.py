@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
-from .models import ActorType, Optional
+from typing import Optional
+from .models import ActorType
 
 class RawLogIn(BaseModel):
     """The data model for a single raw log entry sent to the /ingest endpoint."""
