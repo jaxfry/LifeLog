@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     LIFELOG_USERNAME: str = "admin"
     LIFELOG_PASSWORD: str = "admin123"
 
+    # Processing routing configuration (temporary until dynamic routing is implemented)
+    PROCESSING_ROUTING_MAP: dict[str, str] = {
+        "test-source": "test-processor",
+    }
+
     class Config:
         env_file = ".env"
 

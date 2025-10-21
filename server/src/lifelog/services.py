@@ -10,6 +10,7 @@ from datetime import datetime
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime as dt
 
 from . import models
 
@@ -31,26 +32,28 @@ class TimelineService:
         This implements the architecture requirement to filter for events
         WHERE superseded_by_event_id IS NULL.
         """
-        query = select(models.Event).where(models.Event.superseded_by_event_id.is_(None))
-        
+        col_superseded = models.Event.superseded_by_event_id  # type: ignore[attr-defined]
+        query = select(models.Event).where(col_superseded.is_(None))  # type: ignore[attr-defined]
+
         # Apply time filters if provided
         if start_time:
             query = query.where(models.Event.start_time >= start_time)
         if end_time:
             query = query.where(models.Event.start_time <= end_time)
-        
+
         # Order by start time (most recent first) and apply pagination
-        query = query.order_by(models.Event.start_time.desc()).offset(skip).limit(limit)
-        
+        query = query.order_by(models.Event.start_time.desc()).offset(skip).limit(limit)  # type: ignore[attr-defined]
+
         result = await session.exec(query)
-        return result.all()
+        return list(result.all())
     
     @staticmethod
     async def get_event_by_id(session: AsyncSession, event_id: int) -> Optional[models.Event]:
         """Get a specific event by ID, only if not superseded"""
+        col_superseded = models.Event.superseded_by_event_id  # type: ignore[attr-defined]
         query = select(models.Event).where(
             models.Event.id == event_id,
-            models.Event.superseded_by_event_id.is_(None)
+            col_superseded.is_(None)  # type: ignore[attr-defined]
         )
         
         result = await session.exec(query)
@@ -92,6 +95,14 @@ class IngestionService:
         session.add(db_raw_log)
         await session.commit()
         await session.refresh(db_raw_log)
+
+        # Update device last_seen if applicable
+        if device_id is not None:
+            device = await session.get(models.Device, device_id)
+            if device:
+                device.last_seen = dt.utcnow()
+                session.add(device)
+                await session.commit()
         return db_raw_log
 
 
@@ -102,10 +113,10 @@ class ExtensionService:
     async def get_extensions_with_actors(session: AsyncSession) -> List[models.Extension]:
         """Get all extensions with their associated actors"""
         from sqlalchemy.orm import selectinload
-        
-        query = select(models.Extension).options(selectinload(models.Extension.actors))
+
+        query = select(models.Extension).options(selectinload(models.Extension.actors))  # type: ignore[arg-type]
         result = await session.exec(query)
-        return result.all()
+        return list(result.all())
     
     @staticmethod
     async def create_extension_with_actors(
@@ -136,11 +147,13 @@ class ExtensionService:
         
         # Fetch with relationships loaded
         from sqlalchemy.orm import selectinload
-        final_query = select(models.Extension).where(
-            models.Extension.id == extension_id
-        ).options(selectinload(models.Extension.actors))
+        final_query = (
+            select(models.Extension)
+            .where(models.Extension.id == extension_id)
+            .options(selectinload(models.Extension.actors))  # type: ignore[arg-type]
+        )
         result = await session.exec(final_query)
-        
+
         return result.one()
 
 
@@ -158,3 +171,32 @@ class ProcessingService:
             # Eagerly load the source_actor relationship
             await session.refresh(raw_log, attribute_names=["source_actor"])
         return raw_log
+
+
+class ProcessingRoutingService:
+    """Service to resolve processor actor for a given source actor."""
+
+    @staticmethod
+    async def resolve_processor_slug(
+        session: AsyncSession,
+        source_actor_slug: str,
+    ) -> Optional[str]:
+        """
+        Resolve the processor actor slug for a source actor slug.
+        Order of precedence:
+         1) DB mapping via ActorRouting
+         2) settings.PROCESSING_ROUTING_MAP
+        """
+        # Try DB mapping first
+        stmt_source = select(models.Actor).where(models.Actor.slug == source_actor_slug)
+        src = (await session.exec(stmt_source)).one_or_none()
+        if src:
+            stmt_map = select(models.ActorRouting).where(models.ActorRouting.source_actor_id == src.id)
+            route = (await session.exec(stmt_map)).one_or_none()
+            if route:
+                processor = await session.get(models.Actor, route.processor_actor_id)
+                return processor.slug if processor else None
+
+        # Fallback to config map
+        from .core.config import settings  # type: ignore
+        return settings.PROCESSING_ROUTING_MAP.get(source_actor_slug)
