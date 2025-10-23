@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./lifelog.db"
     
     # Security Configuration
-    SECRET_KEY: str
+    # Default to a development key; MUST be overridden in production
+    SECRET_KEY: str = "your-secret-key-change-in-production"
     
     # Application Configuration
     APP_ENV: str = "development"

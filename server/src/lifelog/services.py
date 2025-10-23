@@ -5,18 +5,15 @@ This module implements the service layer to abstract database operations
 and remove hardcoded queries from API endpoints, as specified in the architecture.
 """
 
-from typing import List, Optional
-from datetime import datetime
+from typing import List, Optional, Tuple
+from datetime import datetime, timezone
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from datetime import datetime as dt
+from sqlalchemy import func
 
 from . import models
 from .auth import hash_api_key
 from .core.ai import ai_service
-from typing import Tuple, Optional
-from sqlalchemy import func
-from sqlmodel import select
 
 
 class TimelineService:
@@ -104,7 +101,7 @@ class IngestionService:
         if device_id is not None:
             device = await session.get(models.Device, device_id)
             if device:
-                device.last_seen = dt.utcnow()
+                device.last_seen = datetime.now(timezone.utc)
                 session.add(device)
                 await session.commit()
         # Session commits expire objects by default; ensure id remains accessible
