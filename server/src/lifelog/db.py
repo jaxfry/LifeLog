@@ -49,7 +49,6 @@ async def init_db() -> None:
 				await conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
 			except Exception as e:
 				# Don't block table creation if extension isn't available yet
-				import logging
 				logging.warning(f"Skipping pgvector extension init: {e}")
 		# Always attempt to create tables even if extension creation failed
 		await conn.run_sync(SQLModel.metadata.create_all)

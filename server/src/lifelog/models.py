@@ -11,12 +11,18 @@ The models are organized into logical groups representing different aspects of t
 """
 
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import Column, UniqueConstraint
 from sqlmodel import JSON, Field, Relationship, SQLModel
 from pgvector.sqlalchemy import Vector
+
+
+# Helper function for timezone-aware datetime defaults
+def utcnow() -> datetime:
+    """Return current UTC time as a timezone-aware datetime."""
+    return datetime.now(timezone.utc)
 
 
 # =================================================================
@@ -160,7 +166,7 @@ class RawLog(SQLModel, table=True):
     source_actor_id: int = Field(foreign_key="actor.id", nullable=False)
     device_id: Optional[int] = Field(default=None, foreign_key="device.id")
     raw_data: dict = Field(sa_column=Column(JSON, nullable=False))
-    ingested_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    ingested_at: datetime = Field(default_factory=utcnow, nullable=False)
 
     # Relationships
     events: List["Event"] = Relationship(
@@ -250,7 +256,7 @@ class EventMetadata(SQLModel, table=True):
     actor_id: Optional[int] = Field(default=None, foreign_key="actor.id")
     type: str = Field(nullable=False)
     data: dict = Field(sa_column=Column(JSON, nullable=False))
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
 
 # =================================================================
 # AI INTEGRATION - Provider management and usage tracking
@@ -311,7 +317,7 @@ class AIUsageLog(SQLModel, table=True):
     prompt_tokens: Optional[int] = Field(default=None)
     completion_tokens: Optional[int] = Field(default=None)
     cost: Optional[float] = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
 
 # =================================================================
 # AI SETTINGS - Defaults and configuration stored in DB
@@ -342,7 +348,7 @@ class SynthesisReport(SQLModel, table=True):
     end_time: datetime = Field(nullable=False)
     report_type: str = Field(nullable=False)
     report_data: dict = Field(sa_column=Column(JSON, nullable=False))
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
     ai_usage_log_id: Optional[int] = Field(
         default=None, 
         foreign_key="aiusagelog.id", 
@@ -371,5 +377,5 @@ class ActorProcessingLog(SQLModel, table=True):
     raw_log_id: Optional[int] = Field(default=None, foreign_key="rawlog.id")
     event_id: Optional[int] = Field(default=None, foreign_key="event.id")
     status: str = Field(nullable=False)
-    processed_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    processed_at: datetime = Field(default_factory=utcnow, nullable=False)
     details: Optional[dict] = Field(default=None, sa_column=Column(JSON))
