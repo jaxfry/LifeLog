@@ -1,7 +1,19 @@
 from fastapi import FastAPI, APIRouter
 from contextlib import asynccontextmanager
 
-from .api import ingestion, extensions, event_types, processing, auth, timeline, devices
+from .api import (
+    ingestion,
+    extensions,
+    event_types,
+    processing,
+    auth,
+    timeline,
+    devices,
+    actor_routing,
+    search,
+    synthesis,
+    ai as ai_api,
+)
 from .actors import load_all_actors
 from .db import init_db
 from .core.config import settings
@@ -50,6 +62,7 @@ api_v1_router = APIRouter(prefix=settings.API_V1_STR)
 # Client Data API - authenticated endpoints for client applications
 api_v1_router.include_router(auth.router, tags=["Authentication"])
 api_v1_router.include_router(timeline.router, tags=["Timeline"])
+api_v1_router.include_router(search.router, tags=["Search"]) 
 
 # Include the v1 router in the main app
 app.include_router(api_v1_router)
@@ -60,6 +73,9 @@ internal_router.include_router(extensions.router)
 internal_router.include_router(event_types.router)
 internal_router.include_router(processing.router)
 internal_router.include_router(devices.router)
+internal_router.include_router(actor_routing.router)
+internal_router.include_router(synthesis.router)
+internal_router.include_router(ai_api.router)
 
 app.include_router(internal_router)
 

@@ -36,6 +36,7 @@ class AIProviderType(str, enum.Enum):
     """Types of AI providers for model inference."""
     REMOTE_API = "REMOTE_API"
     LOCAL_MANAGED = "LOCAL_MANAGED"
+    LOCAL_DOCKERIZED = "LOCAL_DOCKERIZED"
 
 # =================================================================
 # ASSOCIATION TABLES - Many-to-Many relationship bridges
@@ -311,6 +312,20 @@ class AIUsageLog(SQLModel, table=True):
     completion_tokens: Optional[int] = Field(default=None)
     cost: Optional[float] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+# =================================================================
+# AI SETTINGS - Defaults and configuration stored in DB
+# =================================================================
+
+class AISettings(SQLModel, table=True):
+    """
+    Singleton table to store AI configuration defaults used by the server.
+    Allows runtime modification via internal API without rebuilding.
+    """
+    id: Optional[int] = Field(default=1, primary_key=True)
+    default_embedding_provider_slug: Optional[str] = Field(default=None)
+    default_embedding_model: Optional[str] = Field(default=None)
+    default_embedding_dim: Optional[int] = Field(default=None)
 
 # =================================================================
 # SYNTHESIS & PROCESSING LOGS - Higher-level analysis and tracking

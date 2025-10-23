@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from .models import ActorType
+from typing import Any
 
 class RawLogIn(BaseModel):
     """The data model for a single raw log entry sent to the /ingest endpoint."""
@@ -116,3 +117,42 @@ class DeviceRotateKeyResponse(BaseModel):
         ...,
         description="The new API key for this device. Store this securely!"
     )
+
+
+class TriggerActorResponse(BaseModel):
+    """Response after triggering an actor."""
+    message: str
+    actor_slug: str
+    actor_type: ActorType
+
+
+# ================= AI Management Schemas =================
+
+class AISettingsRead(BaseModel):
+    default_embedding_provider_slug: Optional[str] = None
+    default_embedding_model: Optional[str] = None
+    default_embedding_dim: Optional[int] = None
+
+
+class AISettingsUpdate(BaseModel):
+    default_embedding_provider_slug: Optional[str] = None
+    default_embedding_model: Optional[str] = None
+    default_embedding_dim: Optional[int] = None
+
+
+class AIProviderRead(BaseModel):
+    id: int
+    name: str
+    provider_slug: str
+    model_type: str
+    provider_type: str
+    model_path_or_uri: Optional[str] = None
+    is_active: bool
+    config: Optional[dict[str, Any]] = None
+
+
+class AIProviderUpdate(BaseModel):
+    name: Optional[str] = None
+    model_path_or_uri: Optional[str] = None
+    is_active: Optional[bool] = None
+    config: Optional[dict[str, Any]] = None

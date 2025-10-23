@@ -25,6 +25,8 @@ modular, extension-first platform.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Type
 from pydantic import BaseModel, Field
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .. import models
 
@@ -100,6 +102,41 @@ class ActorLogicRegistry:
             return cls
 
         return decorator
+
+    def get_actor(self, slug: str) -> ActorBase | None:
+        """
+        Instantiates and returns an actor logic class.
+
+        Args:
+            slug: The slug of the actor to instantiate.
+
+        Returns:
+            An instance of the actor's class if found, otherwise None.
+        """
+        actor_class = self._registry.get(slug)
+        if actor_class:
+            instance = actor_class()
+            # Attach config to the instance for easy access
+            setattr(instance, "config", self._configs[slug])
+            return instance
+        return None
+
+    async def get_actor_model(
+        self, session: AsyncSession, slug: str
+    ) -> models.Actor | None:
+        """
+        Retrieves the database model for a given actor slug.
+
+        Args:
+            session: The database session to use for the query.
+            slug: The slug of the actor to retrieve.
+
+        Returns:
+            The SQLModel `Actor` instance if found, otherwise None.
+        """
+        stmt = select(models.Actor).where(models.Actor.slug == slug)
+        result = await session.exec(stmt)
+        return result.one_or_none()
 
     def get_actor_class(self, slug: str) -> Type[ActorBase] | None:
         """

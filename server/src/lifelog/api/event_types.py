@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -14,8 +15,8 @@ router = APIRouter(
 @router.post("/", response_model=schemas.EventTypeRead, status_code=status.HTTP_201_CREATED)
 async def create_event_type(
     event_type_in: schemas.EventTypeCreate,
-    owner_extension_id: int | None = Query(None, description="Owner extension id"),
-    owner_extension_slug: str | None = Query(None, description="Owner extension slug"),
+    owner_extension_id: int = Query(None, description="Owner extension id"),
+    owner_extension_slug: str = Query(None, description="Owner extension slug"),
     session: AsyncSession = Depends(get_session),
     current_user: str = Depends(require_auth),
 ):
@@ -35,7 +36,11 @@ async def create_event_type(
         event_type_in, update={"owner_extension_id": owner.id}
     )
     session.add(db_event_type)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="EventType already exists for owner")
     await session.refresh(db_event_type)
     return db_event_type
 

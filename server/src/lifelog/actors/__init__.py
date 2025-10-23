@@ -6,5 +6,9 @@ def load_all_actors():
     """
     # By importing here, we ensure the code runs when this function is called.
     from . import processors
+    try:
+        from . import synthesis  # optional
+    except Exception:
+        pass
     
     print("All actor modules loaded and logic registered.")

@@ -28,6 +28,15 @@ class Settings(BaseSettings):
         "test-source": "test-processor",
     }
 
+    # Embedding defaults
+    DEFAULT_EMBEDDING_PROVIDER_SLUG: str = "local-bge"
+    DEFAULT_EMBEDDING_MODEL: str = "BAAI/bge-large-en-v1.5"
+    DEFAULT_EMBEDDING_DIM: int = 1536
+
+    # Chat defaults
+    DEFAULT_CHAT_PROVIDER_SLUG: str = "openai-chat"
+    DEFAULT_CHAT_MODEL: str = "gpt-4-turbo"
+
     class Config:
         env_file = ".env"
 

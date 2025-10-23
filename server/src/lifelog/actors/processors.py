@@ -3,6 +3,7 @@ from sqlmodel import select
 from .. import models
 from ..core.actors import ActorBase, ActorConfig, actor_registry
 from ..db import async_session
+from ..services import EmbeddingService
 
 
 @actor_registry.register(
@@ -98,3 +99,14 @@ class TestProcessor(ActorBase):
             print(
                 f"SUCCESS: Created Event (id={event_id}) from RawLog (id={raw_log_id})"
             )
+
+            # Create an embedding for the new event (if summary available)
+            if event_id is not None:
+                try:
+                    await EmbeddingService.ensure_event_embedding(
+                        session,
+                        event_id=event_id,
+                        actor_id=actor_id,
+                    )
+                except Exception as e:
+                    print(f"WARNING: Embedding generation failed for event_id={event_id}: {e}")

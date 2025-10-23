@@ -13,6 +13,10 @@ from datetime import datetime as dt
 
 from . import models
 from .auth import hash_api_key
+from .core.ai import ai_service
+from typing import Tuple, Optional
+from sqlalchemy import func
+from sqlmodel import select
 
 
 class TimelineService:
@@ -106,6 +110,107 @@ class IngestionService:
         # Session commits expire objects by default; ensure id remains accessible
         await session.refresh(db_raw_log)
         return db_raw_log
+
+
+class EventService:
+    """Service for event-related operations."""
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_events_in_range(
+        self, start_time: datetime, end_time: datetime
+    ) -> List[models.Event]:
+        """Fetch non-superseded events within a given time range."""
+        stmt = (
+            select(models.Event)
+            .where(models.Event.start_time >= start_time)
+            .where(models.Event.start_time <= end_time)
+            .where(models.Event.superseded_by_event_id.is_(None))  # type: ignore[attr-defined]
+            .order_by(models.Event.start_time)  # type: ignore[arg-type]
+        )
+        result = await self.session.exec(stmt)
+        return list(result.all())
+
+
+class SynthesisService:
+    """Service for creating and managing synthesis reports."""
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def create_synthesis_report(
+        self,
+        *,
+        actor_id: int,
+        start_time: datetime,
+        end_time: datetime,
+        report_type: str,
+        report_data: dict,
+        event_ids: List[int],
+        ai_usage_log_id: Optional[int] = None,
+    ) -> models.SynthesisReport:
+        """Creates a new synthesis report and links it to events."""
+        # First, supersede any existing reports of the same type and date range
+        await self._supersede_existing_reports(
+            actor_id=actor_id, report_type=report_type, start_time=start_time
+        )
+
+        # Fetch Event objects for linking
+        events = []
+        if event_ids:
+            event_stmt = select(models.Event).where(models.Event.id.in_(event_ids))  # type: ignore[attr-defined]
+            events = list((await self.session.exec(event_stmt)).all())
+
+        report = models.SynthesisReport(
+            actor_id=actor_id,
+            start_time=start_time,
+            end_time=end_time,
+            report_type=report_type,
+            report_data=report_data,
+            ai_usage_log_id=ai_usage_log_id,
+            events=events,
+        )
+
+        self.session.add(report)
+        await self.session.flush()
+        await self.session.refresh(report)
+        await self.session.commit()
+        return report
+
+    async def _supersede_existing_reports(
+        self, actor_id: int, report_type: str, start_time: datetime
+    ):
+        """Finds and marks existing reports as superseded."""
+        from sqlalchemy import update
+
+        # We define a report as "existing" if it's for the same actor, type, and day.
+        report_date = start_time.date()
+        day_start = datetime.combine(report_date, datetime.min.time())
+        day_end = datetime.combine(report_date, datetime.max.time())
+
+        # Find the new report that will supersede others (it must be created first)
+        # This is a bit of a chicken-and-egg problem. We'll create the new one,
+        # then update old ones. So this method should be called *before* creating the new one.
+        # Let's find the existing reports first.
+        stmt = (
+            select(models.SynthesisReport)
+            .where(models.SynthesisReport.actor_id == actor_id)
+            .where(models.SynthesisReport.report_type == report_type)
+            .where(models.SynthesisReport.start_time >= day_start)
+            .where(models.SynthesisReport.start_time <= day_end)
+            .where(models.SynthesisReport.superseded_by_report_id.is_(None))  # type: ignore[attr-defined]
+        )
+        existing_reports = (await self.session.exec(stmt)).all()
+        if not existing_reports:
+            return
+
+        # We can't set superseded_by_report_id yet, so we'll just delete them for now.
+        # A better approach would be to update them after the new report is created.
+        # For now, keeping it simple.
+        for report in existing_reports:
+            await self.session.delete(report)
+        await self.session.flush()
 
 
 class ExtensionService:
@@ -329,3 +434,212 @@ class DeviceService:
         await session.refresh(device)
         
         return device, new_api_key
+
+
+class EmbeddingService:
+    """Helpers to create and search embeddings for events."""
+
+    @staticmethod
+    async def ensure_event_embedding(
+        session: AsyncSession,
+        *,
+        event_id: int,
+        actor_id: int,
+        provider_slug: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> Optional[models.EventEmbedding]:
+        """
+        If no embedding exists for the event, compute one for the event summary
+        and persist it. Returns the EventEmbedding or None if summary missing.
+        """
+        event = await session.get(models.Event, event_id)
+        if not event:
+            return None
+
+        # Skip superseded events
+        if getattr(event, "superseded_by_event_id", None):
+            return None
+
+        # Already embedded?
+        stmt_existing = select(models.EventEmbedding).where(models.EventEmbedding.event_id == event_id)
+        existing = (await session.exec(stmt_existing)).one_or_none()
+        if existing:
+            return existing
+
+        text = event.summary or None
+        if not text:
+            return None
+
+        # Resolve defaults from settings if not provided
+        from .core.config import settings  # type: ignore
+        # Prefer DB-backed settings when available
+        db_settings = (
+            await session.exec(
+                select(models.AISettings).where(models.AISettings.id == 1)
+            )
+        ).one_or_none()
+        provider_slug_final: str = provider_slug or (
+            db_settings.default_embedding_provider_slug
+            if db_settings and db_settings.default_embedding_provider_slug
+            else getattr(settings, "DEFAULT_EMBEDDING_PROVIDER_SLUG", "openai-emb")
+        )
+        model_final: str = model or (
+            db_settings.default_embedding_model
+            if db_settings and db_settings.default_embedding_model
+            else getattr(settings, "DEFAULT_EMBEDDING_MODEL", "text-embedding-3-small")
+        )
+
+        vectors, usage_id = await ai_service.embed_texts(
+            session,
+            provider_slug=provider_slug_final,
+            model=model_final,
+            texts=[text],
+            actor_id=actor_id,
+            event_id=event_id,
+        )
+
+        emb = models.EventEmbedding(
+            event_id=event_id,
+            actor_id=actor_id,
+            embedding=vectors[0],
+            ai_usage_log_id=usage_id,
+        )
+        session.add(emb)
+        await session.commit()
+        await session.refresh(emb)
+        return emb
+
+    @staticmethod
+    async def search_events_by_text(
+        session: AsyncSession,
+        *,
+        query_text: str,
+        limit: int = 20,
+        provider_slug: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> list[tuple[models.Event, float]]:
+        """Embed the query text and return events ranked by vector distance."""
+        from .core.config import settings  # type: ignore
+        db_settings = (
+            await session.exec(
+                select(models.AISettings).where(models.AISettings.id == 1)
+            )
+        ).one_or_none()
+        provider_slug_final: str = provider_slug or (
+            db_settings.default_embedding_provider_slug
+            if db_settings and db_settings.default_embedding_provider_slug
+            else getattr(settings, "DEFAULT_EMBEDDING_PROVIDER_SLUG", "openai-emb")
+        )
+        model_final: str = model or (
+            db_settings.default_embedding_model
+            if db_settings and db_settings.default_embedding_model
+            else getattr(settings, "DEFAULT_EMBEDDING_MODEL", "text-embedding-3-small")
+        )
+
+        vectors, _usage_id = await ai_service.embed_texts(
+            session,
+            provider_slug=provider_slug_final,
+            model=model_final,
+            texts=[query_text],
+        )
+        query_vec = vectors[0]
+
+        # Build similarity query using pgvector; ensure parameter is typed as Vector
+        from sqlalchemy import literal
+        from pgvector.sqlalchemy import Vector as PGVector
+        # Determine target dimension from DB settings or config
+        dim = (
+            int(db_settings.default_embedding_dim)
+            if db_settings and db_settings.default_embedding_dim
+            else int(getattr(settings, "DEFAULT_EMBEDDING_DIM", 1536))
+        )
+        dist = func.l2_distance(
+            models.EventEmbedding.embedding,
+            literal(query_vec, type_=PGVector(dim)),
+        ).label("distance")  # type: ignore[arg-type]
+        stmt = (
+            select(models.Event, dist)
+            .join(models.EventEmbedding, models.EventEmbedding.event_id == models.Event.id)  # type: ignore[arg-type]
+            .where(models.Event.superseded_by_event_id.is_(None))  # type: ignore[attr-defined]
+            .order_by(dist)
+            .limit(limit)
+        )
+        result = await session.exec(stmt)
+        rows = result.all()
+        # rows are tuples (Event, distance)
+        return [(row[0], float(row[1])) for row in rows]
+
+
+class AIConfigService:
+    """Manage AI configuration defaults and providers."""
+
+    @staticmethod
+    async def get_ai_settings(session: AsyncSession) -> models.AISettings:
+        # Try fetch existing settings row; if missing, create with app defaults
+        settings_row = (
+            await session.exec(select(models.AISettings).where(models.AISettings.id == 1))
+        ).one_or_none()
+        if settings_row:
+            return settings_row
+        from .core.config import settings as app_settings  # type: ignore
+        settings_row = models.AISettings(
+            id=1,
+            default_embedding_provider_slug=getattr(app_settings, "DEFAULT_EMBEDDING_PROVIDER_SLUG", None),
+            default_embedding_model=getattr(app_settings, "DEFAULT_EMBEDDING_MODEL", None),
+            default_embedding_dim=getattr(app_settings, "DEFAULT_EMBEDDING_DIM", None),
+        )
+        session.add(settings_row)
+        await session.commit()
+        await session.refresh(settings_row)
+        return settings_row
+
+    @staticmethod
+    async def update_ai_settings(
+        session: AsyncSession,
+        *,
+        default_embedding_provider_slug: Optional[str] = None,
+        default_embedding_model: Optional[str] = None,
+        default_embedding_dim: Optional[int] = None,
+    ) -> models.AISettings:
+        settings_row = await AIConfigService.get_ai_settings(session)
+        if default_embedding_provider_slug is not None:
+            settings_row.default_embedding_provider_slug = default_embedding_provider_slug
+        if default_embedding_model is not None:
+            settings_row.default_embedding_model = default_embedding_model
+        if default_embedding_dim is not None:
+            settings_row.default_embedding_dim = int(default_embedding_dim)
+        session.add(settings_row)
+        await session.commit()
+        await session.refresh(settings_row)
+        return settings_row
+
+    @staticmethod
+    async def list_providers(session: AsyncSession) -> list[models.AIProvider]:
+        result = await session.exec(select(models.AIProvider))
+        return list(result.all())
+
+    @staticmethod
+    async def update_provider(
+        session: AsyncSession,
+        provider_id: int,
+        *,
+        name: Optional[str] = None,
+        model_path_or_uri: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        config: Optional[dict] = None,
+    ) -> Optional[models.AIProvider]:
+        provider = await session.get(models.AIProvider, provider_id)
+        if not provider:
+            return None
+        if name is not None:
+            provider.name = name
+        if model_path_or_uri is not None:
+            provider.model_path_or_uri = model_path_or_uri
+        if is_active is not None:
+            provider.is_active = is_active
+        if config is not None:
+            provider.config = config
+        session.add(provider)
+        await session.commit()
+        await session.refresh(provider)
+        return provider
