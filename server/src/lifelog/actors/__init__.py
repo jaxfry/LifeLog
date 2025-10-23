@@ -1,3 +1,8 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 def load_all_actors():
     """
     This function imports all modules containing actor logic.
@@ -8,7 +13,7 @@ def load_all_actors():
     from . import processors
     try:
         from . import synthesis  # optional
-    except Exception:
+    except ImportError:
         pass
     
-    print("All actor modules loaded and logic registered.")
+    logger.info("All actor modules loaded and logic registered.")
