@@ -24,11 +24,14 @@ modular, extension-first platform.
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Type
+import logging
 from pydantic import BaseModel, Field
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .. import models
+
+logger = logging.getLogger(__name__)
 
 
 class ActorConfig(BaseModel):
@@ -89,16 +92,16 @@ class ActorLogicRegistry:
 
         def decorator(cls: Type[ActorBase]):
             if config.slug in self._registry:
-                # This is a developer error, so a simple print is sufficient
+                # This is a developer error, so a simple warning is sufficient
                 # for now. In a more robust system, this might raise an error
                 # at startup.
-                print(
-                    f"Warning: Actor with slug '{config.slug}' is already "
-                    "registered. Overwriting."
+                logger.warning(
+                    "Actor with slug '%s' is already registered. Overwriting.",
+                    config.slug
                 )
             self._registry[config.slug] = cls
             self._configs[config.slug] = config
-            print(f"Registered actor '{config.slug}' version {config.version}")
+            logger.info("Registered actor '%s' version %s", config.slug, config.version)
             return cls
 
         return decorator

@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter
 from contextlib import asynccontextmanager
+import logging
 
 from .api import (
     ingestion,
@@ -18,9 +19,11 @@ from .actors import load_all_actors
 from .db import init_db
 from .core.config import settings
 
+logger = logging.getLogger(__name__)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("INFO:     Application starting up...")
+    logger.info("Application starting up...")
     # Security hardening checks
     insecure_secret = settings.SECRET_KEY == "your-secret-key-change-in-production"
     insecure_admin_pw = settings.LIFELOG_PASSWORD == "admin123"
@@ -34,20 +37,20 @@ async def lifespan(app: FastAPI):
     else:
         # In development, warn loudly
         if insecure_secret:
-            print("WARNING:    Using default SECRET_KEY; set a strong value via env.")
+            logger.warning("Using default SECRET_KEY; set a strong value via env.")
         if insecure_admin_pw and not has_pw_hash:
-            print("WARNING:    Using default admin password; set LIFELOG_PASSWORD or LIFELOG_PASSWORD_HASH.")
+            logger.warning("Using default admin password; set LIFELOG_PASSWORD or LIFELOG_PASSWORD_HASH.")
 
     # Ensure DB schema exists in development (no-op if already migrated)
     try:
         await init_db()
     except Exception as e:
         # Avoid blocking startup; schema might already be created via Alembic
-        print(f"WARNING:    DB init skipped or failed: {e}")
+        logger.warning("DB init skipped or failed: %s", e)
     load_all_actors()
-    print("INFO:     Application startup complete.")
+    logger.info("Application startup complete.")
     yield
-    print("INFO:     Shutting down application.")
+    logger.info("Shutting down application.")
 
 app = FastAPI(
     title="LifeLog API",
