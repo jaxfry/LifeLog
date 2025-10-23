@@ -1,9 +1,12 @@
 from typing import Any
+import logging
 from sqlmodel import select
 from .. import models
 from ..core.actors import ActorBase, ActorConfig, actor_registry
 from ..db import async_session
 from ..services import EmbeddingService
+
+logger = logging.getLogger(__name__)
 
 
 @actor_registry.register(
@@ -20,21 +23,21 @@ class TestProcessor(ActorBase):
 
     async def run(self, data: models.RawLog) -> Any:
         raw_log_input = data
-        print(f"--- Running 'test-processor' on raw_log_id: {raw_log_input.id} ---")
+        logger.info("Running 'test-processor' on raw_log_id: %s", raw_log_input.id)
 
         # Use a properly scoped async session context
         async with async_session() as session:
             # Ensure we use an instance attached to this session
             raw_log = await session.get(models.RawLog, raw_log_input.id)
             if not raw_log:
-                print(f"ERROR: RawLog id={raw_log_input.id} not found in DB.")
+                logger.error("RawLog id=%s not found in DB.", raw_log_input.id)
                 return
 
             # Look up the actor metadata (self) and event type
             stmt_actor = select(models.Actor).where(models.Actor.slug == "test-processor")
             actor = (await session.exec(stmt_actor)).one_or_none()
             if not actor or actor.id is None:
-                print("ERROR: Could not find self in database. Aborting.")
+                logger.error("Could not find self in database. Aborting.")
                 return
             actor_id = actor.id
             actor_version = actor.version
@@ -46,7 +49,7 @@ class TestProcessor(ActorBase):
             event_type = (await session.exec(stmt_event_type)).one_or_none()
 
             if not event_type:
-                print(f"ERROR: EventType '{event_type_slug}' not found. Cannot process.")
+                logger.error("EventType '%s' not found. Cannot process.", event_type_slug)
                 # Log failure
                 session.add(
                     models.ActorProcessingLog(
@@ -62,7 +65,7 @@ class TestProcessor(ActorBase):
 
             summary = raw_log.raw_data.get("message", "No message provided")
             if event_type.id is None:
-                print("ERROR: EventType ID is None. Cannot create event.")
+                logger.error("EventType ID is None. Cannot create event.")
                 return
 
             new_event = models.Event(
@@ -96,8 +99,8 @@ class TestProcessor(ActorBase):
                 )
                 await session.commit()
 
-            print(
-                f"SUCCESS: Created Event (id={event_id}) from RawLog (id={raw_log_id})"
+            logger.info(
+                "Created Event (id=%s) from RawLog (id=%s)", event_id, raw_log_id
             )
 
             # Create an embedding for the new event (if summary available)
@@ -109,4 +112,4 @@ class TestProcessor(ActorBase):
                         actor_id=actor_id,
                     )
                 except Exception as e:
-                    print(f"WARNING: Embedding generation failed for event_id={event_id}: {e}")
+                    logger.warning("Embedding generation failed for event_id=%s: %s", event_id, e)

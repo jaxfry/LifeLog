@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 import asyncio
+import logging
 from sqlmodel.ext.asyncio.session import AsyncSession  # <-- Use AsyncSession
 
 from .. import models, schemas
@@ -7,6 +8,8 @@ from ..dependencies import get_session
 from ..auth import device_auth_dependency, require_auth
 from typing import cast
 from ..services import IngestionService
+
+logger = logging.getLogger(__name__)
 
 # Create a router, which is like a mini-FastAPI app
 router = APIRouter(
@@ -89,7 +92,7 @@ async def ingest_raw_log(
                 await actor_instance.run(data=raw_log)
             except Exception as e:
                 # Swallow exceptions to avoid affecting API response; logs are written inside actor
-                print(f"Auto-processing failed for raw_log_id={raw_log_id}: {e}")
+                logger.warning("Auto-processing failed for raw_log_id=%s: %s", raw_log_id, e)
 
     # Schedule the async processing task (fire-and-forget)
     try:
