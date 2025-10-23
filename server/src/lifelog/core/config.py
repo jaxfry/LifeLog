@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./lifelog.db"
     
     # Security Configuration
-    SECRET_KEY: str = "your-secret-key-change-in-production"
+    SECRET_KEY: str
     
     # Application Configuration
     APP_ENV: str = "development"
@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     
     # Single-user configuration (for simplicity)
     LIFELOG_USERNAME: str = "admin"
+    # Plaintext dev password (used only when LIFELOG_PASSWORD_HASH is not set)
     LIFELOG_PASSWORD: str = "admin123"
+    # Optional: bcrypt hash of the admin password; if set, it will be used instead of LIFELOG_PASSWORD
+    LIFELOG_PASSWORD_HASH: Optional[str] = None
 
     # Processing routing configuration (temporary until dynamic routing is implemented)
     PROCESSING_ROUTING_MAP: dict[str, str] = {

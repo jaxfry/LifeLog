@@ -9,10 +9,10 @@ from typing import List, Optional
 from datetime import datetime
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from sqlalchemy.exc import IntegrityError
 from datetime import datetime as dt
 
 from . import models
+from .auth import hash_api_key
 
 
 class TimelineService:
@@ -103,6 +103,8 @@ class IngestionService:
                 device.last_seen = dt.utcnow()
                 session.add(device)
                 await session.commit()
+        # Session commits expire objects by default; ensure id remains accessible
+        await session.refresh(db_raw_log)
         return db_raw_log
 
 
@@ -200,3 +202,130 @@ class ProcessingRoutingService:
         # Fallback to config map
         from .core.config import settings  # type: ignore
         return settings.PROCESSING_ROUTING_MAP.get(source_actor_slug)
+
+
+class DeviceService:
+    """Service for device management operations"""
+
+    @staticmethod
+    def generate_api_key() -> str:
+        """Generate a secure random API key for a device"""
+        import secrets
+        return secrets.token_urlsafe(32)
+
+    @staticmethod
+    async def create_device(
+        session: AsyncSession,
+        name: str,
+        device_type: Optional[str] = None,
+        client_metadata: Optional[dict] = None
+    ) -> tuple[models.Device, str]:
+        """
+        Create a new device with a generated API key.
+        Returns tuple of (device, plain_api_key).
+        
+        Note: The plain API key is only available at creation time.
+        The stored encrypted_api_key is what will be compared during auth.
+        """
+        # Check if device with this name already exists
+        existing_query = select(models.Device).where(models.Device.name == name)
+        result = await session.exec(existing_query)
+        if result.first():
+            raise ValueError(f"Device with name '{name}' already exists")
+        
+        # Generate API key
+        api_key = DeviceService.generate_api_key()
+        
+        # For now, we store the key directly. In production, consider hashing.
+        # Store a hashed version of the API key for security (deterministic SHA-256)
+        db_device = models.Device(
+            name=name,
+            type=device_type,
+            encrypted_api_key=hash_api_key(api_key),
+            client_metadata=client_metadata or {}
+        )
+        
+        session.add(db_device)
+        await session.commit()
+        await session.refresh(db_device)
+        
+        return db_device, api_key
+
+    @staticmethod
+    async def get_all_devices(session: AsyncSession) -> List[models.Device]:
+        """Get all registered devices"""
+        query = select(models.Device).order_by(models.Device.name)
+        result = await session.exec(query)
+        return list(result.all())
+
+    @staticmethod
+    async def get_device_by_id(session: AsyncSession, device_id: int) -> Optional[models.Device]:
+        """Get a device by ID"""
+        return await session.get(models.Device, device_id)
+
+    @staticmethod
+    async def update_device(
+        session: AsyncSession,
+        device_id: int,
+        name: Optional[str] = None,
+        device_type: Optional[str] = None,
+        client_metadata: Optional[dict] = None
+    ) -> Optional[models.Device]:
+        """Update device information (name, type, metadata)"""
+        device = await session.get(models.Device, device_id)
+        if not device:
+            return None
+        
+        # Check for name conflicts if name is being changed
+        if name and name != device.name:
+            existing_query = select(models.Device).where(models.Device.name == name)
+            result = await session.exec(existing_query)
+            if result.first():
+                raise ValueError(f"Device with name '{name}' already exists")
+            device.name = name
+        
+        if device_type is not None:
+            device.type = device_type
+        
+        if client_metadata is not None:
+            device.client_metadata = client_metadata
+        
+        session.add(device)
+        await session.commit()
+        await session.refresh(device)
+        
+        return device
+
+    @staticmethod
+    async def delete_device(session: AsyncSession, device_id: int) -> bool:
+        """Delete a device. Returns True if deleted, False if not found."""
+        device = await session.get(models.Device, device_id)
+        if not device:
+            return False
+        
+        await session.delete(device)
+        await session.commit()
+        return True
+
+    @staticmethod
+    async def rotate_device_key(
+        session: AsyncSession,
+        device_id: int
+    ) -> tuple[models.Device, str]:
+        """
+        Rotate the API key for a device.
+        Returns tuple of (device, new_plain_api_key).
+        """
+        device = await session.get(models.Device, device_id)
+        if not device:
+            raise ValueError(f"Device with ID {device_id} not found")
+        
+        # Generate new API key
+        new_api_key = DeviceService.generate_api_key()
+        device.encrypted_api_key = hash_api_key(new_api_key)
+        
+        session.add(device)
+        await session.commit()
+        await session.refresh(device)
+        
+        return device, new_api_key

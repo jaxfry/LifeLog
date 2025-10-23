@@ -1,7 +1,7 @@
 def load_all_actors():
     """
     This function imports all modules containing actor logic.
-    The act of importing them will cause their @register_actor decorators
+    Importing these modules triggers their @actor_registry.register decorators
     to run, populating the central registry.
     """
     # By importing here, we ensure the code runs when this function is called.

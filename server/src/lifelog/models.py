@@ -16,6 +16,7 @@ from typing import List, Optional
 
 from sqlalchemy import Column, UniqueConstraint
 from sqlmodel import JSON, Field, Relationship, SQLModel
+from pgvector.sqlalchemy import Vector
 
 
 # =================================================================
@@ -234,8 +235,8 @@ class EventEmbedding(SQLModel, table=True):
         unique=True
     )
     
-    # TODO: Add vector type after setting up pgvector
-    # embedding: List[float] = Field(sa_column=Column(Vector(1536), nullable=False))
+    # Vector embedding stored via pgvector (requires Postgres with pgvector extension)
+    embedding: List[float] = Field(sa_column=Column(Vector(1536), nullable=False))
 
 
 class EventMetadata(SQLModel, table=True):

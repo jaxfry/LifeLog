@@ -1,13 +1,11 @@
-from typing import AsyncGenerator # <-- Use AsyncGenerator
-from sqlmodel.ext.asyncio.session import AsyncSession # <-- Use AsyncSession
-from sqlalchemy.ext.asyncio import create_async_engine
-from .core.config import settings
+from typing import AsyncGenerator  # <-- Use AsyncGenerator
+from sqlmodel.ext.asyncio.session import AsyncSession  # Use SQLModel's AsyncSession for .exec
 
-# We need a separate engine instance for the dependency, or use the one from db.py
-# Let's import it to be consistent
-from .db import engine
+# Use the central session factory from db.py
+from .db import async_session
+
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get an async database session."""
-    async with AsyncSession(engine) as session:
+    """FastAPI dependency to provide an AsyncSession per-request."""
+    async with async_session() as session:
         yield session

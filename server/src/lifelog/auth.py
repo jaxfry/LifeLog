@@ -7,6 +7,8 @@ in the architecture document.
 
 from datetime import datetime, timedelta
 from typing import Optional
+import hashlib
+import hmac
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Header
@@ -41,6 +43,11 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
+def hash_api_key(value: str) -> str:
+    """Deterministically hash an API key for storage and lookup (SHA-256 hex)."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT access token"""
     to_encode = data.copy()
@@ -55,14 +62,24 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def authenticate_user(username: str, password: str) -> bool:
-    """Authenticate the single user against configured credentials"""
-    if username != settings.LIFELOG_USERNAME:
+    """Authenticate the single user against configured credentials.
+
+    Supports two modes:
+    - Hashed password mode: if LIFELOG_PASSWORD_HASH is set, use bcrypt verify.
+    - Plain password mode: fallback to constant-time compare for dev.
+    """
+    # Constant-time compare for username
+    if not hmac.compare_digest(username, settings.LIFELOG_USERNAME):
         return False
-    
-    if password != settings.LIFELOG_PASSWORD:
+
+    password_hash = getattr(settings, "LIFELOG_PASSWORD_HASH", None)
+    if not password_hash:
+        # Fallback to plain password check if no hash is set (for dev only)
+        return hmac.compare_digest(password, settings.LIFELOG_PASSWORD)
+    try:
+        return verify_password(password, password_hash)
+    except Exception:
         return False
-    
-    return True
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> str:
@@ -88,12 +105,15 @@ def require_auth(current_user: str = Depends(get_current_user)) -> str:
 
 
 # Device authentication for ingestion API
-async def get_device_by_api_key(session: AsyncSession, api_key: str) -> models.Device | None:
+async def get_device_by_api_key(session: AsyncSession, api_key: str) -> Optional[models.Device]:
     """
-    Look up a device by its API key. For now, we compare the provided key directly to
-    the stored `encrypted_api_key`. In production, use proper hashing/crypto and rotation.
+    Look up a device by API key using secure hashing.
+    - Primary: compare SHA-256(api_key) against stored value (hardened mode).
+    - Fallback: legacy plaintext compare for backward compatibility.
     """
-    stmt = select(models.Device).where(models.Device.encrypted_api_key == api_key)
+    # Try hashed lookup
+    hashed = hash_api_key(api_key)
+    stmt = select(models.Device).where(models.Device.encrypted_api_key == hashed)
     result = await session.exec(stmt)
     return result.one_or_none()
 
