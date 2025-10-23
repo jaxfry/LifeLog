@@ -12,6 +12,43 @@ services:
       - .env.docker
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama
+    container_name: lifelog_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-v1.34.29
+    container_name: lifelog_litellm_proxy
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env.docker
+    depends_on:
+      - ollama
+    command: >
+      --model ollama/nomic-embed-text
+      --model gpt-4-turbo
+      --api_base ollama:11434
+      --host 0.0.0.0
+      --port 4000
+      --num_workers 4
+    restart: unless-stopped
+
+  embedding:
+    build:
+      context: ./embedding-server
+    container_name: lifelog_embedding
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./embedding-server/models:/app/models
+    restart: unless-stopped
+
   server:
     build:
       context: ./server
@@ -24,8 +61,12 @@ services:
       - .env.docker
     depends_on:
       - db
+      - litellm
+      - embedding
     command: ["uvicorn", "lifelog.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--app-dir", "src"]
 
 volumes:
   lifelog_data:
+    driver: local
+  ollama_data:
     driver: local
