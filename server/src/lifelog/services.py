@@ -14,6 +14,8 @@ from sqlalchemy import func
 from . import models
 from .auth import hash_api_key
 from .core.ai import ai_service
+from .constants import ProcessingStatus
+from .manifest import ExtensionManifest
 
 
 class TimelineService:
@@ -356,6 +358,115 @@ class ExtensionService:
 
         return result.one()
 
+    @staticmethod
+    async def create_extension_from_manifest(
+        session: AsyncSession,
+        manifest: ExtensionManifest,
+        update_if_exists: bool = False
+    ) -> Tuple[models.Extension, bool]:
+        """
+        Create or update an extension from a manifest.json structure.
+        
+        Returns: (extension, is_new_version) where is_new_version=True if an upgrade occurred.
+        """
+        # Check if extension already exists
+        existing_stmt = select(models.Extension).where(models.Extension.slug == manifest.slug)
+        existing = (await session.exec(existing_stmt)).one_or_none()
+
+        is_upgrade = False
+        if existing:
+            if not update_if_exists:
+                raise ValueError(f"Extension '{manifest.slug}' already exists. Use update_if_exists=True to upgrade.")
+            
+            # Check if version changed
+            if existing.version != manifest.version:
+                is_upgrade = True
+            
+            # Update extension metadata
+            existing.name = manifest.name
+            existing.version = manifest.version
+            existing.config = manifest.config or {}
+            session.add(existing)
+            extension = existing
+        else:
+            # Create new extension
+            extension = models.Extension(
+                slug=manifest.slug,
+                name=manifest.name,
+                version=manifest.version,
+                is_active=True,
+                config=manifest.config or {}
+            )
+            session.add(extension)
+            await session.flush()
+
+        # Sync actors
+        if manifest.server_side and manifest.server_side.actors:
+            for actor_def in manifest.server_side.actors:
+                # Try to find existing actor
+                actor_stmt = (
+                    select(models.Actor)
+                    .where(models.Actor.extension_id == extension.id)
+                    .where(models.Actor.slug == actor_def.slug)
+                )
+                actor = (await session.exec(actor_stmt)).one_or_none()
+
+                if actor:
+                    # Update version if changed
+                    if actor.version != actor_def.version:
+                        actor.version = actor_def.version
+                        actor.actor_type = models.ActorType(actor_def.type)
+                        session.add(actor)
+                else:
+                    # Create new actor
+                    new_actor = models.Actor(
+                        extension_id=extension.id,  # type: ignore[arg-type]
+                        slug=actor_def.slug,
+                        actor_type=models.ActorType(actor_def.type),
+                        version=actor_def.version
+                    )
+                    session.add(new_actor)
+
+        # Sync event types
+        if manifest.server_side and manifest.server_side.event_types:
+            for et_def in manifest.server_side.event_types:
+                et_stmt = (
+                    select(models.EventType)
+                    .where(models.EventType.owner_extension_id == extension.id)
+                    .where(models.EventType.slug == et_def.slug)
+                )
+                et = (await session.exec(et_stmt)).one_or_none()
+                if not et:
+                    new_et = models.EventType(
+                        owner_extension_id=extension.id,  # type: ignore[arg-type]
+                        slug=et_def.slug,
+                        description=et_def.description
+                    )
+                    session.add(new_et)
+
+        # Sync prompt templates
+        if manifest.server_side and manifest.server_side.prompt_templates:
+            for pt_def in manifest.server_side.prompt_templates:
+                pt_stmt = (
+                    select(models.PromptTemplate)
+                    .where(models.PromptTemplate.owner_extension_id == extension.id)
+                    .where(models.PromptTemplate.slug == pt_def.slug)
+                )
+                pt = (await session.exec(pt_stmt)).one_or_none()
+                if not pt:
+                    new_pt = models.PromptTemplate(
+                        owner_extension_id=extension.id,  # type: ignore[arg-type]
+                        slug=pt_def.slug,
+                        description=pt_def.description,
+                        template_text=pt_def.template_text,
+                        version=pt_def.version
+                    )
+                    session.add(new_pt)
+
+        await session.commit()
+        await session.refresh(extension)
+        return extension, is_upgrade
+
 
 class ProcessingService:
     """Service for processing operations"""
@@ -371,6 +482,36 @@ class ProcessingService:
             # Eagerly load the source_actor relationship
             await session.refresh(raw_log, attribute_names=["source_actor"])
         return raw_log
+
+    @staticmethod
+    async def find_raw_logs_for_reprocessing(
+        session: AsyncSession,
+        actor_slug: str,
+        current_version: str
+    ) -> List[int]:
+        """
+        Find raw_log IDs that were previously processed by an older version of an actor.
+        
+        Returns list of raw_log_ids that should be reprocessed.
+        """
+        # Find the actor
+        actor_stmt = select(models.Actor).where(models.Actor.slug == actor_slug)
+        actor = (await session.exec(actor_stmt)).one_or_none()
+        if not actor or actor.id is None:
+            return []
+
+        # Find processing log entries for this actor where version < current_version
+        log_stmt = (
+            select(models.ActorProcessingLog.raw_log_id)
+            .where(models.ActorProcessingLog.actor_id == actor.id)
+            .where(models.ActorProcessingLog.actor_version_at_processing != current_version)
+            .where(models.ActorProcessingLog.status == ProcessingStatus.SUCCESS)
+            .where(models.ActorProcessingLog.raw_log_id.isnot(None))  # type: ignore[attr-defined]
+            .distinct()
+        )
+        result = await session.exec(log_stmt)
+        raw_log_ids = [row for row in result.all() if row is not None]
+        return raw_log_ids
 
 
 class ProcessingRoutingService:

@@ -6,6 +6,7 @@ from ..core.actors import ActorBase, ActorConfig, actor_registry
 from ..db import async_session
 from ..services import EmbeddingService
 from ..services import EventService
+from ..constants import ProcessingStatus
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class TestProcessor(ActorBase):
                         actor_id=actor_id,
                         actor_version_at_processing=actor_version,
                         raw_log_id=raw_log.id,
-                        status="FAILURE",
+                        status=ProcessingStatus.FAILURE,
                         details={"reason": "missing_event_type", "expected": event_type_slug},
                     )
                 )
@@ -113,7 +114,7 @@ class TestProcessor(ActorBase):
                         actor_version_at_processing=actor_version,
                         raw_log_id=raw_log_id,
                         event_id=event_id,
-                        status="SUCCESS",
+                        status=ProcessingStatus.SUCCESS,
                         details={
                             "created_event_id": event_id,
                             "superseded_event_ids": superseded_event_ids,
