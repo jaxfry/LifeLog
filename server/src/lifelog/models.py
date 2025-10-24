@@ -15,13 +15,14 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import Column, UniqueConstraint
+import sqlalchemy as sa
 from sqlmodel import JSON, Field, Relationship, SQLModel
 from pgvector.sqlalchemy import Vector
 
 
 # Helper function for timezone-aware datetime defaults
 def utcnow() -> datetime:
-    """Return current UTC time as a timezone-aware datetime."""
+    """Return current UTC time as a timezone-aware datetime (for TIMESTAMPTZ columns)."""
     return datetime.now(timezone.utc)
 
 
@@ -150,7 +151,10 @@ class Device(SQLModel, table=True):
     name: str = Field(unique=True, index=True, nullable=False)
     type: Optional[str] = Field(default=None)
     encrypted_api_key: str = Field(unique=True, nullable=False)
-    last_seen: Optional[datetime] = Field(default=None)
+    last_seen: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=True),
+    )
     client_metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
 # =================================================================
@@ -166,7 +170,10 @@ class RawLog(SQLModel, table=True):
     source_actor_id: int = Field(foreign_key="actor.id", nullable=False)
     device_id: Optional[int] = Field(default=None, foreign_key="device.id")
     raw_data: dict = Field(sa_column=Column(JSON, nullable=False))
-    ingested_at: datetime = Field(default_factory=utcnow, nullable=False)
+    ingested_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+    )
 
     # Relationships
     events: List["Event"] = Relationship(
@@ -204,8 +211,14 @@ class Event(SQLModel, table=True):
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     processor_actor_id: int = Field(foreign_key="actor.id", nullable=False)
-    start_time: datetime = Field(index=True, nullable=False)
-    end_time: Optional[datetime] = Field(default=None, index=True)
+    start_time: datetime = Field(
+        default=...,  # required
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+    )
+    end_time: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=True),
+    )
     event_type_id: int = Field(foreign_key="eventtype.id", nullable=False)
     summary: Optional[str] = Field(default=None)
     superseded_by_event_id: Optional[int] = Field(
@@ -256,7 +269,10 @@ class EventMetadata(SQLModel, table=True):
     actor_id: Optional[int] = Field(default=None, foreign_key="actor.id")
     type: str = Field(nullable=False)
     data: dict = Field(sa_column=Column(JSON, nullable=False))
-    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+    created_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+    )
 
 # =================================================================
 # AI INTEGRATION - Provider management and usage tracking
@@ -317,7 +333,10 @@ class AIUsageLog(SQLModel, table=True):
     prompt_tokens: Optional[int] = Field(default=None)
     completion_tokens: Optional[int] = Field(default=None)
     cost: Optional[float] = Field(default=None)
-    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+    created_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+    )
 
 # =================================================================
 # AI SETTINGS - Defaults and configuration stored in DB
@@ -344,11 +363,14 @@ class SynthesisReport(SQLModel, table=True):
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     actor_id: int = Field(foreign_key="actor.id", nullable=False)
-    start_time: datetime = Field(nullable=False)
-    end_time: datetime = Field(nullable=False)
+    start_time: datetime = Field(default=..., sa_column=Column(sa.DateTime(timezone=True), nullable=False))
+    end_time: datetime = Field(default=..., sa_column=Column(sa.DateTime(timezone=True), nullable=False))
     report_type: str = Field(nullable=False)
     report_data: dict = Field(sa_column=Column(JSON, nullable=False))
-    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+    created_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+    )
     ai_usage_log_id: Optional[int] = Field(
         default=None, 
         foreign_key="aiusagelog.id", 
@@ -377,5 +399,8 @@ class ActorProcessingLog(SQLModel, table=True):
     raw_log_id: Optional[int] = Field(default=None, foreign_key="rawlog.id")
     event_id: Optional[int] = Field(default=None, foreign_key="event.id")
     status: str = Field(nullable=False)
-    processed_at: datetime = Field(default_factory=utcnow, nullable=False)
+    processed_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+    )
     details: Optional[dict] = Field(default=None, sa_column=Column(JSON))

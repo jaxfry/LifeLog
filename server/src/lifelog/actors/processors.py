@@ -5,6 +5,7 @@ from .. import models
 from ..core.actors import ActorBase, ActorConfig, actor_registry
 from ..db import async_session
 from ..services import EmbeddingService
+from ..services import EventService
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +80,29 @@ class TestProcessor(ActorBase):
             new_event.raw_logs.append(raw_log)
             session.add(new_event)
 
-            # Flush to assign IDs, then cache for logging
+            # Flush to assign IDs, then supersede any prior events before commit
             await session.flush()
             event_id = new_event.id
             raw_log_id = raw_log.id
+
+            superseded_event_ids: list[int] = []
+            if event_id is not None and raw_log_id is not None:
+                try:
+                    superseded_event_ids = await EventService.supersede_prior_events_for_raw_log(
+                        session,
+                        processor_actor_id=actor_id,
+                        raw_log_id=raw_log_id,
+                        new_event_id=event_id,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Superseding prior events failed for raw_log_id=%s new_event_id=%s: %s",
+                        raw_log_id,
+                        event_id,
+                        e,
+                    )
+
+            # Commit creation and superseding atomically
             await session.commit()
 
             # Log success
@@ -94,7 +114,10 @@ class TestProcessor(ActorBase):
                         raw_log_id=raw_log_id,
                         event_id=event_id,
                         status="SUCCESS",
-                        details={"created_event_id": event_id},
+                        details={
+                            "created_event_id": event_id,
+                            "superseded_event_ids": superseded_event_ids,
+                        },
                     )
                 )
                 await session.commit()

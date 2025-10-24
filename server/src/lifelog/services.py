@@ -101,6 +101,7 @@ class IngestionService:
         if device_id is not None:
             device = await session.get(models.Device, device_id)
             if device:
+                # Use timezone-aware UTC to match TIMESTAMPTZ columns
                 device.last_seen = datetime.now(timezone.utc)
                 session.add(device)
                 await session.commit()
@@ -129,6 +130,86 @@ class EventService:
         result = await self.session.exec(stmt)
         return list(result.all())
 
+    @staticmethod
+    async def supersede_prior_events_for_raw_log(
+        session: AsyncSession,
+        *,
+        processor_actor_id: int,
+        raw_log_id: int,
+        new_event_id: int,
+    ) -> list[int]:
+        """
+        Mark any existing, non-superseded Events created by the same processor for
+        the given RawLog as superseded by the new event. Returns list of superseded ids.
+
+        Contract:
+        - Inputs: processor_actor_id, raw_log_id, new_event_id (persisted)
+        - Output: list of event IDs that were superseded
+        - Non-destructive: only updates superseded_by_event_id, never deletes
+        """
+        from . import models
+        from sqlmodel import select
+
+        # Find candidate prior events
+        stmt = (
+            select(models.Event)
+            .join(models.EventRawLogLink, models.EventRawLogLink.event_id == models.Event.id)  # type: ignore[arg-type]
+            .where(models.EventRawLogLink.raw_log_id == raw_log_id)
+            .where(models.Event.processor_actor_id == processor_actor_id)
+            .where(models.Event.superseded_by_event_id.is_(None))  # type: ignore[attr-defined]
+            .where(models.Event.id != new_event_id)
+        )
+        prior_events = list((await session.exec(stmt)).all())
+        superseded_ids: list[int] = []
+        for ev in prior_events:
+            if ev.id is None:
+                continue
+            ev.superseded_by_event_id = new_event_id
+            session.add(ev)
+            superseded_ids.append(ev.id)
+        if superseded_ids:
+            await session.flush()
+        return superseded_ids
+
+    @staticmethod
+    async def supersede_event_set(
+        session: AsyncSession,
+        *,
+        old_event_ids: list[int],
+        new_event_id: int,
+    ) -> list[int]:
+        """
+        Supersede a provided set of old event IDs by a single new event ID.
+
+        Notes:
+        - Ignores the new_event_id if it appears in old_event_ids.
+        - Only updates events that are not already superseded.
+        - Returns the list of event IDs that were updated.
+        """
+        from . import models
+        from sqlmodel import select
+
+        ids = [eid for eid in set(old_event_ids) if eid != new_event_id]
+        if not ids:
+            return []
+
+        stmt = (
+            select(models.Event)
+            .where(models.Event.id.in_(ids))  # type: ignore[attr-defined]
+            .where(models.Event.superseded_by_event_id.is_(None))  # type: ignore[attr-defined]
+        )
+        rows = list((await session.exec(stmt)).all())
+        updated: list[int] = []
+        for ev in rows:
+            if ev.id is None:
+                continue
+            ev.superseded_by_event_id = new_event_id
+            session.add(ev)
+            updated.append(ev.id)
+        if updated:
+            await session.flush()
+        return updated
+
 
 class SynthesisService:
     """Service for creating and managing synthesis reports."""
@@ -147,11 +228,12 @@ class SynthesisService:
         event_ids: List[int],
         ai_usage_log_id: Optional[int] = None,
     ) -> models.SynthesisReport:
-        """Creates a new synthesis report and links it to events."""
-        # First, supersede any existing reports of the same type and date range
-        await self._supersede_existing_reports(
-            actor_id=actor_id, report_type=report_type, start_time=start_time
-        )
+        """Creates a new synthesis report and links it to events.
+
+        Alignment note: Per architecture, we must NEVER delete past records.
+        We create the new report first, then mark any previous ones as superseded
+        by setting superseded_by_report_id.
+        """
 
         # Fetch Event objects for linking
         events = []
@@ -170,26 +252,41 @@ class SynthesisService:
         )
 
         self.session.add(report)
+        # Flush to assign an ID without committing the transaction yet
         await self.session.flush()
         await self.session.refresh(report)
+
+        # Supersede any existing reports for the same actor/type/day
+        await self._supersede_existing_reports(
+            actor_id=actor_id,
+            report_type=report_type,
+            start_time=start_time,
+            new_report_id=report.id,  # type: ignore[arg-type]
+        )
+
+        # Commit after supersession updates are applied
         await self.session.commit()
         return report
 
     async def _supersede_existing_reports(
-        self, actor_id: int, report_type: str, start_time: datetime
+        self, actor_id: int, report_type: str, start_time: datetime, new_report_id: Optional[int]
     ):
-        """Finds and marks existing reports as superseded."""
-        from sqlalchemy import update
+        """Finds and marks existing reports as superseded (non-destructive).
+
+        Any existing reports for the same actor, type, and day that are not
+        already superseded will have their superseded_by_report_id set to the
+        newly created report's id.
+        """
+        # If we don't have a new report id for some reason, abort safely
+        if new_report_id is None:
+            return
 
         # We define a report as "existing" if it's for the same actor, type, and day.
         report_date = start_time.date()
         day_start = datetime.combine(report_date, datetime.min.time())
         day_end = datetime.combine(report_date, datetime.max.time())
 
-        # Find the new report that will supersede others (it must be created first)
-        # This is a bit of a chicken-and-egg problem. We'll create the new one,
-        # then update old ones. So this method should be called *before* creating the new one.
-        # Let's find the existing reports first.
+        # Select existing, non-superseded reports in that day window
         stmt = (
             select(models.SynthesisReport)
             .where(models.SynthesisReport.actor_id == actor_id)
@@ -198,15 +295,14 @@ class SynthesisService:
             .where(models.SynthesisReport.start_time <= day_end)
             .where(models.SynthesisReport.superseded_by_report_id.is_(None))  # type: ignore[attr-defined]
         )
-        existing_reports = (await self.session.exec(stmt)).all()
-        if not existing_reports:
+        existing = list((await self.session.exec(stmt)).all())
+        if not existing:
             return
 
-        # We can't set superseded_by_report_id yet, so we'll just delete them for now.
-        # A better approach would be to update them after the new report is created.
-        # For now, keeping it simple.
-        for report in existing_reports:
-            await self.session.delete(report)
+        # Mark them as superseded by the newly created report
+        for rep in existing:
+            rep.superseded_by_report_id = new_report_id
+            self.session.add(rep)
         await self.session.flush()
 
 
@@ -478,12 +574,12 @@ class EmbeddingService:
         provider_slug_final: str = provider_slug or (
             db_settings.default_embedding_provider_slug
             if db_settings and db_settings.default_embedding_provider_slug
-            else getattr(settings, "DEFAULT_EMBEDDING_PROVIDER_SLUG", "openai-emb")
+            else getattr(settings, "DEFAULT_EMBEDDING_PROVIDER_SLUG")
         )
         model_final: str = model or (
             db_settings.default_embedding_model
             if db_settings and db_settings.default_embedding_model
-            else getattr(settings, "DEFAULT_EMBEDDING_MODEL", "text-embedding-3-small")
+            else getattr(settings, "DEFAULT_EMBEDDING_MODEL")
         )
 
         vectors, usage_id = await ai_service.embed_texts(
@@ -525,12 +621,12 @@ class EmbeddingService:
         provider_slug_final: str = provider_slug or (
             db_settings.default_embedding_provider_slug
             if db_settings and db_settings.default_embedding_provider_slug
-            else getattr(settings, "DEFAULT_EMBEDDING_PROVIDER_SLUG", "openai-emb")
+            else getattr(settings, "DEFAULT_EMBEDDING_PROVIDER_SLUG")
         )
         model_final: str = model or (
             db_settings.default_embedding_model
             if db_settings and db_settings.default_embedding_model
-            else getattr(settings, "DEFAULT_EMBEDDING_MODEL", "text-embedding-3-small")
+            else getattr(settings, "DEFAULT_EMBEDDING_MODEL")
         )
 
         vectors, _usage_id = await ai_service.embed_texts(

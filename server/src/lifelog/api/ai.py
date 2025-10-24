@@ -99,3 +99,39 @@ async def update_provider(
         is_active=provider.is_active,
         config=provider.config,
     )
+
+
+class TestEmbedRequest(schemas.BaseModel):  # type: ignore[attr-defined]
+    texts: list[str]
+
+
+@router.post("/test-embed")
+async def test_embed(
+    req: TestEmbedRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth),
+):
+    """Quickly test the embedding pipeline without touching the DB."""
+    # Resolve defaults from DB settings or fall back to app settings
+    db_settings = await AIConfigService.get_ai_settings(session)
+    from ..core.config import settings as app_settings  # type: ignore
+    provider_slug = (
+        db_settings.default_embedding_provider_slug
+        or getattr(app_settings, "DEFAULT_EMBEDDING_PROVIDER_SLUG", "local-bge")
+    )
+    model = (
+        db_settings.default_embedding_model
+        or getattr(app_settings, "DEFAULT_EMBEDDING_MODEL", "BAAI/bge-large-en-v1.5")
+    )
+
+    from ..core.ai import ai_service
+    vectors, _usage = await ai_service.embed_texts(
+        session,
+        provider_slug=provider_slug,
+        model=model,
+        texts=req.texts,
+    )
+    # Return small preview for sanity plus dimension
+    dim = len(vectors[0]) if vectors else 0
+    preview = [v[:8] for v in vectors]
+    return {"count": len(vectors), "dim": dim, "vectors_preview": preview}
