@@ -20,3 +20,7 @@ You can now:
 - Trigger processing for ingested raw logs
 - View timeline events
 # LifeLog Rewrite
+
+## Notes
+
+- Embeddings now run in-process inside the server. The separate embedding microservice has been removed from Docker Compose.

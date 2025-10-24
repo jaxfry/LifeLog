@@ -5,6 +5,7 @@ This module provides a unified interface for all AI-related operations, includin
 """
 
 from typing import List, Optional
+import asyncio
 from .config import settings
 from .local_embedding import LocalEmbeddingProvider
 
@@ -27,9 +28,10 @@ class AIService:
         Returns (vectors, usage_log_id)
         """
         # Only support local embedding for now
-        vectors = self.embedding_provider.embed(texts)
+        # Run sync embedding in a threadpool to avoid blocking the event loop
+        vectors = await asyncio.to_thread(self.embedding_provider.embed, texts)
         usage_log_id = None
-        # Log usage if session and actor/model info provided
+        # Log usage if session and actor/model info provided AND a provider exists
         if session and actor_id:
             from .. import models
             # Resolve provider from DB
@@ -39,21 +41,22 @@ class AIService:
                 stmt = select(models.AIProvider).where(models.AIProvider.provider_slug == provider_slug)
                 result = await session.exec(stmt)
                 provider = result.one_or_none()
-            provider_id = provider.id if provider else 1  # fallback to 1 if not found
-            usage = models.AIUsageLog(
-                actor_id=actor_id,
-                ai_provider_id=provider_id,
-                event_id=event_id,
-                call_type="embedding",
-                model_used=model,
-                prompt_tokens=None,
-                completion_tokens=None,
-                cost=0.0,
-            )
-            session.add(usage)
-            await session.commit()
-            await session.refresh(usage)
-            usage_log_id = usage.id
+            # Only log usage when a concrete provider record exists to satisfy FK
+            if provider and provider.id is not None:
+                usage = models.AIUsageLog(
+                    actor_id=actor_id,
+                    ai_provider_id=provider.id,
+                    event_id=event_id,
+                    call_type="embedding",
+                    model_used=model,
+                    prompt_tokens=None,
+                    completion_tokens=None,
+                    cost=0.0,
+                )
+                session.add(usage)
+                await session.commit()
+                await session.refresh(usage)
+                usage_log_id = usage.id
         return vectors, usage_log_id
 
 # Singleton instance
