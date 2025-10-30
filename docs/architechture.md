@@ -2,6 +2,13 @@
 
 ## LifeLog System Architecture: A Definitive Guide (v3.3)
 
+> **Implementation Status (Updated Oct 2025)**: The core server-side data pipeline is ~70% implemented.
+> - ✅ **Fully Implemented**: Raw logs → Events → Enrichment pipeline, Actor system, Extension registration, Manifest schema, Managed schemas (Tier 3), Dynamic extension code loading, AI integration, Event embeddings
+> - ⚠️ **Partially Implemented**: Extension code is dynamically loaded from `extensions/` directory; Extensions declare actors/schemas via manifest but client-side components not yet implemented
+> - ❌ **Not Yet Implemented**: Client applications, automatic reprocessing on version change (manual trigger only), WebSocket/SSE streaming API, batch worker orchestration, agent scheduler
+>
+> See `server/extensions/README.md` for how to create extensions with dynamic code loading and managed schemas.
+
 ### 1. Core Philosophy & Architectural Principles
 
 The LifeLog system is an **extension-first, modular platform** for personal data aggregation and AI-driven insight. It follows a secure, distributed architecture composed of a central server and one or more clients.

@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+from pathlib import Path
 
 class Settings(BaseSettings):
     # Database Configuration
@@ -12,6 +13,9 @@ class Settings(BaseSettings):
     # Application Configuration
     APP_ENV: str = "development"
     API_V1_STR: str = "/api/v1"
+    
+    # Extension Configuration
+    EXTENSIONS_PATH: str = "./extensions"  # Path to extensions directory
     
     # Authentication Configuration
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
