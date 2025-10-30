@@ -5,6 +5,7 @@ This module implements the service layer to abstract database operations
 and remove hardcoded queries from API endpoints, as specified in the architecture.
 """
 
+import logging
 from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -16,6 +17,8 @@ from .auth import hash_api_key
 from .core.ai import ai_service
 from .constants import ProcessingStatus
 from .manifest import ExtensionManifest
+
+logger = logging.getLogger(__name__)
 
 
 class TimelineService:
@@ -367,11 +370,21 @@ class ExtensionService:
         """
         Create or update an extension from a manifest.json structure.
         
+        Stores the full manifest in extension.config for client synchronization.
+        
         Returns: (extension, is_new_version) where is_new_version=True if an upgrade occurred.
         """
         # Check if extension already exists
         existing_stmt = select(models.Extension).where(models.Extension.slug == manifest.slug)
         existing = (await session.exec(existing_stmt)).one_or_none()
+
+        # Store the full manifest for client sync
+        manifest_dict = manifest.model_dump()
+        full_config = {
+            "server_side": manifest_dict.get("server_side"),
+            "client_side": manifest_dict.get("client_side"),
+            **(manifest.config or {})
+        }
 
         is_upgrade = False
         if existing:
@@ -385,7 +398,7 @@ class ExtensionService:
             # Update extension metadata
             existing.name = manifest.name
             existing.version = manifest.version
-            existing.config = manifest.config or {}
+            existing.config = full_config
             session.add(existing)
             extension = existing
         else:
@@ -395,7 +408,7 @@ class ExtensionService:
                 name=manifest.name,
                 version=manifest.version,
                 is_active=True,
-                config=manifest.config or {}
+                config=full_config
             )
             session.add(extension)
             await session.flush()
@@ -465,6 +478,24 @@ class ExtensionService:
 
         await session.commit()
         await session.refresh(extension)
+        
+        # Apply managed schemas if defined
+        if manifest.server_side and manifest.server_side.managed_schemas:
+            from .core.schema_manager import get_schema_manager
+            schema_manager = get_schema_manager()
+            
+            try:
+                schema_results = await schema_manager.apply_managed_schemas(
+                    session,
+                    manifest.slug,
+                    manifest.server_side.managed_schemas
+                )
+                logger.info(f"Applied managed schemas for '{manifest.slug}': {schema_results}")
+            except Exception as e:
+                logger.error(f"Failed to apply managed schemas for '{manifest.slug}': {e}")
+                # Don't fail the extension installation, just log the error
+                # The extension can still work without custom tables
+        
         return extension, is_upgrade
 
 
@@ -487,31 +518,126 @@ class ProcessingService:
     async def find_raw_logs_for_reprocessing(
         session: AsyncSession,
         actor_slug: str,
-        current_version: str
+        current_version: str,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
     ) -> List[int]:
         """
         Find raw_log IDs that were previously processed by an older version of an actor.
         
+        Args:
+            session: Database session
+            actor_slug: Slug of the actor to reprocess for
+            current_version: Current version of the actor
+            start_date: Optional start date filter (inclusive)
+            end_date: Optional end date filter (inclusive)
+        
         Returns list of raw_log_ids that should be reprocessed.
         """
-        # Find the actor
-        actor_stmt = select(models.Actor).where(models.Actor.slug == actor_slug)
-        actor = (await session.exec(actor_stmt)).one_or_none()
+        # Find the actor (get latest by ID if multiple match)
+        actor_stmt = (
+            select(models.Actor)
+            .where(models.Actor.slug == actor_slug)
+            .order_by(models.Actor.id.desc())  # type: ignore[attr-defined]
+            .limit(1)
+        )
+        result = await session.exec(actor_stmt)
+        actor = result.first()
         if not actor or actor.id is None:
             return []
 
-        # Find processing log entries for this actor where version < current_version
+        # Build base query for processing log entries
         log_stmt = (
             select(models.ActorProcessingLog.raw_log_id)
             .where(models.ActorProcessingLog.actor_id == actor.id)
             .where(models.ActorProcessingLog.actor_version_at_processing != current_version)
             .where(models.ActorProcessingLog.status == ProcessingStatus.SUCCESS)
             .where(models.ActorProcessingLog.raw_log_id.isnot(None))  # type: ignore[attr-defined]
-            .distinct()
         )
+        
+        # Apply date filters if provided
+        if start_date or end_date:
+            # Join with raw_logs to filter by ingestion date
+            from sqlalchemy import and_
+            log_stmt = log_stmt.join(
+                models.RawLog,
+                models.ActorProcessingLog.raw_log_id == models.RawLog.id,  # type: ignore[arg-type]
+                isouter=False
+            )
+            
+            if start_date:
+                log_stmt = log_stmt.where(models.RawLog.ingested_at >= start_date)
+            if end_date:
+                log_stmt = log_stmt.where(models.RawLog.ingested_at <= end_date)
+        
+        log_stmt = log_stmt.distinct()
+        
         result = await session.exec(log_stmt)
         raw_log_ids = [row for row in result.all() if row is not None]
         return raw_log_ids
+    
+    @staticmethod
+    async def estimate_reprocessing_cost(
+        session: AsyncSession,
+        actor_slug: str,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> dict:
+        """
+        Estimate the cost and scope of reprocessing before actually doing it.
+        
+        Returns:
+            {
+                "raw_logs_affected": int,
+                "estimated_ai_calls": int,
+                "estimated_cost_usd": float,
+                "estimated_duration_minutes": int,
+                "current_version": str,
+                "date_range": {"start": str, "end": str} or None
+            }
+        """
+        # Find the actor and get current version (get latest by ID if multiple match)
+        actor_stmt = (
+            select(models.Actor)
+            .where(models.Actor.slug == actor_slug)
+            .order_by(models.Actor.id.desc())  # type: ignore[attr-defined]
+            .limit(1)
+        )
+        result = await session.exec(actor_stmt)
+        actor = result.first()
+        if not actor:
+            raise ValueError(f"Actor '{actor_slug}' not found")
+        
+        current_version = actor.version
+        
+        # Find raw_logs that would be reprocessed
+        raw_log_ids = await ProcessingService.find_raw_logs_for_reprocessing(
+            session, actor_slug, current_version, start_date, end_date
+        )
+        
+        # Get historical AI usage for this actor
+        avg_cost_stmt = (
+            select(func.avg(models.AIUsageLog.cost))
+            .where(models.AIUsageLog.actor_id == actor.id)
+            .where(models.AIUsageLog.cost.isnot(None))  # type: ignore[attr-defined]
+        )
+        result = await session.exec(avg_cost_stmt)
+        avg_cost_per_call = result.one() or 0.01  # Default to 1 cent if no history
+        
+        # Estimate processing time (rough heuristic: 100 items per minute)
+        estimated_duration = max(1, len(raw_log_ids) // 100)
+        
+        return {
+            "raw_logs_affected": len(raw_log_ids),
+            "estimated_ai_calls": len(raw_log_ids),  # Assume 1 AI call per raw_log
+            "estimated_cost_usd": round(len(raw_log_ids) * float(avg_cost_per_call), 2),
+            "estimated_duration_minutes": estimated_duration,
+            "current_version": current_version,
+            "date_range": {
+                "start": start_date.isoformat() if start_date else None,
+                "end": end_date.isoformat() if end_date else None
+            } if (start_date or end_date) else None
+        }
 
 
 class ProcessingRoutingService:

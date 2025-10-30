@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from ..dependencies import get_session
 from .. import schemas
@@ -29,6 +29,17 @@ class ManifestInstallResponse(BaseModel):
     is_upgrade: bool
     actors_registered: int
     event_types_registered: int
+
+
+class InstalledExtensionResponse(BaseModel):
+    """Response for client sync: installed extensions with their manifests."""
+    slug: str
+    name: str
+    version: str
+    is_active: bool
+    client_manifest: Optional[Dict[str, Any]] = None  # The client_side section
+    server_manifest: Optional[Dict[str, Any]] = None  # The server_side section (for debugging)
+
 
 @router.post("/", response_model=schemas.ExtensionRead, status_code=status.HTTP_201_CREATED)
 async def create_extension(
@@ -63,6 +74,55 @@ async def get_extensions(
     """List all registered extensions using service layer."""
     extensions = await ExtensionService.get_extensions_with_actors(session)
     return extensions
+
+
+@router.get("/installed", response_model=List[InstalledExtensionResponse])
+async def get_installed_extensions(
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)
+):
+    """
+    Get all installed extensions with their client-side manifests.
+    
+    This endpoint is used by client applications to synchronize installed extensions
+    and deploy client-side components (collectors, UI components).
+    
+    **Client Sync Workflow**:
+    1. Client polls this endpoint periodically (e.g., every 5 minutes)
+    2. For new/updated extensions, downloads components from server
+    3. Installs collectors as background processes
+    4. Registers UI components for rendering
+    
+    **Response includes**:
+    - Full extension metadata (slug, version, active status)
+    - client_side manifest (collectors, UI components per platform)
+    - server_side manifest (for debugging/transparency)
+    """
+    from sqlmodel import select
+    from .. import models
+    
+    # Get all extensions with their config
+    stmt = select(models.Extension).where(models.Extension.is_active == True)
+    result = await session.exec(stmt)
+    extensions = result.all()
+    
+    response = []
+    for ext in extensions:
+        # Extract client_side and server_side from stored config
+        # (These were saved during manifest installation)
+        config = ext.config or {}
+        
+        response.append(InstalledExtensionResponse(
+            slug=ext.slug,
+            name=ext.name,
+            version=ext.version,
+            is_active=ext.is_active,
+            client_manifest=config.get("client_side"),
+            server_manifest=config.get("server_side")
+        ))
+    
+    return response
+
 
 
 @router.post("/from-manifest", response_model=ManifestInstallResponse, status_code=status.HTTP_201_CREATED)

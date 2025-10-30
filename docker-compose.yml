@@ -48,12 +48,15 @@ services:
       - "8000:8000"
     volumes:
       - ./server/src:/app/src
+      - ./server/extensions:/app/extensions
+      - ./server/migrations:/app/migrations
+      - ./server/alembic.ini:/app/alembic.ini
     env_file:
       - .env.docker
     depends_on:
       - db
       - litellm
-    command: ["uvicorn", "lifelog.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--app-dir", "src"]
+    command: ["uvicorn", "lifelog.main:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "src"]
 
 volumes:
   lifelog_data:

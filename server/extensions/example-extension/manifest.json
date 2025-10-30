@@ -1,0 +1,52 @@
+{
+  "slug": "example-extension",
+  "name": "Example Extension",
+  "version": "1.0.0",
+  "description": "A demonstration extension showing dynamic code loading and managed schemas",
+  "author": "LifeLog Team",
+  "server_side": {
+    "actors": [
+      {
+        "slug": "example-source",
+        "type": "SOURCE",
+        "version": "1.0.0",
+        "description": "Example source actor"
+      },
+      {
+        "slug": "example-processor",
+        "type": "PROCESSOR",
+        "version": "1.0.0",
+        "description": "Processes example data into events"
+      }
+    ],
+    "event_types": [
+      {
+        "slug": "example-activity",
+        "description": "An example activity event"
+      }
+    ],
+    "managed_schemas": {
+      "schema_version": 1,
+      "tables": {
+        "activity_details": {
+          "columns": [
+            {
+              "name": "event_id",
+              "type": "BIGINT",
+              "nullable": false
+            },
+            {
+              "name": "activity_type",
+              "type": "TEXT",
+              "nullable": false
+            },
+            {
+              "name": "metadata",
+              "type": "JSONB"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

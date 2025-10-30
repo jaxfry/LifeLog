@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter
 from contextlib import asynccontextmanager
 import logging
+from pathlib import Path
 
 from .api import (
     ingestion,
@@ -18,6 +19,7 @@ from .api import (
 from .actors import load_all_actors
 from .db import init_db
 from .core.config import settings
+from .core.extension_loader import init_extension_loader
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +49,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         # Avoid blocking startup; schema might already be created via Alembic
         logger.warning("DB init skipped or failed: %s", e)
+    
+    # Load built-in actors (from actors/ directory)
     load_all_actors()
+    
+    # Initialize extension loader and load all dynamic extensions
+    extensions_path = Path(settings.EXTENSIONS_PATH)
+    ext_loader = init_extension_loader(extensions_path)
+    loaded_extensions = ext_loader.load_all_extensions()
+    logger.info(f"Loaded {len(loaded_extensions)} dynamic extensions")
+    
     logger.info("Application startup complete.")
     yield
     logger.info("Shutting down application.")
