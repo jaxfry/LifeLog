@@ -55,6 +55,7 @@ You can now:
 ```bash
 # 1. Copy environment files
 cp .env.docker.example .env.docker
+cp .env.example .env.docker  # Contains database and auth config
 # Edit .env.docker with your database and auth settings
 
 # 2. Start the stack
