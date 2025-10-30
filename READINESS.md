@@ -4,6 +4,22 @@
 
 **Short Answer: No, not yet.** LifeLog is currently in active development with approximately **70% of core server functionality implemented**. The system is ready for **development, testing, and experimentation**, but not recommended for production use or as a daily driver.
 
+## Quick Status Overview
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **Server API** | 🟢 Working | Core endpoints functional |
+| **Data Pipeline** | 🟢 Working | Ingestion → Events → Enrichment |
+| **Extensions** | 🟢 Working | Dynamic loading supported |
+| **AI Integration** | 🟢 Working | Embeddings & synthesis |
+| **Client Apps** | 🔴 Missing | No data collectors yet |
+| **Web UI** | 🔴 Missing | API-only access |
+| **Auto-reprocessing** | 🟡 Partial | Manual trigger only |
+| **Real-time Streaming** | 🔴 Missing | Polling required |
+| **Production Ready** | 🔴 No | Development only |
+
+**Legend**: 🟢 Ready | 🟡 Partial | 🔴 Not Ready
+
 ## Current Status Summary
 
 ### ✅ What's Working (Ready to Use)
@@ -64,6 +80,24 @@
 - ❌ **Performance Optimizations**: Caching, batch processing, query optimization
 
 ## What Can You Do With LifeLog Today?
+
+### 🎯 Quick Decision Guide
+
+**Should I use LifeLog now?**
+
+- ✅ **YES, if you want to:**
+  - Learn about event-driven data architectures
+  - Build custom data processing extensions
+  - Experiment with AI embeddings and synthesis
+  - Contribute to an open-source project
+  - Develop a custom data collection client
+
+- ❌ **NO, if you want to:**
+  - Track your daily life without coding
+  - Use ready-made apps to collect data
+  - Have a polished UI for viewing insights
+  - Deploy a production-ready system
+  - Rely on it for critical data
 
 ### ✅ Recommended Use Cases
 
