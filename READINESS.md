@@ -146,9 +146,11 @@ If you want to start experimenting with LifeLog:
 git clone https://github.com/jaxfry/LifeLog.git
 cd LifeLog
 
-# 2. Set up environment
+# 2. Set up environment files
+# For Docker setup:
 cp .env.docker.example .env.docker
-# Edit .env.docker with your settings
+cp .env.example .env.docker  # Contains database and auth settings
+# Edit .env.docker with your settings (DATABASE_URL, SECRET_KEY, etc.)
 
 # 3. Start the stack
 docker compose up -d --build
