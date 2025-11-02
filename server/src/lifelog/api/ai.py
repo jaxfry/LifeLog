@@ -10,7 +10,9 @@ from ..dependencies import get_session
 from ..auth import require_auth
 from .. import schemas
 from .. import models
-from ..services import AIConfigService
+from ..services import AIConfigService, EmbeddingService
+from sqlmodel import select
+from typing import Optional
 
 router = APIRouter(prefix="/ai", tags=["AI (Internal)"])
 
@@ -135,3 +137,56 @@ async def test_embed(
     dim = len(vectors[0]) if vectors else 0
     preview = [v[:8] for v in vectors]
     return {"count": len(vectors), "dim": dim, "vectors_preview": preview}
+
+
+class BackfillEmbeddingsRequest(schemas.BaseModel):  # type: ignore[attr-defined]
+    limit: Optional[int] = 100
+    since_minutes: Optional[int] = 1440  # default: last 24h
+
+
+@router.post("/backfill-embeddings")
+async def backfill_embeddings(
+    req: BackfillEmbeddingsRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth),
+):
+    """Create embeddings for events that don't have one yet.
+
+    - Scopes to recent events by default (last 24h)
+    - Skips superseded events
+    - Uses each event's processor_actor_id as the embedding actor_id
+    """
+    from datetime import datetime, timezone, timedelta
+    from .. import models
+
+    # Base query: recent, non-superseded events (embedding dedupe handled in service)
+    stmt = select(models.Event).where(models.Event.superseded_by_event_id == None)  # noqa: E711
+    if req.since_minutes and req.since_minutes > 0:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=req.since_minutes)
+        stmt = stmt.where(models.Event.start_time > cutoff)
+
+    # Note: We intentionally do not exclude already-embedded events here.
+    # EmbeddingService.ensure_event_embedding is idempotent and will skip existing.
+    if req.limit and req.limit > 0:
+        stmt = stmt.limit(req.limit)
+
+    result = await session.exec(stmt)
+    events = list(result.all())
+
+    created = 0
+    for ev in events:
+        if ev.id is None or ev.processor_actor_id is None:
+            continue
+        try:
+            emb = await EmbeddingService.ensure_event_embedding(
+                session,
+                event_id=ev.id,
+                actor_id=ev.processor_actor_id,
+            )
+            if emb:
+                created += 1
+        except Exception:
+            # Continue on errors to process as many as possible
+            continue
+
+    return {"processed": len(events), "created": created}

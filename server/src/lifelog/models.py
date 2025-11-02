@@ -90,12 +90,172 @@ class Extension(SQLModel, table=True):
     name: str = Field(nullable=False)
     version: str = Field(nullable=False)
     is_active: bool = Field(default=True, nullable=False)
-    config: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    config_schema: Optional[dict] = Field(
+        default=None, 
+        sa_column=Column(JSON),
+        description="JSON Schema defining the structure of this extension's configuration"
+    )
+    config: Optional[dict] = Field(
+        default=None, 
+        sa_column=Column(JSON),
+        description="Current configuration values for this extension"
+    )
 
     # Relationships
     actors: List["Actor"] = Relationship(back_populates="extension")
     event_types: List["EventType"] = Relationship(back_populates="owner_extension")
     prompt_templates: List["PromptTemplate"] = Relationship(back_populates="owner_extension")
+    health_checks: List["ExtensionHealth"] = Relationship(back_populates="extension")
+    migrations: List["ExtensionMigration"] = Relationship(back_populates="extension")
+    # Note: ExtensionLoadError doesn't have a relationship since it can exist before Extension record
+
+
+class ExtensionHealth(SQLModel, table=True):
+    """
+    Tracks the health status of extensions.
+    Extensions can implement a health_check() hook to report their status.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    extension_id: int = Field(foreign_key="extension.id", nullable=False, index=True)
+    status: str = Field(
+        nullable=False,
+        description="Health status: 'healthy', 'degraded', or 'unhealthy'"
+    )
+    last_check: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="When this health check was performed"
+    )
+    errors: Optional[List[str]] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="List of error messages"
+    )
+    warnings: Optional[List[str]] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="List of warning messages"
+    )
+    details: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Additional health check details"
+    )
+
+    # Relationships
+    extension: Extension = Relationship(back_populates="health_checks")
+
+
+class ExtensionMigration(SQLModel, table=True):
+    """
+    Tracks applied database migrations for extensions.
+    Each migration file applied to an extension is recorded here.
+    """
+    __table_args__ = (
+        UniqueConstraint("extension_id", "migration_name", name="uq_extension_migration"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    extension_id: int = Field(foreign_key="extension.id", nullable=False, index=True)
+    migration_name: str = Field(
+        nullable=False,
+        description="Name of the migration file (e.g., '001_initial_schema.sql')"
+    )
+    applied_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="When this migration was applied"
+    )
+    from_version: Optional[str] = Field(
+        default=None,
+        description="Extension version before migration"
+    )
+    to_version: str = Field(
+        nullable=False,
+        description="Extension version after migration"
+    )
+    checksum: Optional[str] = Field(
+        default=None,
+        description="SHA256 checksum of migration file for integrity verification"
+    )
+
+    # Relationships
+    extension: Extension = Relationship(back_populates="migrations")
+
+
+class ExtensionLifecycleLog(SQLModel, table=True):
+    """
+    Tracks lifecycle hook executions for extensions.
+    Provides audit trail and debugging information for lifecycle events.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    extension_id: int = Field(foreign_key="extension.id", nullable=False, index=True)
+    hook_name: str = Field(
+        nullable=False,
+        description="Lifecycle hook name: 'on_install', 'on_activate', 'on_upgrade', 'on_deactivate', 'on_uninstall'"
+    )
+    executed_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="When this hook was executed"
+    )
+    success: bool = Field(
+        nullable=False,
+        description="Whether the hook completed successfully"
+    )
+    error_message: Optional[str] = Field(
+        default=None,
+        description="Error message if hook failed"
+    )
+    context: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Additional context (e.g., old_version/new_version for upgrades)"
+    )
+    execution_time_ms: Optional[int] = Field(
+        default=None,
+        description="Hook execution time in milliseconds"
+    )
+
+
+class ExtensionLoadError(SQLModel, table=True):
+    """
+    Tracks extension loading failures for debugging and monitoring.
+    Records errors that occur during extension discovery, loading, or activation.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    extension_slug: str = Field(
+        nullable=False,
+        index=True,
+        description="Extension slug (may not exist in Extension table if load failed early)"
+    )
+    error_type: str = Field(
+        nullable=False,
+        description="Type of error: 'discovery', 'manifest', 'dependency', 'import', 'activation'"
+    )
+    error_message: str = Field(
+        nullable=False,
+        description="Detailed error message"
+    )
+    stack_trace: Optional[str] = Field(
+        default=None,
+        description="Full stack trace if available"
+    )
+    occurred_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="When this error occurred"
+    )
+    resolved: bool = Field(
+        default=False,
+        nullable=False,
+        description="Whether this error has been resolved (extension loaded successfully)"
+    )
+    error_context: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Additional context about the error"
+    )
 
 
 class ActorRouting(SQLModel, table=True):

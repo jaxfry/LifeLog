@@ -15,11 +15,12 @@ from .api import (
     search,
     synthesis,
     ai as ai_api,
+    device as device_api,
 )
 from .actors import load_all_actors
 from .db import init_db
 from .core.config import settings
-from .core.extension_loader import init_extension_loader
+from .core.extension_loader import init_extension_loader, get_extension_loader
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +57,19 @@ async def lifespan(app: FastAPI):
     # Initialize extension loader and load all dynamic extensions
     extensions_path = Path(settings.EXTENSIONS_PATH)
     ext_loader = init_extension_loader(extensions_path)
-    loaded_extensions = ext_loader.load_all_extensions()
-    logger.info(f"Loaded {len(loaded_extensions)} dynamic extensions")
+    loaded_extensions = await ext_loader.load_all_extensions()
+    logger.info(f"Loaded {len(loaded_extensions)} dynamic extensions with auto-registration")
     
     logger.info("Application startup complete.")
     yield
     logger.info("Shutting down application.")
+    
+    # Clean up temporary extension files
+    try:
+        ext_loader = get_extension_loader()
+        ext_loader.cleanup()
+    except Exception as e:
+        logger.error(f"Failed to clean up extension loader: {e}")
 
 app = FastAPI(
     title="LifeLog API",
@@ -77,6 +85,7 @@ api_v1_router = APIRouter(prefix=settings.API_V1_STR)
 api_v1_router.include_router(auth.router, tags=["Authentication"])
 api_v1_router.include_router(timeline.router, tags=["Timeline"])
 api_v1_router.include_router(search.router, tags=["Search"]) 
+api_v1_router.include_router(device_api.router)
 
 # Include the v1 router in the main app
 app.include_router(api_v1_router)

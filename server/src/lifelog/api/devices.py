@@ -17,7 +17,7 @@ from ..auth import require_auth
 router = APIRouter(prefix="/devices")
 
 
-@router.post("/", response_model=schemas.DeviceWithKey, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=schemas.DeviceCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_device(
     device_data: schemas.DeviceCreate,
     session: AsyncSession = Depends(get_session),
@@ -38,7 +38,7 @@ async def create_device(
         )
         
         device_read = schemas.DeviceRead.model_validate(device)
-        return schemas.DeviceWithKey(**device_read.model_dump(), api_key=api_key)
+        return schemas.DeviceCreateResponse(**device_read.model_dump(), api_key=api_key)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

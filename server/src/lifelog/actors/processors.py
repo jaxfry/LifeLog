@@ -36,10 +36,18 @@ class TestProcessor(ActorBase):
                 return
 
             # Look up the actor metadata (self) and event type
+            # Note: Multiple actors can have the same slug (different versions/extensions)
+            # We need to find the most recent active one or pick the first
             stmt_actor = select(models.Actor).where(models.Actor.slug == "test-processor")
-            actor = (await session.exec(stmt_actor)).one_or_none()
-            if not actor or actor.id is None:
+            result_actor = await session.exec(stmt_actor)
+            actors = result_actor.all()
+            if not actors:
                 logger.error("Could not find self in database. Aborting.")
+                return
+            # Use the first actor found (could be enhanced to pick by version/extension)
+            actor = actors[0]
+            if actor.id is None:
+                logger.error("Actor ID is None. Aborting.")
                 return
             actor_id = actor.id
             actor_version = actor.version
@@ -48,7 +56,9 @@ class TestProcessor(ActorBase):
             stmt_event_type = select(models.EventType).where(
                 models.EventType.slug == event_type_slug
             )
-            event_type = (await session.exec(stmt_event_type)).one_or_none()
+            result_et = await session.exec(stmt_event_type)
+            event_types = result_et.all()
+            event_type = event_types[0] if event_types else None
 
             if not event_type:
                 logger.error("EventType '%s' not found. Cannot process.", event_type_slug)

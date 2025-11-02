@@ -1,6 +1,28 @@
+````markdown
 # LifeLog Extensions Directory
 
-This directory contains dynamically-loaded extension packages. Extensions are discovered and loaded at server startup.
+This directory contains **development extensions** - Python packages that are directly loaded at server startup.
+
+## Extensions vs Extensions Store
+
+**Two extension directories exist for different purposes:**
+
+- **`extensions/`** (this directory): Development/local extensions
+  - Directly imported Python packages
+  - Hot-reloaded on server restart
+  - No signature verification required
+  - Use for development and trusted first-party extensions
+
+- **`extensions_store/`**: Production/uploaded extensions
+  - Versioned packages uploaded via API
+  - Signature-verified in production (Ed25519)
+  - Stored as `<slug>-<version>/` subdirectories
+  - Use for third-party or distributed extensions
+
+**When to use which:**
+- Local development → Use `extensions/`
+- Production deployment → Upload to `extensions_store/` via API
+- System owner's trusted extensions → Either location works
 
 ## Extension Structure
 
@@ -140,6 +162,35 @@ Extensions are automatically loaded at server startup. The server:
 3. Imports the `__init__.py` module
 4. Registers actors via the `@actor_registry.register` decorators
 5. Creates managed schema tables if defined
+
+## Installing Extensions (recommended flows)
+
+There are two supported installation flows, depending on your environment:
+
+1) Local development (fastest)
+- Drop your extension folder under `server/extensions/<your-slug>/`.
+- Restart the server to let the loader discover and import it.
+- Register the manifest in the DB using the internal API (stores actors/event types and client-side metadata):
+  - POST `/internal/extensions/from-manifest` with the extension `manifest.json`.
+
+2) Production (signed package upload)
+- Package your extension as a zip archive containing at least `manifest.json` and `__init__.py` at the archive root.
+- Sign the archive with an Ed25519 private key whose public key is present in `trusted_keys/*.pub` on the server.
+- Upload via internal API:
+  - POST `/internal/extensions/upload` with form fields:
+    - `package` = the zip file
+    - `signature` = detached signature bytes (Ed25519)
+    - `approve` (optional, default true) to activate immediately, or set false to require a follow-up approval.
+    - `update_if_exists` (optional, default true) to upgrade the extension if it already exists.
+- The server verifies the signature, stores the extracted version under `EXTENSIONS_STORE_PATH` (versioned as `<slug>-<version>/`),
+  and registers/updates the manifest in the database. You can later:
+  - Approve/disable: POST `/internal/extensions/{slug}/approve`.
+  - Roll back: POST `/internal/extensions/{slug}/rollback?version=<previous-version>` (requires that version to exist in the store).
+
+Notes
+- In production (`APP_ENV=production`), signatures are required for uploads.
+- The store path and key directory are configurable (`EXTENSIONS_STORE_PATH`, `TRUSTED_PUBLIC_KEYS_DIR`). See `core/config.py`.
+- Uploaded extensions run with `config.execution_mode = "external"` and `config.store_path` pointing to the extracted assets directory.
 
 ## Development Workflow
 

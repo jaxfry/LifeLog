@@ -496,7 +496,386 @@ class ExtensionService:
                 # Don't fail the extension installation, just log the error
                 # The extension can still work without custom tables
         
+        # Apply migrations and call lifecycle hooks if extension has been loaded
+        try:
+            from .core.extension_loader import get_extension_loader
+            from .core.migration_manager import get_migration_manager
+            
+            loader = get_extension_loader()
+            ext_pkg = loader.get_extension(manifest.slug)
+            
+            if ext_pkg:
+                if is_upgrade:
+                    # Apply any pending migrations during upgrade
+                    migration_manager = get_migration_manager()
+                    old_version = existing.version if existing else "0.0.0"  # type: ignore[union-attr]
+                    
+                    try:
+                        applied_migrations = await migration_manager.apply_pending_migrations(
+                            session,
+                            extension.id,  # type: ignore[arg-type]
+                            manifest.version,
+                            ext_pkg.path,
+                            from_version=old_version
+                        )
+                        
+                        if applied_migrations:
+                            logger.info(
+                                f"✓ Applied {len(applied_migrations)} migration(s) for '{manifest.slug}' "
+                                f"upgrade ({old_version} → {manifest.version})"
+                            )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to apply migrations for '{manifest.slug}': {e}",
+                            exc_info=True
+                        )
+                        # Don't fail the extension installation
+                    
+                    # Call on_upgrade lifecycle hook
+                    try:
+                        await ext_pkg.lifecycle.on_upgrade(
+                            session=session,
+                            old_version=old_version,
+                            new_version=manifest.version
+                        )
+                        logger.info(
+                            f"✓ Called on_upgrade hook for '{manifest.slug}' "
+                            f"({old_version} → {manifest.version})"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"on_upgrade hook failed for '{manifest.slug}': {e}",
+                            exc_info=True
+                        )
+                        # Don't fail the upgrade if hook fails
+                else:
+                    # New installation - call on_install lifecycle hook
+                    try:
+                        await ext_pkg.lifecycle.on_install(session=session)
+                        logger.info(f"✓ Called on_install hook for '{manifest.slug}'")
+                    except Exception as e:
+                        logger.warning(
+                            f"on_install hook failed for '{manifest.slug}': {e}",
+                            exc_info=True
+                        )
+                        # Don't fail the installation if hook fails
+                
+        except RuntimeError:
+            # Extension loader not initialized yet (during startup)
+            logger.debug(f"Extension loader not available, skipping lifecycle hooks for '{manifest.slug}'")
+        
         return extension, is_upgrade
+    
+    @staticmethod
+    async def get_extension(
+        session: AsyncSession,
+        slug: str
+    ) -> Optional[models.Extension]:
+        """
+        Get an extension by slug.
+        
+        Args:
+            session: Database session
+            slug: Extension slug
+            
+        Returns:
+            Extension or None if not found
+        """
+        stmt = select(models.Extension).where(models.Extension.slug == slug)
+        result = await session.exec(stmt)
+        return result.one_or_none()
+    
+    @staticmethod
+    async def toggle_extension_status(
+        session: AsyncSession,
+        slug: str,
+        is_active: bool
+    ) -> models.Extension:
+        """
+        Enable or disable an extension.
+        
+        Args:
+            session: Database session
+            slug: Extension slug
+            is_active: True to enable, False to disable
+            
+        Returns:
+            Updated Extension
+            
+        Raises:
+            ValueError: If extension not found
+        """
+        extension = await ExtensionService.get_extension(session, slug)
+        if not extension:
+            raise ValueError(f"Extension '{slug}' not found")
+        
+        extension.is_active = is_active
+        session.add(extension)
+        await session.commit()
+        await session.refresh(extension)
+        
+        return extension
+    
+    @staticmethod
+    async def uninstall_extension(
+        session: AsyncSession,
+        slug: str,
+        delete_data: bool = False
+    ) -> bool:
+        """
+        Uninstall an extension from the database.
+        
+        This method:
+        1. Calls the on_uninstall lifecycle hook (if extension is loaded)
+        2. Optionally deletes extension-related data
+        3. Removes the extension record from the database
+        
+        Args:
+            session: Database session
+            slug: Extension slug to uninstall
+            delete_data: If True, also delete extension-created data (events, metadata, etc.)
+                        If False, orphan the data (keeps data but removes extension)
+            
+        Returns:
+            True if uninstalled, False if not found
+            
+        Raises:
+            ValueError: If extension has dependencies (other extensions depend on it)
+        """
+        # Get extension
+        extension = await ExtensionService.get_extension(session, slug)
+        if not extension:
+            return False
+        
+        # Check for dependencies (other extensions that depend on this one)
+        # Note: This requires a dependency tracking system to be fully implemented
+        # For now, we'll just warn in logs
+        logger.warning(
+            f"Uninstalling extension '{slug}'. "
+            "Dependency checking not fully implemented - "
+            "other extensions may break if they depend on this one."
+        )
+        
+        # Call on_uninstall lifecycle hook if extension is loaded
+        try:
+            from .core.extension_loader import get_extension_loader
+            loader = get_extension_loader()
+            ext_pkg = loader.get_extension(slug)
+            
+            if ext_pkg:
+                try:
+                    await ext_pkg.lifecycle.on_uninstall(session=session)
+                    logger.info(f"✓ Called on_uninstall hook for '{slug}'")
+                except Exception as e:
+                    logger.warning(
+                        f"on_uninstall hook failed for '{slug}': {e}",
+                        exc_info=True
+                    )
+                    # Continue with uninstall even if hook fails
+                
+                # Unload from memory
+                await loader.unload_extension(slug, session=session)
+                logger.info(f"✓ Unloaded extension '{slug}' from memory")
+        except RuntimeError:
+            logger.debug("Extension loader not initialized")
+        
+        # Delete extension-related data if requested
+        if delete_data:
+            logger.info(f"Deleting data created by extension '{slug}'...")
+            
+            # Delete actors (cascade will handle ActorRouting)
+            stmt = select(models.Actor).where(models.Actor.extension_id == extension.id)
+            result = await session.exec(stmt)
+            actors = list(result.all())
+            actor_ids = [a.id for a in actors if a.id is not None]
+
+            # Remove ActorRouting entries that reference these actors
+            if actor_ids:
+                from sqlalchemy import or_
+                route_stmt = select(models.ActorRouting).where(
+                    or_(
+                        models.ActorRouting.source_actor_id.in_(actor_ids),  # type: ignore[attr-defined]
+                        models.ActorRouting.processor_actor_id.in_(actor_ids)  # type: ignore[attr-defined]
+                    )
+                )
+                routes = list((await session.exec(route_stmt)).all())
+                for r in routes:
+                    await session.delete(r)
+                logger.debug(f"  Deleted {len(routes)} actor routing entries")
+
+            for actor in actors:
+                await session.delete(actor)
+                logger.debug(f"  Deleted actor: {actor.slug}")
+            
+            # Delete event types
+            stmt = select(models.EventType).where(models.EventType.owner_extension_id == extension.id)
+            result = await session.exec(stmt)
+            event_types = list(result.all())
+            for et in event_types:
+                await session.delete(et)
+                logger.debug(f"  Deleted event type: {et.slug}")
+            
+            # Delete prompt templates
+            stmt = select(models.PromptTemplate).where(models.PromptTemplate.owner_extension_id == extension.id)
+            result = await session.exec(stmt)
+            templates = list(result.all())
+            for template in templates:
+                await session.delete(template)
+                logger.debug(f"  Deleted prompt template: {template.slug}")
+            
+            # Note: We don't delete Events, RawLogs, etc. as they may be referenced
+            # by multiple extensions. Instead, they'll just have orphaned references.
+            logger.info(f"✓ Deleted {len(actors)} actors, {len(event_types)} event types, {len(templates)} templates")
+        
+        # Delete extension health checks
+        stmt = select(models.ExtensionHealth).where(models.ExtensionHealth.extension_id == extension.id)
+        result = await session.exec(stmt)
+        health_records = list(result.all())
+        for health in health_records:
+            await session.delete(health)
+        
+        # Delete extension migrations
+        stmt = select(models.ExtensionMigration).where(models.ExtensionMigration.extension_id == extension.id)
+        result = await session.exec(stmt)
+        migrations = list(result.all())
+        for migration in migrations:
+            await session.delete(migration)
+        
+        # Delete extension lifecycle logs
+        stmt = select(models.ExtensionLifecycleLog).where(models.ExtensionLifecycleLog.extension_id == extension.id)
+        result = await session.exec(stmt)
+        lifecycle_logs = list(result.all())
+        for log in lifecycle_logs:
+            await session.delete(log)
+        
+        # Finally, delete the extension itself
+        await session.delete(extension)
+        await session.commit()
+        
+        logger.info(f"✓ Uninstalled extension '{slug}' from database")
+        return True
+    
+    @staticmethod
+    async def get_extension_config(
+        session: AsyncSession,
+        slug: str,
+        mask_secrets: bool = True
+    ) -> Optional[dict]:
+        """
+        Get extension configuration.
+        
+        Args:
+            session: Database session
+            slug: Extension slug
+            mask_secrets: Whether to mask secret fields
+            
+        Returns:
+            Configuration dict or None if extension not found
+        """
+        extension = await ExtensionService.get_extension(session, slug)
+        if not extension:
+            return None
+        
+        config = extension.config or {}
+        
+        if mask_secrets and extension.config_schema:
+            # Mask fields marked as secrets in the schema
+            config = config.copy()  # Don't modify original
+            schema = extension.config_schema
+            
+            if "properties" in schema:
+                for prop_name, prop_schema in schema["properties"].items():
+                    if prop_schema.get("format") == "password" or prop_schema.get("secret"):
+                        if prop_name in config:
+                            config[prop_name] = "***MASKED***"
+        
+        return config
+    
+    @staticmethod
+    async def update_extension_config(
+        session: AsyncSession,
+        slug: str,
+        config_update: dict,
+        validate: bool = True
+    ) -> models.Extension:
+        """
+        Update extension configuration.
+        
+        Args:
+            session: Database session
+            slug: Extension slug
+            config_update: Configuration fields to update
+            validate: Whether to validate against config_schema
+            
+        Returns:
+            Updated Extension
+            
+        Raises:
+            ValueError: If extension not found or validation fails
+        """
+        extension = await ExtensionService.get_extension(session, slug)
+        if not extension:
+            raise ValueError(f"Extension '{slug}' not found")
+        
+        # Merge with existing config
+        current_config = extension.config or {}
+        new_config = {**current_config, **config_update}
+        
+        # Validate against schema if requested
+        if validate and extension.config_schema:
+            # Use ConfigurationManager to validate against JSON Schema if available
+            try:
+                from .core.config_schema import create_config_manager
+                mgr = create_config_manager(extension.config_schema)
+                is_valid, error = mgr.validate_config(new_config)
+                if not is_valid:
+                    raise ValueError(f"Configuration validation failed: {error}")
+            except Exception as e:
+                # Fall back to accepting config if validation tooling isn't available
+                logger.warning(f"Config validation skipped due to error: {e}")
+        
+        extension.config = new_config
+        session.add(extension)
+        await session.commit()
+        await session.refresh(extension)
+        
+        return extension
+    
+    @staticmethod
+    async def reset_extension_config(
+        session: AsyncSession,
+        slug: str
+    ) -> models.Extension:
+        """
+        Reset extension configuration to defaults from schema.
+        
+        Args:
+            session: Database session
+            slug: Extension slug
+            
+        Returns:
+            Updated Extension
+            
+        Raises:
+            ValueError: If extension not found
+        """
+        extension = await ExtensionService.get_extension(session, slug)
+        if not extension:
+            raise ValueError(f"Extension '{slug}' not found")
+        
+        # Extract defaults from schema
+        defaults = {}
+        if extension.config_schema and "properties" in extension.config_schema:
+            for prop_name, prop_schema in extension.config_schema["properties"].items():
+                if "default" in prop_schema:
+                    defaults[prop_name] = prop_schema["default"]
+        
+        extension.config = defaults
+        session.add(extension)
+        await session.commit()
+        await session.refresh(extension)
+        
+        return extension
 
 
 class ProcessingService:
@@ -655,9 +1034,13 @@ class ProcessingRoutingService:
          2) settings.PROCESSING_ROUTING_MAP
         """
         # Try DB mapping first
+        # Note: Multiple actors can have the same slug (different versions/extensions)
+        # So we need to check all actors with this slug for routing
         stmt_source = select(models.Actor).where(models.Actor.slug == source_actor_slug)
-        src = (await session.exec(stmt_source)).one_or_none()
-        if src:
+        result = await session.exec(stmt_source)
+        sources = result.all()
+        
+        for src in sources:
             stmt_map = select(models.ActorRouting).where(models.ActorRouting.source_actor_id == src.id)
             route = (await session.exec(stmt_map)).one_or_none()
             if route:
@@ -667,6 +1050,127 @@ class ProcessingRoutingService:
         # Fallback to config map
         from .core.config import settings  # type: ignore
         return settings.PROCESSING_ROUTING_MAP.get(source_actor_slug)
+
+    @staticmethod
+    async def get_all_routings(session: AsyncSession) -> List[dict]:
+        """
+        Get all actor routing mappings from both database and config.
+        
+        Returns list of dicts with:
+        - source_actor_slug: str
+        - processor_actor_slug: str
+        - source: "database" | "config"
+        - route_id: Optional[int] (only for DB routes)
+        """
+        routings = []
+        
+        # Get DB-based routings
+        stmt = select(models.ActorRouting)
+        result = await session.exec(stmt)
+        db_routes = result.all()
+        
+        # Track which sources are in DB to avoid duplicates from config
+        db_source_slugs = set()
+        
+        for route in db_routes:
+            source_actor = await session.get(models.Actor, route.source_actor_id)
+            processor_actor = await session.get(models.Actor, route.processor_actor_id)
+            
+            if source_actor and processor_actor:
+                db_source_slugs.add(source_actor.slug)
+                routings.append({
+                    "source_actor_slug": source_actor.slug,
+                    "processor_actor_slug": processor_actor.slug,
+                    "source": "database",
+                    "route_id": route.id
+                })
+        
+        # Get config-based routings (only those not in DB)
+        from .core.config import settings  # type: ignore
+        for source_slug, processor_slug in settings.PROCESSING_ROUTING_MAP.items():
+            if source_slug not in db_source_slugs:
+                routings.append({
+                    "source_actor_slug": source_slug,
+                    "processor_actor_slug": processor_slug,
+                    "source": "config",
+                    "route_id": None
+                })
+        
+        return routings
+
+    @staticmethod
+    async def create_routing(
+        session: AsyncSession,
+        source_actor_slug: str,
+        processor_actor_slug: str
+    ) -> models.ActorRouting:
+        """
+        Create a new actor routing in the database.
+        
+        Args:
+            session: Database session
+            source_actor_slug: Source actor slug
+            processor_actor_slug: Processor actor slug
+            
+        Returns:
+            Created ActorRouting record
+            
+        Raises:
+            ValueError: If actors don't exist or routing already exists
+        """
+        # Find source actor
+        stmt_src = select(models.Actor).where(models.Actor.slug == source_actor_slug)
+        source_actor = (await session.exec(stmt_src)).one_or_none()
+        if not source_actor:
+            raise ValueError(f"Source actor '{source_actor_slug}' not found")
+        
+        # Find processor actor
+        stmt_proc = select(models.Actor).where(models.Actor.slug == processor_actor_slug)
+        processor_actor = (await session.exec(stmt_proc)).one_or_none()
+        if not processor_actor:
+            raise ValueError(f"Processor actor '{processor_actor_slug}' not found")
+        
+        # Check if routing already exists
+        existing_stmt = select(models.ActorRouting).where(
+            models.ActorRouting.source_actor_id == source_actor.id
+        )
+        existing = (await session.exec(existing_stmt)).one_or_none()
+        if existing:
+            raise ValueError(
+                f"Routing already exists for source '{source_actor_slug}' "
+                f"(currently maps to processor ID {existing.processor_actor_id})"
+            )
+        
+        # Create routing
+        routing = models.ActorRouting(
+            source_actor_id=source_actor.id,  # type: ignore
+            processor_actor_id=processor_actor.id  # type: ignore
+        )
+        session.add(routing)
+        await session.commit()
+        await session.refresh(routing)
+        
+        return routing
+
+    @staticmethod
+    async def delete_routing(session: AsyncSession, route_id: int) -> bool:
+        """
+        Delete an actor routing by ID.
+        
+        Args:
+            session: Database session
+            route_id: ActorRouting ID to delete
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        routing = await session.get(models.ActorRouting, route_id)
+        if not routing:
+            return False
+        
+        await session.delete(routing)
+        await session.commit()
+        return True
 
 
 class DeviceService:
@@ -1003,3 +1507,252 @@ class AIConfigService:
         await session.commit()
         await session.refresh(provider)
         return provider
+
+
+class ExtensionHealthService:
+    """Service for extension health check operations."""
+    
+    @staticmethod
+    async def run_health_check(
+        session: AsyncSession,
+        extension_slug: str
+    ) -> models.ExtensionHealth:
+        """
+        Run health check for an extension and store the result.
+        
+        Args:
+            session: Database session
+            extension_slug: Extension slug to check
+            
+        Returns:
+            ExtensionHealth record
+            
+        Raises:
+            ValueError: If extension not found or not loaded
+        """
+        # Get extension from database
+        stmt = select(models.Extension).where(models.Extension.slug == extension_slug)
+        result = await session.exec(stmt)
+        extension = result.one_or_none()
+        
+        if not extension:
+            raise ValueError(f"Extension '{extension_slug}' not found")
+        
+        # Get extension package from loader
+        from .core.extension_loader import get_extension_loader
+        try:
+            loader = get_extension_loader()
+            ext_pkg = loader.get_extension(extension_slug)
+            
+            if not ext_pkg:
+                # Extension exists in DB but not loaded
+                health_result = {
+                    "status": "unhealthy",
+                    "errors": ["Extension is not loaded"],
+                    "warnings": [],
+                    "details": {}
+                }
+            else:
+                # Run the health check hook
+                health_result = await ext_pkg.lifecycle.health_check(session)
+        except RuntimeError:
+            # Extension loader not initialized (shouldn't happen in normal operation)
+            health_result = {
+                "status": "unhealthy",
+                "errors": ["Extension loader not initialized"],
+                "warnings": [],
+                "details": {}
+            }
+        
+        # Store health check result
+        from datetime import timezone
+        health_record = models.ExtensionHealth(
+            extension_id=extension.id,  # type: ignore[arg-type]
+            status=health_result["status"],
+            last_check=datetime.now(timezone.utc),
+            errors=health_result.get("errors"),
+            warnings=health_result.get("warnings"),
+            details=health_result.get("details")
+        )
+        
+        session.add(health_record)
+        await session.commit()
+        await session.refresh(health_record)
+        
+        return health_record
+    
+    @staticmethod
+    async def run_all_health_checks(
+        session: AsyncSession
+    ) -> List[models.ExtensionHealth]:
+        """
+        Run health checks for all active extensions.
+        
+        Args:
+            session: Database session
+            
+        Returns:
+            List of ExtensionHealth records
+        """
+        # Get all active extensions
+        stmt = select(models.Extension).where(models.Extension.is_active == True)
+        result = await session.exec(stmt)
+        extensions = list(result.all())
+        
+        health_records = []
+        for extension in extensions:
+            try:
+                health_record = await ExtensionHealthService.run_health_check(
+                    session,
+                    extension.slug
+                )
+                health_records.append(health_record)
+            except Exception as e:
+                logger.error(f"Failed to run health check for '{extension.slug}': {e}")
+                # Create unhealthy record
+                from datetime import timezone
+                health_record = models.ExtensionHealth(
+                    extension_id=extension.id,  # type: ignore[arg-type]
+                    status="unhealthy",
+                    last_check=datetime.now(timezone.utc),
+                    errors=[f"Health check failed: {str(e)}"],
+                    warnings=[],
+                    details={"exception_type": type(e).__name__}
+                )
+                session.add(health_record)
+                await session.commit()
+                await session.refresh(health_record)
+                health_records.append(health_record)
+        
+        return health_records
+    
+    @staticmethod
+    async def get_latest_health_check(
+        session: AsyncSession,
+        extension_slug: str
+    ) -> Optional[models.ExtensionHealth]:
+        """
+        Get the most recent health check for an extension.
+        
+        Args:
+            session: Database session
+            extension_slug: Extension slug
+            
+        Returns:
+            Latest ExtensionHealth record or None
+        """
+        stmt = (
+            select(models.ExtensionHealth)
+            .join(models.Extension)
+            .where(models.Extension.slug == extension_slug)
+            .order_by(models.ExtensionHealth.last_check.desc())  # type: ignore[attr-defined]
+            .limit(1)
+        )
+        result = await session.exec(stmt)
+        return result.first()
+    
+    @staticmethod
+    async def get_all_latest_health_checks(
+        session: AsyncSession
+    ) -> List[Tuple[models.Extension, Optional[models.ExtensionHealth]]]:
+        """
+        Get the latest health check for each extension.
+        
+        Returns:
+            List of (Extension, ExtensionHealth) tuples
+        """
+        # Get all extensions
+        stmt = select(models.Extension)
+        result = await session.exec(stmt)
+        extensions = list(result.all())
+        
+        health_data = []
+        for extension in extensions:
+            health = await ExtensionHealthService.get_latest_health_check(
+                session,
+                extension.slug
+            )
+            health_data.append((extension, health))
+        
+        return health_data
+
+
+class ExtensionErrorService:
+    """Service for tracking and retrieving extension load errors."""
+
+    @staticmethod
+    async def log_error(
+        session: AsyncSession,
+        *,
+        extension_slug: str,
+        error_type: str,
+        error_message: str,
+        stack_trace: Optional[str] = None,
+        error_context: Optional[dict] = None,
+        resolved: bool = False,
+    ) -> models.ExtensionLoadError:
+        """
+        Create a new ExtensionLoadError record.
+
+        Args:
+            session: DB session
+            extension_slug: Slug of the extension (may not exist in DB yet)
+            error_type: 'discovery' | 'manifest' | 'dependency' | 'import' | 'activation'
+            error_message: Human-readable error message
+            stack_trace: Optional stack trace
+            error_context: Additional metadata for debugging
+            resolved: Whether this error is already resolved
+
+        Returns:
+            The created ExtensionLoadError record
+        """
+        record = models.ExtensionLoadError(
+            extension_slug=extension_slug,
+            error_type=error_type,
+            error_message=error_message,
+            stack_trace=stack_trace,
+            error_context=error_context,
+            resolved=resolved,
+        )
+        session.add(record)
+        await session.commit()
+        await session.refresh(record)
+        return record
+
+    @staticmethod
+    async def resolve_errors_for_extension(
+        session: AsyncSession,
+        extension_slug: str
+    ) -> int:
+        """
+        Mark all errors for an extension as resolved.
+
+        Returns number of records updated.
+        """
+        from sqlalchemy import update
+        stmt = (  # type: ignore[arg-type]
+            update(models.ExtensionLoadError)  # type: ignore[arg-type]
+            .where(models.ExtensionLoadError.extension_slug == extension_slug)  # type: ignore[arg-type]
+            .where(models.ExtensionLoadError.resolved.is_(False))  # type: ignore[attr-defined]
+            .values(resolved=True)
+        )
+        result = await session.exec(stmt)
+        await session.commit()
+        return int(result.rowcount or 0)
+
+    @staticmethod
+    async def get_errors(
+        session: AsyncSession,
+        extension_slug: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[models.ExtensionLoadError]:
+        """
+        Get recent extension load errors, optionally filtered by slug.
+        """
+        stmt = select(models.ExtensionLoadError).order_by(models.ExtensionLoadError.occurred_at.desc())  # type: ignore[attr-defined]
+        if extension_slug:
+            stmt = stmt.where(models.ExtensionLoadError.extension_slug == extension_slug)  # type: ignore[arg-type]
+        stmt = stmt.offset(offset).limit(limit)
+        result = await session.exec(stmt)
+        return list(result.all())

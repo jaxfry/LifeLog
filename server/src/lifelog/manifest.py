@@ -81,6 +81,9 @@ class CollectorManifest(BaseModel):
     """A data collector definition."""
     slug: str
     entrypoint: str
+    # Optional JSON schema-like descriptor for configuring this collector on clients
+    # Example: {"type": "object", "properties": {"api_key": {"type": "string"}}, "required": ["api_key"]}
+    settings_schema: Optional[dict] = None
 
 
 class PlatformManifest(BaseModel):
@@ -92,6 +95,24 @@ class PlatformManifest(BaseModel):
 class ClientSideManifest(BaseModel):
     """Client-side components of an extension."""
     platforms: Dict[str, PlatformManifest] = Field(default_factory=dict)
+
+
+# ===== Extension Dependencies =====
+
+class DependencyRequirements(BaseModel):
+    """Dependency requirements for an extension."""
+    core: Optional[str] = Field(
+        None,
+        description="Required core version (semver range, e.g., '>=0.2.0', '^1.0.0')"
+    )
+    extensions: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Required extensions with version ranges (slug: version)"
+    )
+    python_packages: List[str] = Field(
+        default_factory=list,
+        description="Required Python packages (e.g., ['requests>=2.28.0'])"
+    )
 
 
 # ===== Root Manifest =====
@@ -107,9 +128,17 @@ class ExtensionManifest(BaseModel):
     version: str
     description: Optional[str] = None
     author: Optional[str] = None
+    dependencies: Optional[DependencyRequirements] = None
     server_side: Optional[ServerSideManifest] = None
     client_side: Optional[ClientSideManifest] = None
-    config: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    config_schema: Optional[Dict[str, Any]] = Field(
+        None,
+        description="JSON Schema for extension configuration (optional)"
+    )
+    config: Optional[Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Default configuration values"
+    )
 
     class Config:
         json_schema_extra = {

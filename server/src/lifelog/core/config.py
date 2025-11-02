@@ -15,7 +15,11 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Extension Configuration
-    EXTENSIONS_PATH: str = "./extensions"  # Path to extensions directory
+    EXTENSIONS_PATH: str = "./extensions"  # Path to development extensions (mounted)
+    EXTENSIONS_STORE_PATH: str = "./extensions_store"  # Path where uploaded, verified extensions are stored (versioned)
+    TRUSTED_PUBLIC_KEYS_DIR: str = "./trusted_keys"  # Directory containing trusted Ed25519 public keys (one .pub per signer)
+    EXT_ACTOR_MAX_CPU_SECONDS: int = 10  # Soft CPU time limit for isolated actors
+    EXT_ACTOR_MAX_MEMORY_MB: int = 512  # Address space limit for isolated actors
     
     # Authentication Configuration
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -31,11 +35,12 @@ class Settings(BaseSettings):
     # Processing routing configuration (temporary until dynamic routing is implemented)
     PROCESSING_ROUTING_MAP: dict[str, str] = {
         "test-source": "test-processor",
+        "activitywatch-source": "aw-processor",
     }
 
-    # Embedding defaults
+    # Embedding defaults (choose small, widely available local model for dev)
     DEFAULT_EMBEDDING_PROVIDER_SLUG: str = "local-bge"
-    DEFAULT_EMBEDDING_MODEL: str = "BAAI/bge-large-en-v1.5"
+    DEFAULT_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
     DEFAULT_EMBEDDING_DIM: int = 1536
 
     # Chat defaults

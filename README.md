@@ -1,6 +1,33 @@
-# LifeLog Rewrite
+# LifeLog
 
-## Quickstart: Bootstrap Development Data
+A personal life-logging platform with a modular extension system and local-first processing.
+
+## Quick Start (one-command)
+
+Fastest path (macOS or Linux):
+
+1) Ensure Docker Desktop (or Docker Engine) is installed and running.
+2) From the repo root, run the script:
+
+```zsh
+chmod +x ./quickstart.sh
+./quickstart.sh
+```
+
+What it does:
+- Starts the server via Docker Compose and waits for health.
+- Logs in with the dev admin (override with LIFELOG_ADMIN_USER/LIFELOG_ADMIN_PASS).
+- Creates (or reuses) a device for this machine and fetches the device key.
+- Sets up the Python Agent and installs it as a background service.
+- Prints how to view your timeline and where logs live.
+
+Defaults:
+- Server URL: http://localhost:8000 (override with LIFELOG_SERVER_URL)
+- Admin user/pass (dev): admin / admin123
+
+If you prefer manual steps, see the Server and Agent sections below.
+
+## Quickstart: Bootstrap Development Data (optional)
 
 After running migrations, you can seed the database with a test device, extension, actors, and event type for development:
 
@@ -19,7 +46,6 @@ You can now:
 - Ingest with header `X-Device-Key: test-device-key`
 - Trigger processing for ingested raw logs
 - View timeline events
-# LifeLog Rewrite
 
 ## Notes
 

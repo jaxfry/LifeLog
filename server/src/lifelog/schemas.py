@@ -41,14 +41,22 @@ class ExtensionBase(BaseModel):
 
 class ExtensionCreate(ExtensionBase):
     actors: list[ActorCreate] = []
+    config_schema: Optional[dict] = None
+    config: Optional[dict] = None
 
 class ExtensionRead(ExtensionBase):
     id: int
     is_active: bool
     actors: list[ActorRead] = []
+    config_schema: Optional[dict] = None
+    config: Optional[dict] = None
 
 class ExtensionReadWithActors(ExtensionRead):
     actors: list[ActorRead] = []
+
+class ExtensionConfigUpdate(BaseModel):
+    """Schema for updating extension configuration."""
+    config: dict = Field(..., description="New configuration values to set or update")
 
 class EventTypeBase(BaseModel):
     slug: str
@@ -93,12 +101,61 @@ class DeviceRead(DeviceBase):
     last_seen: Optional[datetime] = None
 
 
-class DeviceWithKey(DeviceRead):
-    """Schema that includes the API key (only returned on creation)"""
+class DeviceCreateResponse(DeviceRead):
+    """Schema for device creation response (includes API key)"""
     api_key: str = Field(
         ...,
-        description="The API key for this device. Store this securely - it won't be shown again!"
+        description="The API key for this device. Store this securely - it won't be shown again."
     )
+
+
+# Extension Health Schemas
+class HealthCheckResult(BaseModel):
+    """Schema for health check results"""
+    model_config = ConfigDict(from_attributes=True)
+    
+    extension_slug: str = Field(..., description="Extension slug")
+    status: str = Field(..., description="Health status: healthy, degraded, or unhealthy")
+    last_check: datetime = Field(..., description="When this health check was performed")
+    errors: List[str] = Field(default_factory=list, description="List of error messages")
+    warnings: List[str] = Field(default_factory=list, description="List of warning messages")
+    details: Optional[dict] = Field(default=None, description="Additional health check details")
+
+
+class ExtensionHealthSummary(BaseModel):
+    """Summary of extension health for all extensions"""
+    model_config = ConfigDict(from_attributes=True)
+    
+    extension_slug: str
+    extension_name: str
+    extension_version: str
+    is_active: bool
+    health_status: Optional[str] = Field(None, description="Latest health status")
+    last_check: Optional[datetime] = Field(None, description="When last checked")
+    has_errors: bool = Field(default=False, description="Whether extension has errors")
+    has_warnings: bool = Field(default=False, description="Whether extension has warnings")
+
+
+# Extension Migration Schemas
+class MigrationInfo(BaseModel):
+    """Information about an applied migration"""
+    model_config = ConfigDict(from_attributes=True)
+    
+    migration_name: str
+    applied_at: datetime
+    from_version: Optional[str] = None
+    to_version: str
+    checksum: Optional[str] = None
+
+
+class ExtensionMigrationStatus(BaseModel):
+    """Migration status for an extension"""
+    extension_slug: str
+    extension_version: str
+    applied_migrations: List[MigrationInfo]
+    pending_migrations: List[str] = Field(default_factory=list)
+    migration_count: int = Field(description="Total number of applied migrations")
+
 
 
 class DeviceUpdate(BaseModel):

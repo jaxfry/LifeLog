@@ -49,6 +49,8 @@ services:
     volumes:
       - ./server/src:/app/src
       - ./server/extensions:/app/extensions
+      - ./server/extensions_store:/app/extensions_store
+      - ./server/trusted_keys:/app/trusted_keys
       - ./server/migrations:/app/migrations
       - ./server/alembic.ini:/app/alembic.ini
     env_file:

@@ -2,6 +2,9 @@
 Local embedding provider using sentence-transformers.
 
 Fixes and improvements:
+- Lazy loading: Model is loaded on first use, not at import/initialization time.
+  This prevents blocking server startup with model downloads and allows the server
+  to start even when offline or with network issues.
 - Cache model instances by name to avoid reloading on each construction.
 - Optional normalization (defaults to True for cosine/L2 compatibility).
 - Batch size configurable via settings when available.
@@ -26,12 +29,9 @@ class LocalEmbeddingProvider:
         *,
     normalize: Optional[bool] = None,
     ):
-        # Reuse a cached model if available
-        if model_name in _MODEL_CACHE:
-            self.model = _MODEL_CACHE[model_name]
-        else:
-            self.model = SentenceTransformer(model_name)
-            _MODEL_CACHE[model_name] = self.model
+        # Store model name for lazy loading
+        self.model_name = model_name
+        self._model: Optional[SentenceTransformer] = None
 
         # Target dimension for DB vectors (pgvector expects fixed length)
         self.target_dim: int = int(getattr(settings, "DEFAULT_EMBEDDING_DIM", 1536))
@@ -47,6 +47,32 @@ class LocalEmbeddingProvider:
 
         # Track whether we've already warned about dimension mismatch to avoid log spam
         self._dim_warned: bool = False
+
+    @property
+    def model(self) -> SentenceTransformer:
+        """Lazily load the SentenceTransformer model on first access.
+        
+        This prevents model download during application startup, allowing
+        the server to start even with network issues.
+        """
+        if self._model is None:
+            # Reuse a cached model if available
+            if self.model_name in _MODEL_CACHE:
+                self._model = _MODEL_CACHE[self.model_name]
+                logger.info(f"Reusing cached embedding model: {self.model_name}")
+            else:
+                logger.info(f"Loading embedding model: {self.model_name}")
+                try:
+                    self._model = SentenceTransformer(self.model_name)
+                    _MODEL_CACHE[self.model_name] = self._model
+                    logger.info(f"Successfully loaded embedding model: {self.model_name}")
+                except Exception as e:
+                    logger.error(f"Failed to load embedding model {self.model_name}: {e}")
+                    raise RuntimeError(
+                        f"Cannot load embedding model '{self.model_name}'. "
+                        "Please check your internet connection or ensure the model is cached locally."
+                    ) from e
+        return self._model
 
     def _pad_or_truncate(self, vec: List[float]) -> List[float]:
         """Adjust a vector to match the configured DB dimension.
