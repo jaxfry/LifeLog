@@ -1,5 +1,5 @@
 """API package exports routers for import convenience."""
-from . import auth, timeline, ingestion, devices, extensions, event_types, processing
+from . import auth, timeline, timeline_blocks, ingestion, devices, extensions, event_types, processing
 try:
     from . import search
 except ImportError:
@@ -12,6 +12,7 @@ except ImportError:
 __all__ = [
     "auth",
     "timeline",
+    "timeline_blocks",
     "ingestion",
     "devices",
     "extensions",
