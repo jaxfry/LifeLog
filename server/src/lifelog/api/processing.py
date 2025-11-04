@@ -2,12 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlmodel.ext.asyncio.session import AsyncSession
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import logging
 
 from ..dependencies import get_session
 from pathlib import Path
-from datetime import datetime, timezone
 from ..services import ProcessingService, ProcessingRoutingService
 from ..core.actors import actor_registry
 from ..core.config import settings
@@ -432,3 +431,123 @@ async def reprocess_actor(
             "end": end_date.isoformat() if end_date else None
         } if (start_date or end_date) else None
     )
+
+
+# ============================================================================
+# TIMELINE GENERATION ENDPOINTS
+# ============================================================================
+
+
+class GenerateTimelineRequest(BaseModel):
+    """Request to generate timeline blocks for a period."""
+    start_time: datetime
+    end_time: datetime
+    model: Optional[str] = None
+    force_regenerate: bool = False
+    max_characters_per_chunk: int = 4000
+
+
+class GenerateTimelineResponse(BaseModel):
+    """Response after generating timeline blocks."""
+    status: str
+    message: str
+    blocks_created: int
+    chunks_processed: int
+    period: dict
+
+
+@router.post("/generate-timeline", response_model=GenerateTimelineResponse, status_code=status.HTTP_202_ACCEPTED)
+async def generate_timeline(
+    request: GenerateTimelineRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)
+):
+    """
+    Generate timeline blocks for a specified time period.
+    
+    This endpoint uses the timeline-enricher actor to:
+    1. Chunk events intelligently with budget enforcement
+    2. Generate AI-enriched timeline blocks via LLM
+    3. Optionally supersede existing blocks (if force_regenerate=true)
+    
+    Timeline blocks combine multiple raw events into concise, human-readable
+    summaries with context, making it easier to understand what happened.
+    
+    **Note**: This operation is queued as a background task. For large periods,
+    it may take several minutes.
+    """
+    from sqlmodel import select
+    from .. import models
+    from ..core.actors import actor_registry
+    
+    # Find timeline-enricher actor
+    actor_stmt = select(models.Actor).where(models.Actor.slug == "timeline-enricher")
+    actor = (await session.exec(actor_stmt)).first()
+    if not actor:
+        raise HTTPException(status_code=404, detail="timeline-enricher actor not found")
+    
+    # Prepare data for actor
+    actor_data = {
+        "start_time": request.start_time,
+        "end_time": request.end_time,
+        "model": request.model,
+        "force_regenerate": request.force_regenerate,
+        "budget": {
+            "max_characters": request.max_characters_per_chunk
+        }
+    }
+    
+    # Check if actor is registered in code
+    ActorClass = actor_registry.get_actor_class("timeline-enricher")
+    if not ActorClass:
+        raise HTTPException(
+            status_code=500,
+            detail="timeline-enricher code not loaded. Ensure the enrichers module is imported."
+        )
+    
+    # Run in background
+    async def _generate_timeline():
+        try:
+            actor_instance = ActorClass()
+            result = await actor_instance.run(actor_data)
+            logger.info(f"Timeline generation completed: {result}")
+        except Exception as e:
+            logger.error(f"Timeline generation failed: {e}", exc_info=True)
+    
+    background_tasks.add_task(_generate_timeline)
+    
+    return GenerateTimelineResponse(
+        status="queued",
+        message=f"Timeline generation queued for {request.start_time.date()} to {request.end_time.date()}",
+        blocks_created=0,
+        chunks_processed=0,
+        period={
+            "start": request.start_time.isoformat(),
+            "end": request.end_time.isoformat()
+        }
+    )
+
+
+@router.post("/generate-timeline/yesterday", response_model=GenerateTimelineResponse, status_code=status.HTTP_202_ACCEPTED)
+async def generate_timeline_yesterday(
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)
+):
+    """
+    Convenience endpoint to generate timeline blocks for yesterday.
+    
+    This is the most common use case for automated daily timeline generation.
+    """
+    from datetime import timezone
+    end_time = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_time = end_time - timedelta(days=1)
+    
+    request = GenerateTimelineRequest(
+        start_time=start_time,
+        end_time=end_time,
+        force_regenerate=False
+    )
+    
+    return await generate_timeline(request, background_tasks, session, current_user)

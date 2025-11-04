@@ -46,7 +46,13 @@ class ActivityWatchSource(ActorBase):
     )
 )
 class ActivityWatchProcessor(ActorBase):
-    """Processor that reads raw ActivityWatch events and emits computer-activity events."""
+    """
+    Processor that reads raw ActivityWatch events and emits computer-activity events.
+    
+    Applies filtering on the server side (not in collectors):
+    - Filters out events with duration < 5 seconds
+    - Filters out very short window switches that may be noise
+    """
 
     async def run(self, data: models.RawLog) -> Any:
         raw_log = data
@@ -78,6 +84,8 @@ class ActivityWatchProcessor(ActorBase):
                 return
 
             created = 0
+            filtered_out = 0
+            
             for ev in events:
                 try:
                     # AW event structure typically: {"timestamp": iso, "duration": seconds, "data": {"app": ..., "title": ...}}
@@ -86,6 +94,11 @@ class ActivityWatchProcessor(ActorBase):
                     data_obj = ev.get("data") or {}
                     app = data_obj.get("app") or data_obj.get("application") or ""
                     title = data_obj.get("title") or data_obj.get("window") or ""
+
+                    # SERVER-SIDE FILTERING: Skip events with duration < 5 seconds
+                    if isinstance(dur, (int, float)) and dur < 5.0:
+                        filtered_out += 1
+                        continue
 
                     start_dt = _parse_iso(ts)
                     end_dt: Optional[datetime] = None
@@ -123,7 +136,10 @@ class ActivityWatchProcessor(ActorBase):
                 except Exception as e:
                     logger.warning("AW processor: failed to create event from %s: %s", ev, e)
             await session.commit()
-            logger.info("AW processor created %s events from bucket=%s raw_log_id=%s", created, bucket, raw_log.id)
+            logger.info(
+                f"AW processor created {created} events from bucket={bucket} raw_log_id={raw_log.id} "
+                f"(filtered out {filtered_out} short events)"
+            )
 
 
 def _parse_iso(s: str) -> datetime:

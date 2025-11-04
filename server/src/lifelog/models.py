@@ -76,6 +76,20 @@ class SynthesisEventLink(SQLModel, table=True):
         primary_key=True
     )
 
+
+class TimelineBlockEventLink(SQLModel, table=True):
+    """Association table linking TimelineBlocks to Events they summarize."""
+    timeline_block_id: Optional[int] = Field(
+        default=None,
+        foreign_key="timelineblock.id",
+        primary_key=True
+    )
+    event_id: Optional[int] = Field(
+        default=None,
+        foreign_key="event.id",
+        primary_key=True
+    )
+
 # =================================================================
 # EXTENSION MANAGEMENT - Plugin system and actor definitions
 # =================================================================
@@ -395,6 +409,10 @@ class Event(SQLModel, table=True):
         back_populates="events", 
         link_model=SynthesisEventLink
     )
+    timeline_blocks: List["TimelineBlock"] = Relationship(
+        back_populates="events",
+        link_model=TimelineBlockEventLink
+    )
 
 
 class EventEmbedding(SQLModel, table=True):
@@ -432,6 +450,88 @@ class EventMetadata(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=utcnow,
         sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+    )
+
+
+class TimelineBlock(SQLModel, table=True):
+    """
+    Enrichment artifact: AI-generated timeline blocks that summarize groups of events.
+    
+    Timeline blocks combine multiple raw events into concise, human-readable summaries
+    with context. They track the model version used for generation and can be superseded
+    when models/prompts improve.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    actor_id: int = Field(
+        foreign_key="actor.id",
+        nullable=False,
+        description="The enricher actor that generated this timeline block"
+    )
+    start_time: datetime = Field(
+        default=...,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="Start of the time period covered by this block"
+    )
+    end_time: datetime = Field(
+        default=...,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="End of the time period covered by this block"
+    )
+    title: str = Field(
+        nullable=False,
+        description="Short title summarizing the main activity"
+    )
+    summary: str = Field(
+        nullable=False,
+        description="Human-readable narrative combining context from multiple events"
+    )
+    tags: Optional[List[str]] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Metadata tags for search and categorization"
+    )
+    block_data: dict = Field(
+        sa_column=Column(JSON, nullable=False),
+        description="Full structured data including locations, activities, etc."
+    )
+    character_count: int = Field(
+        nullable=False,
+        description="Total character count of input events (for budget tracking)"
+    )
+    token_count: Optional[int] = Field(
+        default=None,
+        description="Total token count (if available from LLM)"
+    )
+    model_version: str = Field(
+        nullable=False,
+        description="LLM model identifier used for generation (e.g., 'gpt-4', 'llama-3')"
+    )
+    prompt_template_id: Optional[int] = Field(
+        default=None,
+        foreign_key="prompttemplate.id",
+        description="Prompt template used for generation"
+    )
+    ai_usage_log_id: Optional[int] = Field(
+        default=None,
+        foreign_key="aiusagelog.id",
+        unique=True,
+        description="Link to AI usage/cost tracking"
+    )
+    created_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="When this block was generated"
+    )
+    superseded_by_block_id: Optional[int] = Field(
+        default=None,
+        foreign_key="timelineblock.id",
+        description="If this block was regenerated with a new model/prompt"
+    )
+    
+    # Relationships
+    events: List["Event"] = Relationship(
+        back_populates="timeline_blocks",
+        link_model=TimelineBlockEventLink
     )
 
 # =================================================================

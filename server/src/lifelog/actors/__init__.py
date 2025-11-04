@@ -11,6 +11,7 @@ def load_all_actors():
     """
     # By importing here, we ensure the code runs when this function is called.
     from . import processors
+    from . import enrichers
     try:
         from . import synthesis  # optional
     except ImportError:
