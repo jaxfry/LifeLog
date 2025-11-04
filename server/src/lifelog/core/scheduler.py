@@ -79,6 +79,10 @@ class ScheduledTaskRunner:
         
         Simple implementation: run if we're within 2 minutes of the scheduled time
         and haven't run yet today.
+        
+        NOTE: This uses in-memory state tracking which is not persistent across
+        restarts. For production, consider using a persistent store (database, Redis)
+        to prevent duplicate execution after application restarts.
         """
         # Check if we're near the scheduled time
         current_time = now.time()
@@ -95,7 +99,7 @@ class ScheduledTaskRunner:
             return False
         
         # Simple guard: check if we've already run today
-        # In production, use a persistent state store
+        # In production, use a persistent state store (database, Redis, etc.)
         last_run_key = f"_last_run_{task_name}"
         last_run = getattr(self, last_run_key, None)
         

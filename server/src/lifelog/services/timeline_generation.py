@@ -101,11 +101,9 @@ class TimelineGenerationService:
         ).one_or_none()
         
         # Resolve provider and model
-        provider_slug_final = provider_slug or (
-            db_settings.default_embedding_provider_slug
-            if db_settings and db_settings.default_embedding_provider_slug
-            else getattr(settings, "DEFAULT_EMBEDDING_PROVIDER_SLUG", "litellm")
-        )
+        # For completions, we need a chat-capable provider, not an embedding provider
+        # Use litellm as default, which supports chat completions
+        provider_slug_final = provider_slug or "litellm"
         model_final = model or getattr(settings, "DEFAULT_CHAT_MODEL", "gpt-3.5-turbo")
         
         logger.info(
