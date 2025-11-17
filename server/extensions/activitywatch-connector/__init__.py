@@ -12,6 +12,7 @@ from lifelog.core.actors import ActorBase, ActorConfig, actor_registry
 from lifelog import models
 from lifelog.db import async_session
 from lifelog.services import EmbeddingService
+from lifelog.constants import ProcessingStatus
 from sqlmodel import select
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,24 @@ class ActivityWatchProcessor(ActorBase):
             et = (await session.exec(et_stmt)).first()
             if not et or et.id is None:
                 logger.error("EventType 'computer-activity' not found; ensure manifest was installed")
+                # Log failure so status endpoints reflect missing setup
+                try:
+                    session.add(
+                        models.ActorProcessingLog(
+                            actor_id=actor.id,
+                            actor_version_at_processing=actor.version,
+                            raw_log_id=raw_log.id,
+                            status=ProcessingStatus.FAILURE.value,
+                            details={"reason": "missing_event_type", "expected": "computer-activity"},
+                        )
+                    )
+                    await session.commit()
+                except Exception as log_err:
+                    logger.warning(
+                        "AW processor: failed to log processing failure for raw_log_id=%s: %s",
+                        raw_log.id,
+                        log_err,
+                    )
                 return
 
             created = 0
@@ -136,6 +155,24 @@ class ActivityWatchProcessor(ActorBase):
                 except Exception as e:
                     logger.warning("AW processor: failed to create event from %s: %s", ev, e)
             await session.commit()
+            # Log success so batch status reflects progress
+            try:
+                session.add(
+                    models.ActorProcessingLog(
+                        actor_id=actor.id,
+                        actor_version_at_processing=actor.version,
+                        raw_log_id=raw_log.id,
+                        status=ProcessingStatus.SUCCESS.value,
+                        details={"created": created, "filtered_out": filtered_out, "bucket": bucket},
+                    )
+                )
+                await session.commit()
+            except Exception as log_err:
+                logger.warning(
+                    "AW processor: failed to log processing success for raw_log_id=%s: %s",
+                    raw_log.id,
+                    log_err,
+                )
             logger.info(
                 f"AW processor created {created} events from bucket={bucket} raw_log_id={raw_log.id} "
                 f"(filtered out {filtered_out} short events)"

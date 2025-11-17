@@ -3,13 +3,18 @@
 ActivityWatch collector for LifeLog agent.
 
 Reads ActivityWatch buckets from the local AW server and emits NDJSON raw_log lines to stdout
-with shape: {"type": "raw_log", "data": {"bucket": bucket, "events": [...]}}
+with shape: {"type": "raw_log", "data": {"bucket": bucket, "events": [...]}, "external_id": "bucket:event_id"}
 
 **Polling Strategy:**
 - Collector polls AW server at interval_sec (default 30s)
 - Agent flushes queue to server at poll_interval_sec (default 300s/5min)
 - This decouples data collection from network transmission
 - Benefits: Resilient to network outages, batches API calls, reduces server load
+
+**Idempotency:**
+- Each event includes external_id as "bucket_name:event_id" for server-side deduplication
+- No longer maintains local seen_event_ids - server handles deduplication
+- This prevents duplicate ingestion after collector restart or reinstall
 
 Configuration via env LIFELOG_COLLECTOR_CONFIG_JSON (JSON):
 {
@@ -85,10 +90,6 @@ def _get_events(base: str, bucket: str, start_iso: Optional[str] = None, limit: 
 def main() -> None:
     base, buckets, interval = _conf()
     last_ts_per_bucket: dict[str, str] = {}
-    seen_event_ids: dict[str, set[int]] = {}  # Track seen event IDs per bucket for deduplication
-    
-    # Memory management: cap at 500 IDs per bucket (reduced from 1000 for better memory usage)
-    MAX_SEEN_IDS = 500
 
     print(json.dumps({"type": "status", "message": "activitywatch collector started"}), flush=True)
 
@@ -108,40 +109,34 @@ def main() -> None:
                 ]
             
             for b in bs:
-                # Initialize seen set for this bucket if needed
-                if b not in seen_event_ids:
-                    seen_event_ids[b] = set()
-                
                 start = last_ts_per_bucket.get(b)
                 events = _get_events(base, b, start)
                 
                 if events:
-                    # Filter out events we've already seen (deduplication by ID)
-                    new_events = []
+                    # Update last timestamp from the last event
+                    last_ts = events[-1].get("timestamp") or events[-1].get("start")
+                    if isinstance(last_ts, str):
+                        last_ts_per_bucket[b] = last_ts
+                    
+                    # Send each event individually with external_id for server-side deduplication
+                    # This ensures idempotency even if collector restarts or replays data
                     for event in events:
                         event_id = event.get("id")
-                        if event_id and event_id not in seen_event_ids[b]:
-                            new_events.append(event)
-                            seen_event_ids[b].add(event_id)
-                    
-                    # Only send if we have new events
-                    if new_events:
-                        # Update last timestamp from the last NEW event
-                        last_ts = new_events[-1].get("timestamp") or new_events[-1].get("start")
-                        if isinstance(last_ts, str):
-                            last_ts_per_bucket[b] = last_ts
+                        if not event_id:
+                            # Skip events without ID - can't guarantee idempotency
+                            continue
                         
-                        payload = {"bucket": b, "events": new_events}
-                        print(json.dumps({"type": "raw_log", "data": payload}), flush=True)
-                    
-                    # Memory cleanup: Use FIFO eviction when exceeding limit
-                    # Remove oldest 40% when hitting the cap
-                    if len(seen_event_ids[b]) > MAX_SEEN_IDS:
-                        # Convert to list, sort, and remove oldest 40%
-                        all_ids = sorted(seen_event_ids[b])
-                        num_to_remove = int(MAX_SEEN_IDS * 0.4)
-                        for old_id in all_ids[:num_to_remove]:
-                            seen_event_ids[b].discard(old_id)
+                        # Create a unique external_id combining bucket and event ID
+                        external_id = f"{b}:{event_id}"
+                        
+                        # Send single event with external_id
+                        payload = {"bucket": b, "events": [event]}
+                        output = {
+                            "type": "raw_log",
+                            "data": payload,
+                            "external_id": external_id
+                        }
+                        print(json.dumps(output), flush=True)
         except Exception as e:
             print(json.dumps({"type": "status", "level": "error", "message": str(e)}), flush=True)
         time.sleep(interval)

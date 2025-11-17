@@ -106,16 +106,24 @@ class AIService:
         
         try:
             # Call litellm API (OpenAI-compatible)
+            # Use a reasonable default for max_tokens if not specified (especially important for Gemini)
+            effective_max_tokens = max_tokens if max_tokens is not None else 2048
+            
+            # Get LiteLLM master key if configured
+            litellm_key = getattr(settings, "LITELLM_MASTER_KEY", "sk-1234")
+            
             async with httpx.AsyncClient(timeout=120.0) as client:
+                headers = {"Authorization": f"Bearer {litellm_key}"}
                 response = await client.post(
                     f"{litellm_url}/chat/completions",
+                    headers=headers,
                     json={
                         "model": model,
                         "messages": [
                             {"role": "user", "content": prompt}
                         ],
                         "temperature": temperature,
-                        "max_tokens": max_tokens
+                        "max_tokens": effective_max_tokens
                     }
                 )
                 response.raise_for_status()

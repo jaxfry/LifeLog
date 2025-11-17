@@ -7,13 +7,20 @@ requiring a full database setup.
 """
 
 import sys
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
+
+
+ROOT_DIR = Path(__file__).resolve().parent
+SERVER_SRC = ROOT_DIR / "server" / "src"
+if str(SERVER_SRC) not in sys.path:
+    sys.path.insert(0, str(SERVER_SRC))
 
 
 def test_chunk_budget():
     """Test ChunkBudget configuration."""
     print("Testing ChunkBudget...")
-    from server.src.lifelog.services.chunking import ChunkBudget
+    from lifelog.services.chunking import ChunkBudget
     
     budget = ChunkBudget(
         max_characters=4000,
@@ -41,7 +48,7 @@ def test_event_chunk():
             self.end_time = end_time
             self.summary = summary
     
-    from server.src.lifelog.services.chunking import EventChunk
+    from lifelog.services.chunking import EventChunk
     
     start = datetime(2025, 11, 3, 10, 0, 0, tzinfo=timezone.utc)
     events = [
@@ -70,7 +77,7 @@ def test_event_chunk():
 def test_prompt_template():
     """Test default prompt template formatting."""
     print("Testing prompt template...")
-    from server.src.lifelog.services.timeline_generation import DEFAULT_TIMELINE_PROMPT
+    from lifelog.services.timeline_generation import DEFAULT_TIMELINE_PROMPT
     
     events_text = "[2025-11-03T10:00:00+00:00] Working on code (duration: 10.0 min)"
     formatted = DEFAULT_TIMELINE_PROMPT.format(events_text=events_text)
@@ -86,7 +93,7 @@ def test_prompt_template():
 def test_token_estimation():
     """Test token count estimation."""
     print("Testing token estimation...")
-    from server.src.lifelog.services.chunking import TimelineChunkingService
+    from lifelog.services.chunking import TimelineChunkingService
     
     text = "This is a test sentence with approximately twenty-five characters here."
     tokens = TimelineChunkingService.estimate_token_count(text)
@@ -103,7 +110,7 @@ def test_models_import():
     print("Testing model imports...")
     
     try:
-        from server.src.lifelog.models import (
+        from lifelog.models import (
             TimelineBlock,
             TimelineBlockEventLink,
             EventRawLogLink
@@ -121,12 +128,12 @@ def test_services_import():
     print("Testing service imports...")
     
     try:
-        from server.src.lifelog.services.chunking import (
+        from lifelog.services.chunking import (
             TimelineChunkingService,
             EventChunk,
             ChunkBudget
         )
-        from server.src.lifelog.services.timeline_generation import (
+        from lifelog.services.timeline_generation import (
             TimelineGenerationService
         )
         print("✓ All services imported successfully")
@@ -142,7 +149,7 @@ def test_actor_import():
     print("Testing actor imports...")
     
     try:
-        from server.src.lifelog.actors.enrichers import TimelineEnricher
+        from lifelog.actors.enrichers import TimelineEnricher
         print("✓ TimelineEnricher actor imported successfully")
     except ImportError as e:
         print(f"✗ Actor import failed: {e}")
@@ -156,7 +163,7 @@ def test_api_import():
     print("Testing API imports...")
     
     try:
-        from server.src.lifelog.api.timeline_blocks import router
+        from lifelog.api.timeline_blocks import router
         print("✓ Timeline blocks API imported successfully")
     except ImportError as e:
         print(f"✗ API import failed: {e}")
@@ -170,7 +177,7 @@ def test_scheduler_import():
     print("Testing scheduler imports...")
     
     try:
-        from server.src.lifelog.core.scheduler import (
+        from lifelog.core.scheduler import (
             ScheduledTaskRunner,
             get_scheduler,
             start_scheduler,

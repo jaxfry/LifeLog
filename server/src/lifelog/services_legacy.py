@@ -85,34 +85,120 @@ class IngestionService:
         return result.first()
     
     @staticmethod
+    def _compute_fingerprint(data: dict, source_actor_id: int, device_id: Optional[int]) -> str:
+        """
+        Compute a deterministic fingerprint for raw log data.
+        Uses a normalized JSON representation to generate a stable SHA-256 hash.
+        """
+        import hashlib
+        import json
+        
+        # Create a canonical representation
+        canonical = {
+            "source_actor_id": source_actor_id,
+            "device_id": device_id,
+            "data": data
+        }
+        # Sort keys for deterministic serialization
+        canonical_json = json.dumps(canonical, sort_keys=True, separators=(',', ':'))
+        return hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
+    
+    @staticmethod
     async def create_raw_log(
         session: AsyncSession, 
         source_actor_id: int, 
         data: dict,
-        device_id: Optional[int] = None
-    ) -> models.RawLog:
-        """Create a new raw log entry"""
-        db_raw_log = models.RawLog(
-            source_actor_id=source_actor_id,
-            device_id=device_id,
-            raw_data=data
-        )
+        device_id: Optional[int] = None,
+        external_id: Optional[str] = None
+    ) -> Tuple[models.RawLog, bool]:
+        """
+        Create a new raw log entry with idempotency support.
         
-        session.add(db_raw_log)
-        await session.commit()
-        await session.refresh(db_raw_log)
-
-        # Update device last_seen if applicable
-        if device_id is not None:
-            device = await session.get(models.Device, device_id)
-            if device:
-                # Use timezone-aware UTC to match TIMESTAMPTZ columns
-                device.last_seen = datetime.now(timezone.utc)
-                session.add(device)
-                await session.commit()
-        # Session commits expire objects by default; ensure id remains accessible
-        await session.refresh(db_raw_log)
-        return db_raw_log
+        Returns: (raw_log, is_new) where is_new=True if created, False if already existed
+        
+        Idempotency strategy:
+        1. If external_id provided, use it for deduplication
+        2. Otherwise, compute fingerprint from data
+        3. Use Postgres INSERT ... ON CONFLICT DO NOTHING for atomic upsert
+        """
+        from sqlalchemy import insert
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        
+        # Compute fingerprint if external_id not provided
+        fingerprint = None
+        if not external_id:
+            fingerprint = IngestionService._compute_fingerprint(data, source_actor_id, device_id)
+        
+        # Try to insert with ON CONFLICT DO NOTHING
+        values = {
+            "source_actor_id": source_actor_id,
+            "device_id": device_id,
+            "external_id": external_id,
+            "fingerprint": fingerprint,
+            "raw_data": data,
+            "ingested_at": datetime.now(timezone.utc)
+        }
+        
+        # Use PostgreSQL-specific INSERT ... ON CONFLICT for upsert
+        stmt = pg_insert(models.RawLog).values(**values)
+        
+        # On conflict, do nothing and return the existing row
+        if external_id:
+            stmt = stmt.on_conflict_do_nothing(
+                index_elements=['source_actor_id', 'device_id', 'external_id']
+            )
+        elif fingerprint:
+            stmt = stmt.on_conflict_do_nothing(
+                index_elements=['source_actor_id', 'device_id', 'fingerprint']
+            )
+        
+        stmt = stmt.returning(models.RawLog.id)
+        result = await session.execute(stmt)
+        row = result.first()
+        
+        is_new = row is not None
+        
+        if is_new:
+            # New record was inserted
+            raw_log_id = row[0]
+            await session.commit()
+            db_raw_log = await session.get(models.RawLog, raw_log_id)
+            
+            # Update device last_seen if applicable
+            if device_id is not None:
+                device = await session.get(models.Device, device_id)
+                if device:
+                    device.last_seen = datetime.now(timezone.utc)
+                    session.add(device)
+                    await session.commit()
+            
+            await session.refresh(db_raw_log)
+            return db_raw_log, True
+        else:
+            # Duplicate detected - find and return existing record
+            await session.rollback()
+            
+            query = select(models.RawLog).where(
+                models.RawLog.source_actor_id == source_actor_id,
+                models.RawLog.device_id == device_id
+            )
+            if external_id:
+                query = query.where(models.RawLog.external_id == external_id)
+            elif fingerprint:
+                query = query.where(models.RawLog.fingerprint == fingerprint)
+            
+            result = await session.exec(query)
+            db_raw_log = result.first()
+            
+            # Still update device last_seen for idempotent requests
+            if device_id is not None:
+                device = await session.get(models.Device, device_id)
+                if device:
+                    device.last_seen = datetime.now(timezone.utc)
+                    session.add(device)
+                    await session.commit()
+            
+            return db_raw_log, False
 
 
 class EventService:

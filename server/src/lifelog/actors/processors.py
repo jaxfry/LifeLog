@@ -68,7 +68,7 @@ class TestProcessor(ActorBase):
                         actor_id=actor_id,
                         actor_version_at_processing=actor_version,
                         raw_log_id=raw_log.id,
-                        status=ProcessingStatus.FAILURE,
+                        status=ProcessingStatus.FAILURE.value,
                         details={"reason": "missing_event_type", "expected": event_type_slug},
                     )
                 )
@@ -124,7 +124,7 @@ class TestProcessor(ActorBase):
                         actor_version_at_processing=actor_version,
                         raw_log_id=raw_log_id,
                         event_id=event_id,
-                        status=ProcessingStatus.SUCCESS,
+                        status=ProcessingStatus.SUCCESS.value,
                         details={
                             "created_event_id": event_id,
                             "superseded_event_ids": superseded_event_ids,
@@ -137,13 +137,15 @@ class TestProcessor(ActorBase):
                 "Created Event (id=%s) from RawLog (id=%s)", event_id, raw_log_id
             )
 
-            # Create an embedding for the new event (if summary available)
-            if event_id is not None:
-                try:
-                    await EmbeddingService.ensure_event_embedding(
-                        session,
-                        event_id=event_id,
-                        actor_id=actor_id,
-                    )
-                except Exception as e:
-                    logger.warning("Embedding generation failed for event_id=%s: %s", event_id, e)
+            # TODO: Create embeddings asynchronously to avoid blocking database connections
+            # Embedding creation is disabled during processing to prevent connection pool exhaustion
+            # Embeddings should be created by a separate background job or on-demand
+            # if event_id is not None:
+            #     try:
+            #         await EmbeddingService.ensure_event_embedding(
+            #             session,
+            #             event_id=event_id,
+            #             actor_id=actor_id,
+            #         )
+            #     except Exception as e:
+            #         logger.warning("Embedding generation failed for event_id=%s: %s", event_id, e)

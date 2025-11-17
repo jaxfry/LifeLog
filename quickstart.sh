@@ -59,14 +59,14 @@ wait_for_health() {
 }
 
 get_token() {
-  echo "🔐 Getting admin token ..."
+  echo "🔐 Getting admin token ..." >&2
   local token
   token=$(curl -fsS -X POST \
     -H 'Content-Type: application/x-www-form-urlencoded' \
     -d "username=${ADMIN_USER}&password=${ADMIN_PASS}" \
     "$SERVER_URL/api/v1/auth/token" | jq -r .access_token || true)
   if [[ -z "${token}" || "${token}" == "null" ]]; then
-    echo "❌ Failed to authenticate. Override creds via LIFELOG_ADMIN_USER/LIFELOG_ADMIN_PASS"
+    echo "❌ Failed to authenticate. Override creds via LIFELOG_ADMIN_USER/LIFELOG_ADMIN_PASS" >&2
     exit 1
   fi
   echo "$token"
@@ -76,7 +76,7 @@ create_or_rotate_device() {
   local token="$1"; shift
   local name="$1"; shift
 
-  echo "💻 Ensuring device exists: $name"
+  echo "💻 Ensuring device exists: $name" >&2
   # Try to create the device first
   local create_resp
   create_resp=$(curl -fsS -X POST \
@@ -88,18 +88,18 @@ create_or_rotate_device() {
   local api_key
   api_key=$(echo "$create_resp" | jq -r .api_key 2>/dev/null || true)
   if [[ -n "$api_key" && "$api_key" != "null" ]]; then
-    echo "✅ Created device and received API key"
+    echo "✅ Created device and received API key" >&2
     echo "$api_key"
     return 0
   fi
 
   # If we couldn't create (probably already exists), find the device ID and rotate key
-  echo "ℹ️  Device may already exist. Rotating key to obtain a fresh API key ..."
+  echo "ℹ️  Device may already exist. Rotating key to obtain a fresh API key ..." >&2
   local dev_id
   dev_id=$(curl -fsS -H "Authorization: Bearer $token" "$SERVER_URL/internal/devices/" \
     | jq -r ".[] | select(.name==\"$name\") | .id" | head -n 1)
   if [[ -z "$dev_id" || "$dev_id" == "null" ]]; then
-    echo "❌ Could not find device '$name' in list"
+    echo "❌ Could not find device '$name' in list" >&2
     exit 1
   fi
   local rotate_resp
@@ -108,8 +108,8 @@ create_or_rotate_device() {
   local new_key
   new_key=$(echo "$rotate_resp" | jq -r .new_api_key 2>/dev/null || true)
   if [[ -z "$new_key" || "$new_key" == "null" ]]; then
-    echo "❌ Failed to rotate API key"
-    echo "$rotate_resp" | jq . || true
+    echo "❌ Failed to rotate API key" >&2
+    echo "$rotate_resp" | jq . >&2 || true
     exit 1
   fi
   echo "✅ Rotated device key"

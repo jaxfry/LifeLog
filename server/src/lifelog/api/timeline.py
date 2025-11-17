@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from ..dependencies import get_session
 from ..auth import require_auth
-from ..services import TimelineService
+from ..services.timeline import TimelineService
 
 
 router = APIRouter(

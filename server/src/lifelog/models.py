@@ -331,6 +331,37 @@ class Device(SQLModel, table=True):
     )
     client_metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
+
+class SyncCursor(SQLModel, table=True):
+    """
+    Tracks sync watermarks for each device-extension-source combination.
+    Allows agents and collectors to resume from their last successful sync point,
+    preventing replay of old data on reinstall or restart.
+    """
+    __table_args__ = (
+        UniqueConstraint(
+            "device_id", "source_actor_id", "cursor_key",
+            name="uq_synccursor_device_source_key"
+        ),
+    )
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    device_id: int = Field(foreign_key="device.id", nullable=False, index=True)
+    source_actor_id: int = Field(foreign_key="actor.id", nullable=False, index=True)
+    cursor_key: str = Field(
+        nullable=False,
+        description="Cursor identifier (e.g., 'last_sync', 'bucket_name', etc.)"
+    )
+    cursor_value: str = Field(
+        nullable=False,
+        description="Cursor value (e.g., timestamp ISO string, event ID, offset)"
+    )
+    last_updated: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="When this cursor was last updated"
+    )
+
 # =================================================================
 # DATA INGESTION - Raw data capture and processing pipeline
 # =================================================================
@@ -339,10 +370,37 @@ class RawLog(SQLModel, table=True):
     """
     Represents raw, unprocessed data ingested from external sources.
     This is the entry point for all data into the LifeLog system.
+    
+    Idempotency: Uses (source_actor_id, device_id, external_id) unique constraint
+    or fingerprint-based deduplication to prevent duplicate ingestion.
     """
+    __table_args__ = (
+        UniqueConstraint(
+            "source_actor_id", "device_id", "external_id", 
+            name="uq_rawlog_source_device_external"
+        ),
+        UniqueConstraint(
+            "source_actor_id", "device_id", "fingerprint",
+            name="uq_rawlog_source_device_fingerprint"
+        ),
+    )
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     source_actor_id: int = Field(foreign_key="actor.id", nullable=False)
     device_id: Optional[int] = Field(default=None, foreign_key="device.id")
+    
+    # Idempotency fields
+    external_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="External/source event ID for idempotency (e.g., ActivityWatch event ID)"
+    )
+    fingerprint: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="Computed hash of normalized data for deduplication when external_id unavailable"
+    )
+    
     raw_data: dict = Field(sa_column=Column(JSON, nullable=False))
     ingested_at: datetime = Field(
         default_factory=utcnow,
@@ -382,9 +440,27 @@ class Event(SQLModel, table=True):
     """
     Represents a processed event derived from raw logs.
     Events have time bounds and can be superseded by newer versions.
+    
+    Idempotency: Uses (processor_actor_id, source_raw_log_id) or fingerprint
+    to prevent duplicate processing of the same raw data.
     """
+    __table_args__ = (
+        UniqueConstraint(
+            "processor_actor_id", "external_id",
+            name="uq_event_processor_external"
+        ),
+    )
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     processor_actor_id: int = Field(foreign_key="actor.id", nullable=False)
+    
+    # Idempotency field
+    external_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="Stable identifier for this event (e.g., hash of source + timestamp)"
+    )
+    
     start_time: datetime = Field(
         default=...,  # required
         sa_column=Column(sa.DateTime(timezone=True), nullable=False),
@@ -460,7 +536,17 @@ class TimelineBlock(SQLModel, table=True):
     Timeline blocks combine multiple raw events into concise, human-readable summaries
     with context. They track the model version used for generation and can be superseded
     when models/prompts improve.
+    
+    Idempotency: Uses (actor_id, start_time, end_time) to prevent duplicate timeline blocks
+    for the same time period by the same enricher.
     """
+    __table_args__ = (
+        UniqueConstraint(
+            "actor_id", "start_time", "end_time",
+            name="uq_timelineblock_actor_timerange"
+        ),
+    )
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     actor_id: int = Field(
         foreign_key="actor.id",

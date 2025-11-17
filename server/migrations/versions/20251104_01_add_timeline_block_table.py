@@ -1,7 +1,7 @@
 """Add timeline block table
 
 Revision ID: 20251104_01
-Revises: 20251030_03_add_extension_lifecycle_log
+Revises: 20251030_03
 Create Date: 2025-11-04 00:00:00.000000
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '20251104_01'
-down_revision: Union[str, Sequence[str], None] = '20251030_03_add_extension_lifecycle_log'
+down_revision: Union[str, Sequence[str], None] = '20251030_03'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

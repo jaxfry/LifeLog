@@ -15,6 +15,14 @@ class RawLogIn(BaseModel):
         ...,
         description="The raw, unstructured JSON data from the source."
     )
+    external_id: Optional[str] = Field(
+        None,
+        description="Optional external/source event ID for idempotency (e.g., ActivityWatch event ID)"
+    )
+    idempotency_key: Optional[str] = Field(
+        None,
+        description="Optional idempotency key to prevent duplicate processing"
+    )
 
 class IngestResponse(BaseModel):
     """The response model after successfully ingesting data."""

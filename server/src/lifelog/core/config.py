@@ -45,7 +45,11 @@ class Settings(BaseSettings):
 
     # Chat defaults
     DEFAULT_CHAT_PROVIDER_SLUG: str = "openai-chat"
-    DEFAULT_CHAT_MODEL: str = "gpt-4-turbo"
+    DEFAULT_CHAT_MODEL: str = "gemini-2.5-flash"
+    
+    # LiteLLM Configuration
+    LITELLM_BASE_URL: str = "http://litellm:4000"
+    LITELLM_MASTER_KEY: str = "sk-1234"  # Must match litellm-config.yaml
 
     class Config:
         env_file = ".env"
