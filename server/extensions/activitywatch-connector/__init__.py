@@ -141,16 +141,19 @@ class ActivityWatchProcessor(ActorBase):
                         link = models.EventRawLogLink(event_id=event.id, raw_log_id=raw_log.id)
                         session.add(link)
                         # No need to flush immediately; will be persisted on commit
-                    # Ensure an embedding is generated for this event's summary
-                    if event.id is not None:
-                        try:
-                            await EmbeddingService.ensure_event_embedding(
-                                session,
-                                event_id=event.id,
-                                actor_id=actor.id,
-                            )
-                        except Exception as embed_err:
-                            logger.warning("AW processor: embedding failed for event_id=%s: %s", event.id, embed_err)
+                    
+                    # TODO: Create embeddings asynchronously to avoid blocking database connections
+                    # Embedding creation is disabled during processing to prevent connection pool exhaustion
+                    # Embeddings should be created by a separate background job or on-demand
+                    # if event.id is not None:
+                    #     try:
+                    #         await EmbeddingService.ensure_event_embedding(
+                    #             session,
+                    #             event_id=event.id,
+                    #             actor_id=actor.id,
+                    #         )
+                    #     except Exception as embed_err:
+                    #         logger.warning("AW processor: embedding failed for event_id=%s: %s", event.id, embed_err)
                     created += 1
                 except Exception as e:
                     logger.warning("AW processor: failed to create event from %s: %s", ev, e)

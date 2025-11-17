@@ -49,6 +49,7 @@ services:
       - ./server/trusted_keys:/app/trusted_keys
       - ./server/migrations:/app/migrations
       - ./server/alembic.ini:/app/alembic.ini
+      - huggingface_cache:/root/.cache/huggingface
     env_file:
       - .env.docker
     depends_on:
@@ -60,4 +61,6 @@ volumes:
   lifelog_data:
     driver: local
   ollama_data:
+    driver: local
+  huggingface_cache:
     driver: local
