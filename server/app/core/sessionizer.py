@@ -11,6 +11,20 @@ TIME_GAP_THRESHOLD = timedelta(minutes=15)
 MAX_SESSION_TOKENS = 12000
 TOKEN_ENCODING = "cl100k_base"
 
+
+def get_event_time(event: Event) -> datetime:
+    """
+    Extract timestamp from event data or fall back to created_at.
+    """
+    ts_str = event.data.get("timestamp")
+    if ts_str:
+        try:
+            return datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+    return event.created_at
+
+
 async def run_sessionizer(db: AsyncSession):
     """
     Groups unassigned events into sessions based on time gaps and token limits.
@@ -24,15 +38,6 @@ async def run_sessionizer(db: AsyncSession):
         return
 
     # 2. Sort by timestamp
-    def get_event_time(event: Event) -> datetime:
-        ts_str = event.data.get("timestamp")
-        if ts_str:
-            try:
-                return datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
-            except ValueError:
-                pass
-        return event.created_at
-
     sorted_events = sorted(events, key=get_event_time)
     
     # Initialize tokenizer
@@ -90,15 +95,6 @@ async def create_session(db: AsyncSession, events: List[Event]):
         return
 
     # Calculate session bounds
-    def get_event_time(event: Event) -> datetime:
-        ts_str = event.data.get("timestamp")
-        if ts_str:
-            try:
-                return datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
-            except ValueError:
-                pass
-        return event.created_at
-
     start_times = []
     end_times = []
     

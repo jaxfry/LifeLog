@@ -41,8 +41,32 @@ async def register_device(
     device_in: DeviceCreate,
     session: AsyncSession = Depends(get_session)
 ):
+    """
+    Register a new device and generate API credentials.
+    
+    Returns the device_id and api_key which must be stored securely by the client.
+    The API key cannot be retrieved again after this response.
+    """
+    # Validate input
+    if not device_in.name or len(device_in.name.strip()) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Device name cannot be empty"
+        )
+    
+    if len(device_in.name) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Device name too long (max 255 characters)"
+        )
+    
+    if device_in.type and len(device_in.type) > 50:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Device type too long (max 50 characters)"
+        )
+    
     # Generate Device ID
-    # We can use a UUID or a slug. Let's use UUID for uniqueness.
     device_id = str(uuid.uuid4())
     
     # Generate API Key
@@ -53,7 +77,7 @@ async def register_device(
     
     device = Device(
         id=device_id,
-        name=device_in.name,
+        name=device_in.name.strip(),
         type=device_in.type,
         api_key_hash=api_key_hash
     )
@@ -118,6 +142,12 @@ async def rotate_device_key(
     device_id: str,
     session: AsyncSession = Depends(get_session)
 ):
+    """
+    Rotate the API key for a device. The old key will be immediately invalidated.
+    
+    Returns the new API key which must be stored securely by the client.
+    The API key cannot be retrieved again after this response.
+    """
     device = await session.get(Device, device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")

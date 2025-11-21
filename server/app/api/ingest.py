@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,7 @@ from datetime import datetime
 from typing import Dict, Any, Union, List, Optional
 from uuid import UUID
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 class IngestRequest(BaseModel):
@@ -23,10 +25,35 @@ async def ingest_log_entry(
     ingest_req: IngestRequest,
     session: AsyncSession = Depends(get_session)
 ):
+    """
+    Ingest log data from a device extension.
+    
+    Uses payload hash for deduplication - duplicate payloads are automatically skipped.
+    Returns 201 for new logs, 200 for duplicates.
+    """
+    # Validate input
+    if not ingest_req.device_id or len(ingest_req.device_id.strip()) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="device_id is required"
+        )
+    
+    if not ingest_req.extension_id or len(ingest_req.extension_id.strip()) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="extension_id is required"
+        )
+    
+    if not ingest_req.payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="payload cannot be empty"
+        )
+    
     log, created = await ingest_log(
         session=session,
-        device_id=ingest_req.device_id,
-        extension_id=ingest_req.extension_id,
+        device_id=ingest_req.device_id.strip(),
+        extension_id=ingest_req.extension_id.strip(),
         payload=ingest_req.payload,
         client_timestamp=ingest_req.client_timestamp,
         timezone_offset=ingest_req.timezone_offset
@@ -42,6 +69,6 @@ async def ingest_log_entry(
     if hasattr(request.app.state, "arq_pool"):
         await request.app.state.arq_pool.enqueue_job("task_normalize_log", str(log.id))
     else:
-        print("Warning: ARQ pool not available, skipping processing task.")
+        logger.warning("ARQ pool not available, skipping processing task.")
     
     return {"status": "created", "id": log.id}

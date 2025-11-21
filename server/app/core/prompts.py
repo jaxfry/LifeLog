@@ -2,9 +2,12 @@
 This file contains all the LLM prompts used in the LifeLog application's
 Data Processing Service.
 """
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from app.models.config import Prompt
+
+logger = logging.getLogger(__name__)
 
 # --- Timeline Enrichment Prompts ---
 
@@ -43,7 +46,7 @@ async def get_system_prompt(db: AsyncSession, name: str = "timeline_enrichment")
         return prompt.template
         
     # Create default if missing
-    print(f"Prompt '{name}' not found. Creating default.")
+    logger.info(f"Prompt '{name}' not found. Creating default.")
     new_prompt = Prompt(
         name=name,
         template=DEFAULT_TIMELINE_ENRICHMENT_SYSTEM_PROMPT,
