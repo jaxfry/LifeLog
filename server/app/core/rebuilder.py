@@ -7,11 +7,15 @@ async def trigger_rebuild(session: AsyncSession, source_log_id: str):
     2. Mark old events as superseded.
     3. Generate new events.
     4. Invalidate L3 sessions.
+    
+    TODO: Implementation pending
     """
-    pass
+    raise NotImplementedError("trigger_rebuild not yet implemented")
 
 async def process_dirty_sessions(session: AsyncSession):
     """
     Finds sessions marked as 'needs_rebuild' and regenerates their timeline entries.
+    
+    TODO: Implementation pending
     """
-    pass
+    raise NotImplementedError("process_dirty_sessions not yet implemented")

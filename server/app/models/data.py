@@ -4,7 +4,6 @@ from uuid import UUID, uuid4
 from enum import Enum as PyEnum
 from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy.dialects.postgresql import JSONB
-from pgvector.sqlalchemy import Vector
 
 class SessionStatus(str, PyEnum):
     PENDING = "PENDING"

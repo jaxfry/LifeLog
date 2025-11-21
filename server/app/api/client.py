@@ -1,15 +1,16 @@
 import os
-import shutil
 import zipfile
 import io
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from app.core.db import get_session
+from app.core.logger import get_logger
 from app.models.config import Extension
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 EXTENSIONS_DIR = "extensions"  # Relative to server root
@@ -56,7 +57,7 @@ async def download_extension(
                 file_path = os.path.join(root, file)
                 # Ensure we are getting the path relative to the extension folder
                 archive_name = os.path.relpath(file_path, ext_path)
-                print(f"Zipping {file_path} as {archive_name}") # Debug log
+                logger.debug(f"Zipping {file_path} as {archive_name}")
                 zip_file.write(file_path, archive_name)
     
     zip_buffer.seek(0)
@@ -112,9 +113,9 @@ async def _sync_extensions_db(session: AsyncSession):
                                 existing.is_active = True
                                 session.add(existing)
                                 await session.commit()
-                                print(f"Updated/Reactivated extension {ext_id}")
+                                logger.info(f"Updated/Reactivated extension {ext_id}")
                 except Exception as e:
-                    print(f"Error loading manifest for {item}: {e}")
+                    logger.error(f"Error loading manifest for {item}: {e}")
 
     # 2. Deactivate missing extensions
     statement = select(Extension).where(Extension.is_active == True)
@@ -123,7 +124,7 @@ async def _sync_extensions_db(session: AsyncSession):
 
     for ext in active_extensions:
         if ext.id not in found_extensions:
-            print(f"Deactivating extension {ext.id} (not found on disk)")
+            logger.info(f"Deactivating extension {ext.id} (not found on disk)")
             ext.is_active = False
             session.add(ext)
     
