@@ -8,7 +8,9 @@ LifeLog is a self-hosted, Python-native platform for personal data aggregation, 
 - **Client**: Python client for collecting data from local sources
 - **Extensions**: Modular collectors for different data sources (ActivityWatch, GPS, etc.)
 
-See [docs/architechture.md](docs/architechture.md) for detailed architecture documentation.
+See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
+
+**Note**: The architecture document is currently named `architechture.md` (with typo) in the repository.
 
 ## Project Structure
 
