@@ -3,11 +3,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_session
 from app.core.ingestion import ingest_log
+from app.core.logger import get_logger
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Dict, Any, Union, List, Optional
 from uuid import UUID
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 class IngestRequest(BaseModel):
@@ -42,6 +44,6 @@ async def ingest_log_entry(
     if hasattr(request.app.state, "arq_pool"):
         await request.app.state.arq_pool.enqueue_job("task_normalize_log", str(log.id))
     else:
-        print("Warning: ARQ pool not available, skipping processing task.")
+        logger.warning("ARQ pool not available, skipping processing task.")
     
     return {"status": "created", "id": log.id}

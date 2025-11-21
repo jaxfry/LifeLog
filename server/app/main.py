@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core.db import init_db
 from app.core.scheduler import start_scheduler, stop_scheduler
+from app.core.logger import setup_logging, get_logger
 from app.api import ingest, data, admin, client
 from arq import create_pool
 from arq.connections import RedisSettings
@@ -9,6 +10,12 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Setup logging
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+LOG_FILE = os.environ.get("LOG_FILE", None)
+setup_logging(log_level=LOG_LEVEL, log_file=LOG_FILE)
+logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
