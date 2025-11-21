@@ -1,15 +1,17 @@
-from datetime import date, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.core.db import engine
 from app.core.sessionizer import run_sessionizer
 from app.core.timeline_processor import process_pending_sessions
+from app.core.logger import get_logger
 
 scheduler = AsyncIOScheduler()
 
+logger = get_logger(__name__)
+
 async def run_processing_job():
-    print("Running processing job...")
+    logger.info("Running processing job...")
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
