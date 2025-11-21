@@ -54,6 +54,18 @@ async def register_device(
             detail="Device name cannot be empty"
         )
     
+    if len(device_in.name) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Device name too long (max 255 characters)"
+        )
+    
+    if device_in.type and len(device_in.type) > 50:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Device type too long (max 50 characters)"
+        )
+    
     # Generate Device ID
     device_id = str(uuid.uuid4())
     

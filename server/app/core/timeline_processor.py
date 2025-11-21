@@ -74,7 +74,7 @@ async def process_session(db: AsyncSession, session: Session):
                 dummy = datetime.strptime(f"20000101120000{event.timezone}", "%Y%m%d%H%M%S%z")
                 local_dt = utc_dt.astimezone(dummy.tzinfo)
                 local_time_iso = local_dt.isoformat()
-            except (ValueError, AttributeError) as e:
+            except ValueError as e:
                 logger.warning(f"Failed to parse timezone {event.timezone} for event {event.id}: {e}")
 
         evt_dict = {
@@ -111,7 +111,7 @@ async def process_session(db: AsyncSession, session: Session):
             dummy = datetime.strptime(f"20000101120000{session_timezone_str}", "%Y%m%d%H%M%S%z")
             session_start_local = session_start_utc.astimezone(dummy.tzinfo)
             day_iso = session_start_local.date().isoformat()
-        except (ValueError, AttributeError) as e:
+        except ValueError as e:
             logger.warning(f"Failed to parse session timezone {session_timezone_str}: {e}")
     
     # Fetch prompt from DB
