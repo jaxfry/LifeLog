@@ -1,0 +1,8 @@
+{
+    "id": "com.lifelog.aw",
+    "version": "1.0.5",
+    "client": {
+        "file": "collector.py",
+        "type": "python"
+    }
+}
