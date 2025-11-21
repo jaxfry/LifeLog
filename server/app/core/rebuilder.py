@@ -8,10 +8,8 @@ async def trigger_rebuild(session: AsyncSession, source_log_id: str):
     3. Generate new events.
     4. Invalidate L3 sessions.
     """
-    pass
 
 async def process_dirty_sessions(session: AsyncSession):
     """
     Finds sessions marked as 'needs_rebuild' and regenerates their timeline entries.
     """
-    pass

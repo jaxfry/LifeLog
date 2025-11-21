@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, status, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_session
@@ -7,7 +7,6 @@ from app.core.logger import get_logger
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Dict, Any, Union, List, Optional
-from uuid import UUID
 
 logger = get_logger(__name__)
 router = APIRouter()

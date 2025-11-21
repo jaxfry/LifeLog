@@ -1,8 +1,6 @@
 import json
 import os
 from datetime import datetime, timezone
-from typing import List
-from uuid import UUID
 
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession

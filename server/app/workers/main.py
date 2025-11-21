@@ -1,6 +1,5 @@
 import os
 import traceback
-from arq import create_pool
 from arq.connections import RedisSettings
 from app.core.db import engine
 from sqlalchemy.orm import sessionmaker
@@ -17,11 +16,9 @@ logger = get_logger(__name__)
 async def startup(ctx):
     logger.info("Worker starting...")
     # Initialize DB engine if needed, though it's global in db.py
-    pass
 
 async def shutdown(ctx):
     logger.info("Worker shutting down...")
-    pass
 
 async def task_normalize_log(ctx, log_id_str: str):
     """
