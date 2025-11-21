@@ -1,8 +1,12 @@
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.data import RawLog, Event
 from app.loader.runner import run_normalization
 from uuid import UUID
 from typing import List
+
+logger = logging.getLogger(__name__)
+
 
 async def process_log(session: AsyncSession, log_id: UUID) -> List[Event]:
     """
@@ -10,10 +14,10 @@ async def process_log(session: AsyncSession, log_id: UUID) -> List[Event]:
     """
     log = await session.get(RawLog, log_id)
     if not log:
-        print(f"Log {log_id} not found")
+        logger.warning(f"Log {log_id} not found")
         return []
     
-    print(f"Processing log {log_id} with extension {log.extension_id}")
+    logger.info(f"Processing log {log_id} with extension {log.extension_id}")
     events_data = run_normalization(log.extension_id, log.payload)
     
     # Determine timezone from client_timezone
@@ -32,5 +36,5 @@ async def process_log(session: AsyncSession, log_id: UUID) -> List[Event]:
         created_events.append(event)
     
     await session.commit()
-    print(f"Created {len(created_events)} events")
+    logger.info(f"Created {len(created_events)} events from log {log_id}")
     return created_events

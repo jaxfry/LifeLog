@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 from datetime import datetime, timezone
 from typing import List
 from uuid import UUID
@@ -11,6 +12,8 @@ from litellm import acompletion
 from app.models.data import Event, Timeline, Session, SessionStatus
 from app.core.prompts import get_system_prompt
 
+logger = logging.getLogger(__name__)
+
 # Configuration
 MODEL_NAME = "gemini/gemini-flash-latest"
 MAX_RETRIES = 3
@@ -19,7 +22,7 @@ async def process_pending_sessions(db: AsyncSession):
     """
     Fetches pending sessions, generates timeline entries using LLM, and saves them.
     """
-    print("Checking for pending sessions...")
+    logger.info("Checking for pending sessions...")
     
     # 1. Fetch pending sessions
     statement = select(Session).where(Session.status == SessionStatus.PENDING)
@@ -27,20 +30,20 @@ async def process_pending_sessions(db: AsyncSession):
     sessions = result.scalars().all()
     
     if not sessions:
-        print("No pending sessions found.")
+        logger.info("No pending sessions found.")
         return
 
-    print(f"Found {len(sessions)} pending sessions.")
+    logger.info(f"Found {len(sessions)} pending sessions.")
 
     for session in sessions:
         await process_session(db, session)
 
 async def process_session(db: AsyncSession, session: Session):
-    print(f"Processing session {session.id}...")
+    logger.info(f"Processing session {session.id}...")
     
     # Check retry count
     if session.retry_count >= MAX_RETRIES:
-        print(f"Session {session.id} exceeded max retries. Marking as FAILED.")
+        logger.warning(f"Session {session.id} exceeded max retries. Marking as FAILED.")
         session.status = SessionStatus.FAILED
         db.add(session)
         await db.commit()
@@ -52,7 +55,7 @@ async def process_session(db: AsyncSession, session: Session):
     events = result.scalars().all()
     
     if not events:
-        print(f"Session {session.id} has no events. Marking as processed.")
+        logger.info(f"Session {session.id} has no events. Marking as processed.")
         session.status = SessionStatus.PROCESSED
         db.add(session)
         await db.commit()
@@ -71,8 +74,8 @@ async def process_session(db: AsyncSession, session: Session):
                 dummy = datetime.strptime(f"20000101120000{event.timezone}", "%Y%m%d%H%M%S%z")
                 local_dt = utc_dt.astimezone(dummy.tzinfo)
                 local_time_iso = local_dt.isoformat()
-            except Exception:
-                pass
+            except (ValueError, AttributeError) as e:
+                logger.warning(f"Failed to parse timezone {event.timezone} for event {event.id}: {e}")
 
         evt_dict = {
             "time": local_time_iso,
@@ -108,8 +111,8 @@ async def process_session(db: AsyncSession, session: Session):
             dummy = datetime.strptime(f"20000101120000{session_timezone_str}", "%Y%m%d%H%M%S%z")
             session_start_local = session_start_utc.astimezone(dummy.tzinfo)
             day_iso = session_start_local.date().isoformat()
-        except Exception:
-            pass
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Failed to parse session timezone {session_timezone_str}: {e}")
     
     # Fetch prompt from DB
     system_prompt_template = await get_system_prompt(db)
@@ -124,7 +127,7 @@ async def process_session(db: AsyncSession, session: Session):
     try:
         # Ensure API key is set
         if not os.environ.get("GEMINI_API_KEY"):
-             print("GEMINI_API_KEY not set. Skipping.")
+             logger.error("GEMINI_API_KEY not set. Skipping session processing.")
              return
 
         response = await acompletion(
@@ -146,7 +149,7 @@ async def process_session(db: AsyncSession, session: Session):
         timeline_data = json.loads(content)
         
         if not isinstance(timeline_data, list):
-            print(f"LLM did not return a list for session {session.id}.")
+            logger.error(f"LLM did not return a list for session {session.id}.")
             raise ValueError("Invalid JSON format from LLM")
 
         # 5. Save to Database
@@ -175,20 +178,18 @@ async def process_session(db: AsyncSession, session: Session):
                 )
                 db.add(timeline_entry)
             except Exception as e:
-                print(f"Error parsing timeline entry: {e}")
+                logger.warning(f"Error parsing timeline entry for session {session.id}: {e}")
                 continue
             
         # Update session status
         session.status = SessionStatus.PROCESSED
         db.add(session)
         await db.commit()
-        print(f"Successfully processed session {session.id} with {len(timeline_data)} timeline entries.")
+        logger.info(f"Successfully processed session {session.id} with {len(timeline_data)} timeline entries.")
         
     except Exception as e:
-        print(f"Error processing session {session.id}: {e}")
+        logger.error(f"Error processing session {session.id}: {e}", exc_info=True)
         # Increment retry count
         session.retry_count += 1
         db.add(session)
         await db.commit()
-        import traceback
-        traceback.print_exc()

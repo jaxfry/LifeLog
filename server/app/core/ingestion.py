@@ -24,9 +24,20 @@ async def ingest_log(
     timezone_offset: Optional[str] = None
 ) -> Tuple[RawLog, bool]:
     """
-    Ingests a log entry.
-    Returns (RawLog, created) tuple.
-    created is True if a new log was inserted, False if it was a duplicate.
+    Ingests a log entry with deduplication based on payload hash.
+    
+    Args:
+        session: Database session
+        device_id: Unique identifier for the device
+        extension_id: Extension that generated the log
+        payload: The log data (dict or list of dicts)
+        client_timestamp: When the log was generated on the client
+        timezone_offset: Client timezone offset (e.g., "-0500")
+    
+    Returns:
+        Tuple of (RawLog, created) where:
+        - RawLog: The log entry (new or existing)
+        - created: True if a new log was inserted, False if it was a duplicate
     """
     payload_hash = calculate_payload_hash(payload)
     
