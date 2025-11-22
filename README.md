@@ -12,9 +12,15 @@ See [docs/architecture.md](docs/architecture.md) for detailed architecture docum
 
 **Note**: The architecture document is currently named `architechture.md` (with typo) in the repository.
 
-## Development Roadmap
+## Documentation
 
-For a comprehensive analysis of the codebase and recommended next steps, see [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md).
+📖 **[Complete Documentation Index](docs/INDEX.md)** - Start here for all documentation
+
+Key documents:
+- **[Quick Start Improvements](docs/QUICK_START_IMPROVEMENTS.md)** - Actionable checklist with time estimates
+- **[Development Roadmap](docs/DEVELOPMENT_ROADMAP.md)** - Comprehensive analysis and 12-14 week plan
+- **[Architecture Guide](docs/architechture.md)** - System design and technical details
+- **[Authentication Guide](docs/guides/IMPLEMENTING_AUTHENTICATION.md)** - Critical security implementation
 
 ## Project Structure
 
