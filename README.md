@@ -12,6 +12,10 @@ See [docs/architecture.md](docs/architecture.md) for detailed architecture docum
 
 **Note**: The architecture document is currently named `architechture.md` (with typo) in the repository.
 
+## Development Roadmap
+
+For a comprehensive analysis of the codebase and recommended next steps, see [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md).
+
 ## Project Structure
 
 ```
