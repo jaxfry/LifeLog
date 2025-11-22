@@ -31,7 +31,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
       REDIS_URL: redis://redis:6379
-      GEMINI_API_KEY: AIzaSyB5KlE32zsMted8aqxJhHxUvHPaNthOiR0
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
 
   worker:
     build: .
@@ -45,7 +45,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
       REDIS_URL: redis://redis:6379
-      GEMINI_API_KEY: AIzaSyB5KlE32zsMted8aqxJhHxUvHPaNthOiR0
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
 
 volumes:
   postgres_data:

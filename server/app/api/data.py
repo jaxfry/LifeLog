@@ -101,6 +101,9 @@ async def get_events(
     else:
         query = select(Event)
         
+    # Filter out superseded events
+    query = query.where(Event.is_superseded == False)
+        
     query = query.order_by(col(Event.created_at).desc())
     
     if start_date:

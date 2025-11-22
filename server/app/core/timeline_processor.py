@@ -1,12 +1,14 @@
 import json
 import os
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from litellm import acompletion
 
 from app.models.data import Event, Timeline, Session, SessionStatus
+from app.models.config import SystemConfig
 from app.core.prompts import get_system_prompt
 from app.core.logger import get_logger
 
@@ -14,6 +16,18 @@ from app.core.logger import get_logger
 logger = get_logger(__name__)
 MODEL_NAME = "gemini/gemini-flash-latest"
 MAX_RETRIES = 3
+
+async def get_gemini_api_key(db: AsyncSession) -> Optional[str]:
+    """
+    Fetches the Gemini API key from the database or environment variables.
+    """
+    # 1. Try DB
+    config = await db.get(SystemConfig, "GEMINI_API_KEY")
+    if config and config.value:
+        return config.value
+    
+    # 2. Fallback to Env
+    return os.environ.get("GEMINI_API_KEY")
 
 async def process_pending_sessions(db: AsyncSession):
     """
@@ -47,7 +61,7 @@ async def process_session(db: AsyncSession, session: Session):
         return
 
     # 1. Fetch events for the session
-    stmt = select(Event).where(Event.session_id == session.id).order_by(Event.created_at)
+    stmt = select(Event).where(Event.session_id == session.id, Event.is_superseded == False).order_by(Event.created_at)
     result = await db.execute(stmt)
     events = result.scalars().all()
     
@@ -123,9 +137,13 @@ async def process_session(db: AsyncSession, session: Session):
     # 4. Call LLM
     try:
         # Ensure API key is set
-        if not os.environ.get("GEMINI_API_KEY"):
+        api_key = await get_gemini_api_key(db)
+        if not api_key:
              logger.warning("GEMINI_API_KEY not set. Skipping.")
              return
+        
+        # Set the API key for this call
+        os.environ["GEMINI_API_KEY"] = api_key
 
         response = await acompletion(
             model=MODEL_NAME,

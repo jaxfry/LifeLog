@@ -16,7 +16,7 @@ async def run_sessionizer(db: AsyncSession):
     Groups unassigned events into sessions based on time gaps and token limits.
     """
     # 1. Fetch unassigned events
-    statement = select(Event).where(Event.session_id == None)
+    statement = select(Event).where(Event.session_id == None, Event.is_superseded == False)
     result = await db.execute(statement)
     events = result.scalars().all()
     
