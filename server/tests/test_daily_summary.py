@@ -2,16 +2,35 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.core.db import engine
-from datetime import datetime
+from datetime import datetime, timedelta
+from app.models.data import Timeline
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_daily_summary_generation():
+    # Seed data
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as session:
+        # Create a timeline entry for today
+        now = datetime.now()
+        start_time = now - timedelta(hours=1)
+        end_time = now
+        
+        timeline = Timeline(
+            start_time=start_time,
+            end_time=end_time,
+            activity="Coding",
+            notes="Working on LifeLog tests",
+            timezone="UTC"
+        )
+        session.add(timeline)
+        await session.commit()
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Trigger summary generation for today
         today_str = datetime.now().strftime("%Y-%m-%d")
-        
-        # Note: This test might fail if there are no timeline entries for today.
-        # Ideally we should seed some data first, but for now let's just check if the endpoint runs without 500 error.
         
         response = await ac.post(f"/api/v1/admin/generate-summary/{today_str}")
         

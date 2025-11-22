@@ -4,6 +4,7 @@ from app.main import app
 from app.core.db import engine
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_device_lifecycle():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Register Device
