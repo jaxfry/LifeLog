@@ -20,7 +20,14 @@ async def seed_config():
                 await session.commit()
                 print("Seeded successfully.")
             else:
-                print("GEMINI_API_KEY already exists in DB.")
+                if config.value != key:
+                    print("Updating GEMINI_API_KEY in DB...")
+                    config.value = key
+                    session.add(config)
+                    await session.commit()
+                    print("Updated successfully.")
+                else:
+                    print("GEMINI_API_KEY already exists in DB and matches env.")
         else:
             print("GEMINI_API_KEY not found in env.")
 

@@ -15,13 +15,13 @@ async def test_config_endpoints():
         # Check if GEMINI_API_KEY is present (it was seeded)
         gemini_config = next((c for c in configs if c["key"] == "GEMINI_API_KEY"), None)
         assert gemini_config is not None
-        assert gemini_config["value"] == "AIzaSyCxz6dnFwpEGyGgpXqU3x7TFQSq7casaT0"
+        assert gemini_config["value"] == "dummy_key_for_testing"
 
         # 2. Update Config
         new_desc = "Updated Description"
         response = await ac.put(
             "/api/v1/config/GEMINI_API_KEY", 
-            json={"value": "AIzaSyCxz6dnFwpEGyGgpXqU3x7TFQSq7casaT0", "description": new_desc}
+            json={"value": "dummy_key_for_testing", "description": new_desc}
         )
         assert response.status_code == 200
         updated_config = response.json()
