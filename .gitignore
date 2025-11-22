@@ -260,3 +260,10 @@ Thumbs.db
 
 # Application specific
 lifelog_client.log
+
+# Extension state files
+state.json
+
+# Ensure Python bytecode is ignored
+*.pyc
+__pycache__/

@@ -32,3 +32,11 @@ class Prompt(SQLModel, table=True):
     version: int
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+class SystemConfig(SQLModel, table=True):
+    __tablename__ = "system_config"
+
+    key: str = Field(primary_key=True)
+    value: str
+    description: Optional[str] = None
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -8,10 +8,12 @@ import secrets
 import hashlib
 import uuid
 from app.core.db import get_session
-from app.models.config import Device
+from app.models.config import Device, SystemConfig
+from app.models.data import Session, DailySummary
 from app.core.sessionizer import run_sessionizer
 from app.core.timeline_processor import process_pending_sessions
 from app.models.data import Session
+from app.core.daily_summary import generate_daily_summary
 
 router = APIRouter()
 
@@ -148,9 +150,69 @@ async def test_sessionizer(session: AsyncSession = Depends(get_session)):
     
     # Fetch the results for today (or just the latest ones)
     # For testing, let's just return the last 20 sessions created
-    statement = select(Session).order_by(Session.start_time.desc()).limit(20)
+    # Note: Session.start_time is a datetime, so .desc() works in SQLAlchemy/SQLModel expressions
+    # but type checkers might complain.
+    from sqlalchemy import desc
+    statement = select(Session).order_by(desc(Session.start_time)).limit(20)
     result = await session.execute(statement)
     sessions = result.scalars().all()
     
     return sessions
+
+class SystemConfigUpdate(BaseModel):
+    value: str
+    description: Optional[str] = None
+
+@router.get("/config", response_model=List[SystemConfig])
+async def list_config(
+    session: AsyncSession = Depends(get_session)
+):
+    statement = select(SystemConfig)
+    result = await session.execute(statement)
+    return result.scalars().all()
+
+@router.put("/config/{key}", response_model=SystemConfig)
+async def update_config(
+    key: str,
+    config_in: SystemConfigUpdate,
+    session: AsyncSession = Depends(get_session)
+):
+    config = await session.get(SystemConfig, key)
+    if not config:
+        config = SystemConfig(key=key, value=config_in.value, description=config_in.description)
+    else:
+        config.value = config_in.value
+        if config_in.description:
+            config.description = config_in.description
+        config.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    
+    session.add(config)
+    await session.commit()
+    await session.refresh(config)
+    return config
+
+@router.post("/admin/generate-summary/{date_str}")
+async def trigger_daily_summary(
+    date_str: str,
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Manually triggers daily summary generation for a specific date (YYYY-MM-DD).
+    """
+    try:
+        target_date = datetime.strptime(date_str, "%Y-%m-%d")
+        # Ensure it's timezone aware (UTC) for the function logic, or naive if that's what the DB expects.
+        # The DB stores naive UTC.
+        target_date = target_date.replace(tzinfo=None)
+        
+        await generate_daily_summary(session, target_date)
+        
+        # Fetch and return the result
+        stmt = select(DailySummary).where(DailySummary.date == target_date)
+        result = await session.execute(stmt)
+        summary = result.scalars().first()
+        return summary
+        
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
