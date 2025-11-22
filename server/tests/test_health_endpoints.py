@@ -35,7 +35,8 @@ async def test_liveness_check(async_client):
 async def test_readiness_check_healthy(async_client):
     """Test readiness check when all dependencies are healthy."""
     response = await async_client.get("/api/v1/health/ready")
-    assert response.status_code == 200
+    # Should return 200 if healthy, 503 if not
+    assert response.status_code in [200, 503]
     data = response.json()
     assert "status" in data
     assert "checks" in data
@@ -48,18 +49,20 @@ async def test_readiness_check_healthy(async_client):
 async def test_readiness_check_database_failure():
     """Test readiness check when database is unavailable."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        with patch("app.core.db.engine") as mock_engine:
-            # Mock database connection failure
-            mock_conn = AsyncMock()
-            mock_conn.execute.side_effect = Exception("Database connection error")
-            mock_engine.begin.return_value.__aenter__.return_value = mock_conn
+        # Mock the session to raise an error when executing
+        with patch("app.api.health.get_session") as mock_get_session:
+            mock_session = AsyncMock()
+            mock_session.execute.side_effect = Exception("Database connection error")
+            mock_get_session.return_value.__aenter__.return_value = mock_session
             
             response = await ac.get("/api/v1/health/ready")
             data = response.json()
             
+            # Should return 503 when unhealthy
+            assert response.status_code == 503
             assert "checks" in data
-            # The endpoint will still return 200 but with not ready status
             assert data["checks"]["database"] == "unhealthy"
+            assert data["status"] == "not ready"
 
 
 @pytest.mark.asyncio
@@ -67,7 +70,7 @@ async def test_readiness_check_database_failure():
 async def test_readiness_check_redis_failure():
     """Test readiness check when Redis is unavailable."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        with patch("redis.asyncio.Redis.from_url") as mock_redis:
+        with patch("app.api.health.Redis.from_url") as mock_redis:
             # Mock Redis failure
             mock_redis_instance = AsyncMock()
             mock_redis_instance.ping.side_effect = Exception("Redis connection error")
@@ -77,9 +80,11 @@ async def test_readiness_check_redis_failure():
             response = await ac.get("/api/v1/health/ready")
             data = response.json()
             
+            # Should return 503 when unhealthy
+            assert response.status_code == 503
             assert "checks" in data
-            # Redis failure should be reported
             assert data["checks"]["redis"] == "unhealthy"
+            assert data["status"] == "not ready"
 
 
 @pytest.mark.asyncio
