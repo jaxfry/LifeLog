@@ -13,6 +13,7 @@ async def reset_engine():
     await engine.dispose()
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_device_registration_and_listing():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Register a device
@@ -38,6 +39,7 @@ async def test_device_registration_and_listing():
         assert found
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_read_apis_empty():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Get logs (might be empty or have data from other tests, just check status)

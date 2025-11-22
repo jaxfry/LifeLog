@@ -47,6 +47,7 @@ def remove_extension(name):
         shutil.rmtree(path)
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_scenario_1_end_to_end(db_session):
     """
     Scenario 1: The Full End-to-End Flow
@@ -89,6 +90,7 @@ async def test_scenario_1_end_to_end(db_session):
     print("Scenario 1 Passed!")
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_scenario_2_bad_code(db_session):
     """
     Scenario 2: The 'Bad Code' Extension (Resilience)
@@ -154,6 +156,7 @@ def normalize(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     print("Scenario 2 Passed!")
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_scenario_3_missing_extension(db_session):
     """
     Scenario 3: The 'Missing Extension'

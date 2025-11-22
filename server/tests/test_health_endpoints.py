@@ -4,10 +4,11 @@ Comprehensive tests for health check endpoints.
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_health_check_basic(async_client):
     """Test basic health check endpoint."""
     response = await async_client.get("/api/v1/health")
@@ -19,6 +20,7 @@ async def test_health_check_basic(async_client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_liveness_check(async_client):
     """Test liveness check endpoint."""
     response = await async_client.get("/api/v1/health/live")
@@ -29,6 +31,7 @@ async def test_liveness_check(async_client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_readiness_check_healthy(async_client):
     """Test readiness check when all dependencies are healthy."""
     response = await async_client.get("/api/v1/health/ready")
@@ -41,12 +44,15 @@ async def test_readiness_check_healthy(async_client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_readiness_check_database_failure():
     """Test readiness check when database is unavailable."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        with patch("app.api.health.get_session") as mock_session:
-            # Mock database failure
-            mock_session.return_value.__aenter__.return_value.execute.side_effect = Exception("Database connection error")
+        with patch("app.core.db.engine") as mock_engine:
+            # Mock database connection failure
+            mock_conn = AsyncMock()
+            mock_conn.execute.side_effect = Exception("Database connection error")
+            mock_engine.begin.return_value.__aenter__.return_value = mock_conn
             
             response = await ac.get("/api/v1/health/ready")
             data = response.json()
@@ -57,12 +63,16 @@ async def test_readiness_check_database_failure():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_readiness_check_redis_failure():
     """Test readiness check when Redis is unavailable."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        with patch("app.api.health.Redis.from_url") as mock_redis:
+        with patch("redis.asyncio.Redis.from_url") as mock_redis:
             # Mock Redis failure
-            mock_redis.return_value.ping = AsyncMock(side_effect=Exception("Redis connection error"))
+            mock_redis_instance = AsyncMock()
+            mock_redis_instance.ping.side_effect = Exception("Redis connection error")
+            mock_redis_instance.close = AsyncMock()
+            mock_redis.return_value = mock_redis_instance
             
             response = await ac.get("/api/v1/health/ready")
             data = response.json()
@@ -73,9 +83,10 @@ async def test_readiness_check_redis_failure():
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_health_endpoints_return_json(async_client):
     """Test that all health endpoints return JSON."""
-    endpoints = ["/api/v1/health", "/api/v1/health/live", "/api/v1/health/ready"]
+    endpoints = ["/api/v1/health", "/api/v1/health/live"]
     
     for endpoint in endpoints:
         response = await async_client.get(endpoint)
@@ -86,6 +97,7 @@ async def test_health_endpoints_return_json(async_client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_health_check_no_authentication_required(async_client):
     """Test that health checks don't require authentication."""
     # Health endpoints should be publicly accessible
@@ -94,12 +106,10 @@ async def test_health_check_no_authentication_required(async_client):
     
     response = await async_client.get("/api/v1/health/live")
     assert response.status_code == 200
-    
-    response = await async_client.get("/api/v1/health/ready")
-    assert response.status_code == 200
 
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_readiness_check_structure(async_client):
     """Test the structure of readiness check response."""
     response = await async_client.get("/api/v1/health/ready")
@@ -119,11 +129,13 @@ async def test_readiness_check_structure(async_client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 async def test_health_endpoints_performance(async_client):
     """Test that health endpoints respond quickly."""
     import time
     
-    endpoints = ["/api/v1/health", "/api/v1/health/live", "/api/v1/health/ready"]
+    # Only test lightweight endpoints that don't require external services
+    endpoints = ["/api/v1/health", "/api/v1/health/live"]
     
     for endpoint in endpoints:
         start = time.time()
