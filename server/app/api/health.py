@@ -2,11 +2,12 @@
 Health check endpoints for monitoring system status.
 """
 from typing import Dict, Any
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.core.db import get_session
 from app.core.logger import get_logger
+from redis.asyncio import Redis
 import os
 
 logger = get_logger(__name__)
@@ -26,8 +27,9 @@ async def health_check() -> Dict[str, Any]:
     }
 
 
-@router.get("/health/ready", status_code=status.HTTP_200_OK)
+@router.get("/health/ready")
 async def readiness_check(
+    response: Response,
     session: AsyncSession = Depends(get_session)
 ) -> Dict[str, Any]:
     """
@@ -55,7 +57,6 @@ async def readiness_check(
     # Check Redis
     try:
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
-        from redis.asyncio import Redis
         redis_client = Redis.from_url(redis_url, decode_responses=True)
         await redis_client.ping()
         await redis_client.close()
@@ -65,15 +66,15 @@ async def readiness_check(
         checks["redis"] = "unhealthy"
         all_healthy = False
     
-    response = {
+    result_data = {
         "status": "ready" if all_healthy else "not ready",
         "checks": checks
     }
     
     if not all_healthy:
-        return response  # FastAPI will use default 200 unless we raise exception
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     
-    return response
+    return result_data
 
 
 @router.get("/health/live", status_code=status.HTTP_200_OK)
