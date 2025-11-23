@@ -10,8 +10,6 @@ LifeLog is a self-hosted, Python-native platform for personal data aggregation, 
 
 See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
 
-**Note**: The architecture document is currently named `architechture.md` (with typo) in the repository.
-
 ## Documentation
 
 📖 **[Complete Documentation Index](docs/INDEX.md)** - Start here for all documentation
@@ -19,7 +17,7 @@ See [docs/architecture.md](docs/architecture.md) for detailed architecture docum
 Key documents:
 - **[Quick Start Improvements](docs/QUICK_START_IMPROVEMENTS.md)** - Actionable checklist with time estimates
 - **[Development Roadmap](docs/DEVELOPMENT_ROADMAP.md)** - Comprehensive analysis and 12-14 week plan
-- **[Architecture Guide](docs/architechture.md)** - System design and technical details
+- **[Architecture Guide](docs/architecture.md)** - System design and technical details
 - **[Authentication Guide](docs/guides/IMPLEMENTING_AUTHENTICATION.md)** - Critical security implementation
 
 ## Project Structure

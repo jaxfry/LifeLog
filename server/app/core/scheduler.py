@@ -7,7 +7,7 @@ from app.core.timeline_processor import process_pending_sessions
 from app.core.rebuilder import process_dirty_sessions
 from app.core.daily_summary import generate_daily_summary
 from app.core.logger import get_logger
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 scheduler = AsyncIOScheduler()
 
@@ -33,8 +33,8 @@ async def run_daily_summary_job():
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
-        # Target yesterday
-        yesterday = datetime.now() - timedelta(days=1)
+        # Target yesterday (using timezone-aware datetime)
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
         await generate_daily_summary(session, yesterday)
 
 def start_scheduler():
