@@ -9,12 +9,12 @@ Individual model files:
 
 Note: Alembic requires these imports for database migrations.
 """
-from .data import RawLog, Event, Session, Timeline, SessionStatus, DailySummary
+from .data import RawLog, Event, Session, Timeline, SessionStatus, DailySummary, DailyChapter
 from .config import Device, Extension, Prompt, SystemConfig
 from .audit import AIUsage, Blob, Failure
 
 __all__ = [
-    "RawLog", "Event", "Session", "Timeline", "SessionStatus", "DailySummary",
+    "RawLog", "Event", "Session", "Timeline", "SessionStatus", "DailySummary", "DailyChapter",
     "Device", "Extension", "Prompt", "SystemConfig",
     "AIUsage", "Blob", "Failure"
 ]
