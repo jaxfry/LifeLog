@@ -8,7 +8,7 @@ Welcome to the LifeLog documentation. This index helps you find the right docume
 
 ### For New Users
 - **[README.md](../README.md)** - Project overview, setup instructions
-- **[Architecture](architechture.md)** - System design and technical architecture
+- **[Architecture](architecture.md)** - System design and technical architecture
 
 ### For Developers
 
@@ -40,7 +40,7 @@ Welcome to the LifeLog documentation. This index helps you find the right docume
 | Document | Size | Purpose | Audience |
 |----------|------|---------|----------|
 | README.md | 3KB | Project overview | Everyone |
-| architechture.md | 6.5KB | System architecture | Developers |
+| architecture.md | 6.5KB | System architecture | Developers |
 | **QUICK_START_IMPROVEMENTS.md** | 6KB | **Action items** | **Developers** |
 | **DEVELOPMENT_ROADMAP.md** | 27KB | **Complete analysis** | **Project leads** |
 | IMPLEMENTING_AUTHENTICATION.md | 4KB | Security guide | Developers |
@@ -50,7 +50,7 @@ Welcome to the LifeLog documentation. This index helps you find the right docume
 ## 🎯 Quick Links by Goal
 
 ### "I want to understand the system"
-→ Read [Architecture](architechture.md) first
+→ Read [Architecture](architecture.md) first
 
 ### "I want to improve the code"
 → Start with [QUICK_START_IMPROVEMENTS.md](QUICK_START_IMPROVEMENTS.md)
@@ -79,8 +79,10 @@ Welcome to the LifeLog documentation. This index helps you find the right docume
 - ✅ ActivityWatch extension functional
 - ✅ **API Authentication** (Secure)
 - ✅ **Health Monitoring** (Live)
+- ✅ **Deprecated datetime fixed** (Python 3.12 compatible)
 - ❌ No web UI
 - ❌ Limited test coverage (~30%)
+- ❌ No rate limiting (security gap)
 
 **To Production:**
 - **Critical fixes:** ~15 hours (rate limiting, timezone handling)
@@ -98,7 +100,7 @@ Welcome to the LifeLog documentation. This index helps you find the right docume
 
 ### Path 2: Deep Dive (2 hours)
 1. README.md (5 min)
-2. Architecture (architechture.md) (30 min)
+2. Architecture (architecture.md) (30 min)
 3. DEVELOPMENT_ROADMAP.md (1.5 hours)
 4. → Plan your development strategy
 
@@ -144,11 +146,12 @@ Before contributing:
 ## 🐛 Known Issues
 
 Documented in [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md#weaknesses--gaps-%EF%B8%8F):
-1. No API authentication (CRITICAL)
-2. No web UI
-3. Limited test coverage
-4. Only one extension (ActivityWatch)
-5. Timezone handling TODO (in code)
+1. ~~No API authentication~~ ✅ FIXED
+2. No rate limiting (CRITICAL)
+3. No web UI
+4. Limited test coverage
+5. Only one extension (ActivityWatch)
+6. User timezone preference not implemented (defaults to UTC)
 
 ---
 
