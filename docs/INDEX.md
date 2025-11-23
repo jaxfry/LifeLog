@@ -33,6 +33,11 @@ Welcome to the LifeLog documentation. This index helps you find the right docume
   - Step-by-step authentication implementation
   - Code examples and testing procedures
 
+- **[WEB_DASHBOARD.md](WEB_DASHBOARD.md)** - Web dashboard documentation
+  - Complete guide to the React-based web interface
+  - Features, architecture, and customization
+  - Deployment and security considerations
+
 ---
 
 ## 📋 Document Summary
