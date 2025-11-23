@@ -44,17 +44,22 @@ async def test_readiness_check_healthy(async_client):
     assert "redis" in data["checks"]
 
 
+from app.core.db import get_session
+
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_readiness_check_database_failure():
     """Test readiness check when database is unavailable."""
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        # Mock the session to raise an error when executing
-        with patch("app.api.health.get_session") as mock_get_session:
-            mock_session = AsyncMock()
-            mock_session.execute.side_effect = Exception("Database connection error")
-            mock_get_session.return_value.__aenter__.return_value = mock_session
-            
+    
+    async def mock_get_session_failure():
+        mock_session = AsyncMock()
+        mock_session.execute.side_effect = Exception("Database connection error")
+        yield mock_session
+
+    app.dependency_overrides[get_session] = mock_get_session_failure
+    
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             response = await ac.get("/api/v1/health/ready")
             data = response.json()
             
@@ -63,6 +68,8 @@ async def test_readiness_check_database_failure():
             assert "checks" in data
             assert data["checks"]["database"] == "unhealthy"
             assert data["status"] == "not ready"
+    finally:
+        app.dependency_overrides = {}
 
 
 @pytest.mark.asyncio
