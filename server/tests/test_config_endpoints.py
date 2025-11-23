@@ -5,8 +5,8 @@ from app.core.db import engine
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_config_endpoints():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+async def test_config_endpoints(mock_superuser):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as ac:
         # 1. List Config (Initially empty or with existing configs)
         response = await ac.get("/api/v1/config")
         assert response.status_code == 200

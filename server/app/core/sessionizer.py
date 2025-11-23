@@ -1,6 +1,6 @@
 import json
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import tiktoken
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +28,8 @@ async def run_sessionizer(db: AsyncSession):
         ts_str = event.data.get("timestamp")
         if ts_str:
             try:
-                return datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                return dt.astimezone(timezone.utc).replace(tzinfo=None)
             except ValueError:
                 pass
         return event.created_at
@@ -94,7 +95,8 @@ async def create_session(db: AsyncSession, events: List[Event]):
         ts_str = event.data.get("timestamp")
         if ts_str:
             try:
-                return datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                return dt.astimezone(timezone.utc).replace(tzinfo=None)
             except ValueError:
                 pass
         return event.created_at

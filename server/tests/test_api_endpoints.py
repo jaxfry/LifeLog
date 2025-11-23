@@ -14,8 +14,8 @@ async def reset_engine():
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_device_registration_and_listing():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+async def test_device_registration_and_listing(mock_superuser):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as ac:
         # Register a device
         response = await ac.post("/api/v1/devices", json={"name": "Test Device", "type": "mobile"})
         assert response.status_code == 201
@@ -41,7 +41,7 @@ async def test_device_registration_and_listing():
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_read_apis_empty():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as ac:
         # Get logs (might be empty or have data from other tests, just check status)
         response = await ac.get("/api/v1/logs")
         assert response.status_code == 200

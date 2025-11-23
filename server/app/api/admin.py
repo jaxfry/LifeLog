@@ -8,12 +8,14 @@ import secrets
 import hashlib
 import uuid
 from app.core.db import get_session
-from app.models.config import Device, SystemConfig
+from app.models.config import Device, SystemConfig, User
 from app.models.data import Session, DailySummary
 from app.core.sessionizer import run_sessionizer
 from app.core.timeline_processor import process_pending_sessions
 from app.models.data import Session
 from app.core.daily_summary import generate_daily_summary
+from app.api.deps import get_current_superuser
+from app.core.security import get_password_hash
 
 router = APIRouter()
 
@@ -38,10 +40,48 @@ class DevicePublic(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    is_superuser: bool = False
+
+class UserResponse(BaseModel):
+    id: uuid.UUID
+    username: str
+    is_active: bool
+    is_superuser: bool
+    created_at: datetime
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    user_in: UserCreate,
+    session: AsyncSession = Depends(get_session),
+    # Only superusers can create new users
+    current_user: User = Depends(get_current_superuser)
+):
+    statement = select(User).where(User.username == user_in.username)
+    result = await session.execute(statement)
+    if result.scalars().first():
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this username already exists in the system.",
+        )
+    
+    user = User(
+        username=user_in.username,
+        hashed_password=get_password_hash(user_in.password),
+        is_superuser=user_in.is_superuser
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
 @router.post("/devices", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED)
 async def register_device(
     device_in: DeviceCreate,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
 ):
     # Generate Device ID
     # We can use a UUID or a slug. Let's use UUID for uniqueness.
@@ -67,7 +107,8 @@ async def register_device(
 
 @router.get("/devices", response_model=List[DevicePublic])
 async def list_devices(
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
 ):
     statement = select(Device)
     result = await session.execute(statement)
@@ -76,7 +117,8 @@ async def list_devices(
 @router.get("/devices/{device_id}", response_model=DevicePublic)
 async def get_device(
     device_id: str,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
 ):
     device = await session.get(Device, device_id)
     if not device:
@@ -87,7 +129,8 @@ async def get_device(
 async def update_device(
     device_id: str,
     device_in: DeviceUpdate,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
 ):
     device = await session.get(Device, device_id)
     if not device:
@@ -105,7 +148,8 @@ async def update_device(
 @router.delete("/devices/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_device(
     device_id: str,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
 ):
     device = await session.get(Device, device_id)
     if not device:
@@ -118,7 +162,8 @@ async def delete_device(
 @router.post("/devices/{device_id}/rotate-key", response_model=DeviceResponse)
 async def rotate_device_key(
     device_id: str,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
 ):
     device = await session.get(Device, device_id)
     if not device:
@@ -137,7 +182,10 @@ async def rotate_device_key(
     return DeviceResponse(device_id=device_id, api_key=api_key)
 
 @router.post("/admin/test/sessionizer")
-async def test_sessionizer(session: AsyncSession = Depends(get_session)):
+async def test_sessionizer(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
+):
     """
     Manually triggers the sessionizer and returns the latest 20 sessions.
     Useful for debugging the session creation logic.
@@ -165,7 +213,8 @@ class SystemConfigUpdate(BaseModel):
 
 @router.get("/config", response_model=List[SystemConfig])
 async def list_config(
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
 ):
     statement = select(SystemConfig)
     result = await session.execute(statement)
@@ -175,7 +224,8 @@ async def list_config(
 async def update_config(
     key: str,
     config_in: SystemConfigUpdate,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
 ):
     config = await session.get(SystemConfig, key)
     if not config:
@@ -194,7 +244,8 @@ async def update_config(
 @router.post("/admin/generate-summary/{date_str}")
 async def trigger_daily_summary(
     date_str: str,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
 ):
     """
     Manually triggers daily summary generation for a specific date (YYYY-MM-DD).

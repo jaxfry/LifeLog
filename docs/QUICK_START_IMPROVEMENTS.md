@@ -10,32 +10,32 @@ This is a condensed, actionable checklist for improving the LifeLog system.
 
 These items block production deployment or pose security risks:
 
-### 1. Implement API Authentication
-**Time:** 8 hours  
-**Why:** API is currently open to anyone
-
-**What to do:**
-- Add middleware to verify device API keys
-- Protect all ingest and data endpoints
-- Files: `server/app/api/deps.py`, `server/app/api/ingest.py`
-
-### 2. Add Health Checks
-**Time:** 3 hours  
-**Why:** Needed for production monitoring
-
-**What to do:**
-- Add `/health` and `/health/detailed` endpoints
-- Check database, redis, disk space
-- Files: `server/app/main.py`
-
-### 3. Add Rate Limiting
-**Time:** 4 hours  
-**Why:** Prevent abuse
+### 1. Add Rate Limiting
+**Time:** 4 hours
+**Why:** Prevent abuse (DoS protection)
 
 **What to do:**
 - Install `slowapi`
 - Add rate limiting to all endpoints
 - Files: `server/app/main.py`
+
+### 2. Improve Timezone Handling
+**Time:** 8 hours
+**Why:** TODO comment in code, defaults to UTC
+
+**What to do:**
+- Store user's primary timezone
+- Use proper timezone conversion
+- Files: `server/app/core/daily_summary.py`, `server/app/core/timeline_processor.py`
+
+### 3. Client Configuration Validation
+**Time:** 3 hours
+**Why:** Client crashes if config is invalid
+
+**What to do:**
+- Add validation method to `ConfigManager`
+- Test server connectivity on startup
+- Files: `lifelog_client/core/config.py`
 
 **Total Critical Work:** ~15 hours (2 days)
 
@@ -46,7 +46,7 @@ These items block production deployment or pose security risks:
 These improve user experience and system reliability:
 
 ### 4. Build Web Dashboard
-**Time:** 60 hours (2 weeks)  
+**Time:** 60 hours (2 weeks)
 **Why:** No UI currently exists
 
 **What to do:**
@@ -54,17 +54,17 @@ These improve user experience and system reliability:
 - Timeline view, daily summaries, settings
 - New directory: `web/`
 
-### 5. Improve Timezone Handling
-**Time:** 8 hours  
-**Why:** TODO comment in code, defaults to UTC
+### 5. Structured Logging & Telemetry
+**Time:** 12 hours
+**Why:** Debugging distributed systems is hard
 
 **What to do:**
-- Store user's primary timezone
-- Use proper timezone conversion
-- Files: `server/app/core/daily_summary.py`, `server/app/core/timeline_processor.py`
+- Implement `structlog` for JSON logs
+- Add OpenTelemetry for request tracing
+- Files: `server/app/core/logger.py`
 
 ### 6. Add Extension Error Handling
-**Time:** 4 hours  
+**Time:** 4 hours
 **Why:** Crashed extensions don't restart
 
 **What to do:**
@@ -73,7 +73,7 @@ These improve user experience and system reliability:
 - Files: `lifelog_client/core/extension_manager.py`
 
 ### 7. Expand Test Coverage
-**Time:** 40 hours  
+**Time:** 40 hours
 **Why:** Only ~30% coverage currently
 
 **What to do:**
@@ -81,7 +81,7 @@ These improve user experience and system reliability:
 - End-to-end tests for full pipeline
 - New directory: `server/tests/integration/`
 
-**Total High Priority Work:** ~112 hours (3 weeks)
+**Total High Priority Work:** ~116 hours (3 weeks)
 
 ---
 
@@ -169,24 +169,23 @@ git mv docs/architechture.md docs/architecture.md
 | Priority | Total Hours | Calendar Time |
 |----------|-------------|---------------|
 | Critical | 15 | 2 days |
-| High | 112 | 3 weeks |
+| High | 116 | 3 weeks |
 | Medium | ~80 | 2 weeks |
 | Low | ~20 | 3 days |
-| **TOTAL** | **~227** | **~8 weeks** |
+| **TOTAL** | **~231** | **~8 weeks** |
 
 ---
 
 ## 🎯 Recommended 30-Day Plan
 
-### Week 1: Security & Stability
-- [ ] Implement API authentication (Day 1-2)
-- [ ] Add health checks (Day 2)
-- [ ] Add rate limiting (Day 3)
-- [ ] Set up monitoring (Day 4-5)
+### Week 1: Stability & Resilience
+- [ ] Add rate limiting (Day 1)
+- [ ] Improve timezone handling (Day 2-3)
+- [ ] Client configuration validation (Day 4)
+- [ ] Extension error handling (Day 5)
 
-### Week 2: Foundation
-- [ ] Improve timezone handling (Day 6-7)
-- [ ] Extension error handling (Day 8)
+### Week 2: Observability & Quality
+- [ ] Structured logging & Telemetry (Day 6-7)
 - [ ] Fix documentation typo (Day 8)
 - [ ] Add code quality tools (Day 9-10)
 
@@ -203,11 +202,11 @@ git mv docs/architechture.md docs/architecture.md
 - [ ] Write integration tests (Day 29-30)
 
 **After 30 days, you'll have:**
-- ✅ Secure, production-ready API
+- ✅ Secure, resilient API with rate limiting
 - ✅ Beautiful web interface
+- ✅ Full observability (logs/traces)
 - ✅ 3 data sources (ActivityWatch + 2 new)
 - ✅ Better test coverage
-- ✅ Basic monitoring
 
 ---
 
@@ -215,7 +214,7 @@ git mv docs/architechture.md docs/architecture.md
 
 Do these immediately for instant improvements:
 
-1. ✅ Fix `architechture.md` → `architecture.md` (5 min)
+1. ✅ **Fix `architechture.md` → `architecture.md`** (5 min)
 2. Add `.editorconfig` file (10 min)
 3. Create GitHub issue templates (20 min)
 4. Add `CONTRIBUTING.md` (30 min)
@@ -229,7 +228,7 @@ Do these immediately for instant improvements:
 
 1. **Read this document** ✅ (You're here!)
 2. **Review** [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for full details
-3. **Start with critical items** (authentication, health checks)
+3. **Start with Rate Limiting** (Critical #1)
 4. **Build the web dashboard** (biggest impact)
 5. **Iterate and improve**
 
@@ -255,6 +254,6 @@ Answer these to fine-tune priorities.
 
 ---
 
-**Next Step:** Implement API authentication (Critical #1)
+**Next Step:** Implement Rate Limiting (Critical #1)
 
 See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for implementation details.

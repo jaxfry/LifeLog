@@ -59,7 +59,7 @@ async def test_readiness_check_database_failure():
     app.dependency_overrides[get_session] = mock_get_session_failure
     
     try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as ac:
             response = await ac.get("/api/v1/health/ready")
             data = response.json()
             
@@ -76,7 +76,7 @@ async def test_readiness_check_database_failure():
 @pytest.mark.unit
 async def test_readiness_check_redis_failure():
     """Test readiness check when Redis is unavailable."""
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as ac:
         with patch("app.api.health.Redis.from_url") as mock_redis:
             # Mock Redis failure
             mock_redis_instance = AsyncMock()
