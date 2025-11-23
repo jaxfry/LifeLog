@@ -5,8 +5,8 @@ from app.core.db import engine
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_device_lifecycle():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+async def test_device_lifecycle(mock_superuser):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as ac:
         # 1. Register Device
         response = await ac.post("/api/v1/devices", json={"name": "Lifecycle Device", "type": "test"})
         assert response.status_code == 201

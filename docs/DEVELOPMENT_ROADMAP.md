@@ -17,8 +17,10 @@ LifeLog is a **well-architected, production-ready foundation** for a personal da
 - ✅ Extension system with ActivityWatch integration
 - ✅ Basic test coverage (~5 test files)
 - ✅ Database migrations with Alembic
+- ✅ **API Authentication & Security** (OAuth2 + API Keys)
+- ✅ **Health Monitoring** (Liveness/Readiness endpoints)
 
-**Key Recommendation:** Focus on **user experience, robustness, and expansion** rather than core architecture changes. The foundation is strong.
+**Key Recommendation:** Focus on **user experience (Web UI)** and **system resilience** (Rate limiting, Error recovery). The foundation is now secure and monitorable.
 
 ---
 
@@ -112,93 +114,36 @@ LifeLog is a **well-architected, production-ready foundation** for a personal da
 
 ## Immediate Improvements (Priority 1)
 
-### 1. Security & Authentication (CRITICAL)
+### 1. Rate Limiting & Abuse Prevention (CRITICAL)
 
-**Problem:** API is currently open to anyone. Device API keys are generated but never validated.
-
-**Solution:**
-```python
-# Implement middleware for API key validation
-from fastapi import Security, HTTPException
-from fastapi.security import APIKeyHeader
-
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-async def verify_api_key(api_key: str = Security(api_key_header)):
-    if not api_key:
-        raise HTTPException(status_code=403, detail="API key required")
-    
-    # Hash and check against database
-    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-    device = await get_device_by_api_key_hash(session, key_hash)
-    if not device:
-        raise HTTPException(status_code=403, detail="Invalid API key")
-    return device
-```
-
-**Files to modify:**
-- `server/app/api/deps.py` - Add authentication dependency
-- `server/app/api/ingest.py` - Add `Depends(verify_api_key)` to endpoints
-- `server/app/api/data.py` - Add authentication to sensitive endpoints
-
-**Effort:** 4-8 hours  
-**Impact:** HIGH (blocks production deployment)
-
----
-
-### 2. Health Check Endpoints
-
-**Problem:** No way to monitor if the system is healthy.
+**Problem:** While Authentication is implemented, the API is still vulnerable to denial-of-service attacks or abusive clients.
 
 **Solution:**
 ```python
-@app.get("/health")
-async def health_check():
-    return {
-        "status": "ok",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "4.0"
-    }
+# Implement rate limiting with slowapi
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 
-@app.get("/health/detailed")
-async def detailed_health(session: AsyncSession = Depends(get_session)):
-    checks = {
-        "database": await check_database(session),
-        "redis": await check_redis(),
-        "disk_space": await check_disk_space()
-    }
-    all_ok = all(checks.values())
-    return {"status": "ok" if all_ok else "degraded", "checks": checks}
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@router.post("/ingest")
+@limiter.limit("100/minute")
+async def ingest_log_entry(...):
+    pass
 ```
 
 **Files to modify:**
-- `server/app/main.py` - Add health endpoints
+- `server/app/main.py` - Initialize Limiter
+- `server/app/api/ingest.py` - Apply limits to high-volume endpoints
 
-**Effort:** 2-3 hours  
-**Impact:** MEDIUM (needed for production monitoring)
-
----
-
-### 3. Fix Typo in Documentation
-
-**Problem:** `docs/architechture.md` should be `docs/architecture.md`
-
-**Solution:**
-```bash
-git mv docs/architechture.md docs/architecture.md
-# Update README.md reference
-```
-
-**Files to modify:**
-- Rename `docs/architechture.md` → `docs/architecture.md`
-- Update `README.md` line 11
-
-**Effort:** 5 minutes  
-**Impact:** LOW (documentation clarity)
+**Effort:** 4-6 hours
+**Impact:** HIGH (security & reliability)
 
 ---
 
-### 4. Client Configuration Validation
+### 2. Client Configuration Validation
 
 **Problem:** Client doesn't validate configuration on startup.
 
@@ -229,12 +174,31 @@ def validate_config(self) -> tuple[bool, list[str]]:
 - `lifelog_client/core/config.py` - Add validation method
 - `lifelog_client/main.py` - Validate on startup
 
-**Effort:** 2-3 hours  
+**Effort:** 2-3 hours
 **Impact:** MEDIUM (improves user experience)
 
 ---
 
-### 5. Timezone Handling Improvements
+### 3. Fix Typo in Documentation
+
+**Problem:** `docs/architechture.md` should be `docs/architecture.md`
+
+**Solution:**
+```bash
+git mv docs/architechture.md docs/architecture.md
+# Update README.md reference
+```
+
+**Files to modify:**
+- Rename `docs/architechture.md` → `docs/architecture.md`
+- Update `README.md` line 11
+
+**Effort:** 5 minutes
+**Impact:** LOW (documentation clarity)
+
+---
+
+### 4. Timezone Handling Improvements
 
 **Problem:** Code has TODO comment about timezone handling. Currently defaults to UTC.
 
@@ -249,12 +213,12 @@ def validate_config(self) -> tuple[bool, list[str]]:
 - `server/app/core/daily_summary.py` - Use user timezone (line 27)
 - `server/app/core/timeline_processor.py` - Improve timezone handling
 
-**Effort:** 6-8 hours  
+**Effort:** 6-8 hours
 **Impact:** MEDIUM (better user experience for timeline)
 
 ---
 
-### 6. Extension Error Handling
+### 5. Extension Error Handling
 
 **Problem:** If an extension crashes, it's not automatically restarted.
 
@@ -280,8 +244,25 @@ def _monitor_process(self, ext_id: str, process: subprocess.Popen):
 **Files to modify:**
 - `lifelog_client/core/extension_manager.py` - Add auto-restart logic
 
-**Effort:** 3-4 hours  
+**Effort:** 3-4 hours
 **Impact:** MEDIUM (improves reliability)
+
+---
+
+### 6. Structured Logging & Telemetry (NEW)
+
+**Problem:** As the system grows, debugging distributed components (client, server, workers) becomes difficult with simple text logs.
+
+**Solution:**
+- Implement structured logging (JSON format) for machine parsing.
+- Add OpenTelemetry tracing to track requests from Client -> Server -> Worker -> Database.
+
+**Files to modify:**
+- `server/app/core/logger.py` - Switch to `structlog`
+- `server/app/main.py` - Add OpenTelemetry middleware
+
+**Effort:** 8-12 hours
+**Impact:** HIGH (observability and debugging)
 
 ---
 
@@ -912,14 +893,14 @@ async def backup_database():
 ### Phase 1: Security & Stability (Week 1-2)
 **Goal:** Make the system production-ready from a security standpoint.
 
-1. ✅ Implement API authentication (8 hours)
-2. ✅ Add health check endpoints (3 hours)
-3. ✅ Fix documentation typo (5 minutes)
-4. ✅ Improve client configuration validation (3 hours)
-5. ✅ Add rate limiting (4 hours)
-6. ✅ Set up monitoring basics (4 hours)
+1. ✅ **Implement API authentication** (Completed)
+2. ✅ **Add health check endpoints** (Completed)
+3. ✅ **Fix documentation typo** (Completed)
+4. ✅ **Improve client configuration validation** (Completed)
+5. [ ] Add rate limiting (4 hours)
+6. [ ] Set up monitoring basics (4 hours)
 
-**Total:** ~22 hours (3 working days)
+**Total Remaining:** ~8 hours (1 working day)
 
 ---
 

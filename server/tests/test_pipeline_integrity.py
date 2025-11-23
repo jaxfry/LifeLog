@@ -44,7 +44,7 @@ def remove_extension(name):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_scenario_1_end_to_end(db_session):
+async def test_scenario_1_end_to_end(db_session, mock_device_auth):
     """
     Scenario 1: The Full End-to-End Flow
     """
@@ -68,7 +68,7 @@ def normalize(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
             }
         }
         
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as client:
             response = await client.post("/api/v1/ingest", json=payload_data)
         
         assert response.status_code == 201
@@ -92,7 +92,7 @@ def normalize(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_scenario_2_bad_code(db_session):
+async def test_scenario_2_bad_code(db_session, mock_device_auth):
     """
     Scenario 2: The 'Bad Code' Extension (Resilience)
     """
@@ -106,7 +106,7 @@ def normalize(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     
     try:
         payload_data = {
-            "device_id": "test_device_2",
+            "device_id": "test_device_1",
             "extension_id": ext_name,
             "payload": {
                 "data": "crash me",
@@ -114,7 +114,7 @@ def normalize(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
             }
         }
         
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as client:
             response = await client.post("/api/v1/ingest", json=payload_data)
         
         assert response.status_code == 201
@@ -143,7 +143,7 @@ def normalize(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_scenario_3_missing_extension(db_session):
+async def test_scenario_3_missing_extension(db_session, mock_device_auth):
     """
     Scenario 3: The 'Missing Extension'
     """
@@ -152,7 +152,7 @@ async def test_scenario_3_missing_extension(db_session):
     remove_extension(ext_name)
     
     payload_data = {
-        "device_id": "test_device_3",
+        "device_id": "test_device_1",
         "extension_id": ext_name,
         "payload": {
             "data": "ghost data",
@@ -160,7 +160,7 @@ async def test_scenario_3_missing_extension(db_session):
         }
     }
     
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as client:
         response = await client.post("/api/v1/ingest", json=payload_data)
     
     assert response.status_code == 201

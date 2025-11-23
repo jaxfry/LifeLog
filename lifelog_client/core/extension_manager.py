@@ -175,8 +175,15 @@ class ExtensionManager:
         Download new files and restart collectors.
         """
         server_url = config_manager.get("server_url")
+        api_key = config_manager.get("api_key")
+        headers = {"X-API-Key": api_key} if api_key else {}
+
         try:
-            response = requests.get(f"{server_url}/api/v1/client/extensions", timeout=10)
+            response = requests.get(
+                f"{server_url}/api/v1/client/extensions", 
+                headers=headers,
+                timeout=10
+            )
             if response.status_code != 200:
                 logger.error(f"Failed to list extensions: {response.status_code}")
                 return
@@ -206,7 +213,7 @@ class ExtensionManager:
                 
                 if needs_download:
                     logger.info(f"Downloading extension {ext_id}...")
-                    self._download_extension(server_url, ext_id)
+                    self._download_extension(server_url, ext_id, headers)
                     changes_made = True
             
             if changes_made:
@@ -216,9 +223,14 @@ class ExtensionManager:
         except requests.RequestException as e:
             logger.error(f"Network error during sync: {e}")
 
-    def _download_extension(self, server_url: str, ext_id: str):
+    def _download_extension(self, server_url: str, ext_id: str, headers: Dict[str, str]):
         try:
-            resp = requests.get(f"{server_url}/api/v1/client/download/{ext_id}", stream=True, timeout=30)
+            resp = requests.get(
+                f"{server_url}/api/v1/client/download/{ext_id}", 
+                headers=headers,
+                stream=True, 
+                timeout=30
+            )
             if resp.status_code == 200:
                 z = zipfile.ZipFile(io.BytesIO(resp.content))
                 target_dir = EXTENSIONS_DIR / ext_id

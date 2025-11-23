@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_daily_summary_generation():
+async def test_daily_summary_generation(mock_superuser):
     # Seed data
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with async_session() as session:
@@ -28,7 +28,7 @@ async def test_daily_summary_generation():
         session.add(timeline)
         await session.commit()
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as ac:
         # Trigger summary generation for today
         today_str = datetime.now().strftime("%Y-%m-%d")
         

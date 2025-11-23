@@ -59,7 +59,7 @@ class SyncEngine:
         
         headers = {
             "Content-Type": "application/json",
-            # "Authorization": f"Bearer {api_key}" # Assuming Bearer auth or similar
+            "X-API-Key": api_key
         }
 
         successful_ids = []

@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from app.core.db import get_session
 from app.core.logger import get_logger
-from app.models.config import Extension
+from app.models.config import Extension, Device
+from app.api.deps import verify_api_key
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -17,7 +18,8 @@ EXTENSIONS_DIR = "extensions"  # Relative to server root
 
 @router.get("/client/extensions", response_model=List[Extension])
 async def list_client_extensions(
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    device: Device = Depends(verify_api_key)
 ):
     # In a real app, we might filter by device permissions.
     # For now, return all active extensions.
@@ -34,7 +36,8 @@ async def list_client_extensions(
 @router.get("/client/download/{extension_id}")
 async def download_extension(
     extension_id: str,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    device: Device = Depends(verify_api_key)
 ):
     # Verify extension exists
     extension = await session.get(Extension, extension_id)
