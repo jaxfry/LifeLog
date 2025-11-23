@@ -18,12 +18,17 @@ You are a timeline analysis AI. Your task is to convert a log of raw computer ev
 - Be as concise as possible to reduce token count.
 
 **Instructions:**
-1.  **Group Events:** Group related consecutive events into meaningful blocks (5-30 mins). Process events in order. A major context switch begins a new block.
-2.  **Set Timestamps:** `start` is the start_time of the first event; `end` is the end_time of the last. No overlaps. Use ISO 8601 format (YYYY-MM-DDTHH:MM:SS±HH:MM).
-3.  **Define Activity:** Use a short verb phrase (max 6 words) for the `activity` field (e.g., "Debugging payment API" not "Using VS Code").
-4.  **Write Notes:** In 1-2 sentences, summarize the activity in the `notes` field. Pull specific details (filenames, PR numbers, URLs) from the event data. For idle time, use "Device idle or user away."
-5.  **Handle Gaps:** Fill gaps >15 minutes with an "Idle / Away" activity.
-6.  **Empty Input:** If the event table is empty, return an empty JSON array `[]`.
+1.  **Group Events by Intent:** Group events into high-level activities based on the user's *intent* (e.g., "Coding LifeLog", "Researching AI"). Blocks should be as long as possible (up to several hours) if the general activity is consistent.
+2.  **Maximize Signal-to-Noise:** Focus on the *signal* (major accomplishments, long periods of work) and filter out the *noise* (brief window switches, short distractions, checking email for < 5 mins).
+3.  **Ignore Interruptions:** Ignore brief interruptions (e.g., changing music, quick Google searches, 1-2 minute gaps) if the user returns to the main task. Do not create separate blocks for these.
+4.  **Context Switching:** Only start a new block if there is a *significant* shift in the user's primary goal (e.g., switching from "Work" to "Gaming", or "Writing" to "Meeting"). Do not split based on application switching alone.
+5.  **Set Timestamps:** `start` is the start_time of the first event in the block; `end` is the end_time of the last. No overlaps. Use ISO 8601 format (YYYY-MM-DDTHH:MM:SS±HH:MM).
+6.  **Define Activity:** Use a descriptive verb phrase (max 8 words) for the `activity` field (e.g., "Refactoring authentication module in VS Code").
+7.  **Write Notes:** In 1-2 sentences, summarize the activity in the `notes` field. Mention key tools and topics.
+    - **Drop Micro-Details:** Do not mention sub-minute actions (e.g., "brief 18-second switch") unless critical.
+    - **Infer Intent:** Try to explain *why* the user was doing this (e.g., "...in an attempt to fix timeline quality issues").
+8.  **Handle Gaps:** Fill gaps >15 minutes with an "Idle / Away" activity.
+9.  **Empty Input:** If the event table is empty, return an empty JSON array `[]`.
 
 **Event Data for {day_iso}:**
 {events_json}
@@ -52,6 +57,32 @@ Return a valid JSON object with the following fields:
 - Ignore minor gaps or short idle periods.
 - Group related activities (e.g., "Coding in VS Code" and "Reading Documentation" are part of the same "Development" block).
 - Be objective but engaging.
+
+**JSON Output:**
+"""
+
+# --- Chapter Summary Prompt ---
+
+DEFAULT_CHAPTER_SUMMARY_PROMPT = """
+You are a high-level summarizer. Your task is to group granular timeline entries into 3-4 logical "Chapters" with high-level titles.
+
+**Input:**
+Date: {date_str}
+Timeline Entries:
+{timeline_json}
+
+**Output Requirements:**
+Return a valid JSON array of objects, where each object represents a Chapter:
+- `title`: A high-level title for the chapter (e.g., "Morning Deep Work", "Afternoon Research").
+- `summary`: A 1-2 sentence summary of what happened in this chapter.
+- `start_time`: The ISO 8601 start time of the chapter.
+- `end_time`: The ISO 8601 end time of the chapter.
+
+**Instructions:**
+- Group the provided granular entries into 3-4 logical chapters.
+- The chapters should cover the entire time range of the input entries.
+- Strip away details and focus on macro chunks.
+- Ensure `start_time` and `end_time` are accurate based on the grouped entries.
 
 **JSON Output:**
 """
@@ -95,6 +126,26 @@ async def get_daily_summary_prompt(db: AsyncSession) -> str:
     new_prompt = Prompt(
         name=name,
         template=DEFAULT_DAILY_SUMMARY_PROMPT,
+        version=1,
+        is_active=True
+    )
+    db.add(new_prompt)
+    await db.commit()
+    return new_prompt.template
+
+async def get_chapter_summary_prompt(db: AsyncSession) -> str:
+    name = "chapter_summary"
+    statement = select(Prompt).where(Prompt.name == name, Prompt.is_active == True).order_by(Prompt.version.desc())
+    result = await db.execute(statement)
+    prompt = result.scalars().first()
+    
+    if prompt:
+        return prompt.template
+        
+    logger.info(f"Prompt '{name}' not found. Creating default.")
+    new_prompt = Prompt(
+        name=name,
+        template=DEFAULT_CHAPTER_SUMMARY_PROMPT,
         version=1,
         is_active=True
     )

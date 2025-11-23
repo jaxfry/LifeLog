@@ -67,6 +67,14 @@ export const timelineAPI = {
   },
 };
 
+// Chapters API
+export const chaptersAPI = {
+  getChapters: async (params = {}) => {
+    const response = await api.get('/chapters', { params });
+    return response.data;
+  },
+};
+
 // Sessions API
 export const sessionsAPI = {
   getSessions: async (params = {}) => {
@@ -95,6 +103,24 @@ export const logsAPI = {
 export const eventsAPI = {
   getEvents: async (params = {}) => {
     const response = await api.get('/events', { params });
+    return response.data;
+  },
+};
+
+// Analytics API
+export const analyticsAPI = {
+  getStats: async () => {
+    const response = await api.get('/analytics/stats');
+    return response.data;
+  },
+  
+  getActivityVolume: async (days = 7) => {
+    const response = await api.get('/analytics/activity-volume', { params: { days } });
+    return response.data;
+  },
+
+  getStatusDistribution: async () => {
+    const response = await api.get('/analytics/status-distribution');
     return response.data;
   },
 };

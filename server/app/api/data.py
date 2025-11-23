@@ -4,12 +4,35 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, col
 from app.core.db import get_session
-from app.models.data import RawLog, Event, Timeline, Session
+from app.models.data import RawLog, Event, Timeline, Session, DailyChapter
 from app.api.deps import Pagination
 
 router = APIRouter()
 
 # --- Timeline Endpoints ---
+
+@router.get("/chapters", response_model=List[DailyChapter])
+async def get_chapters(
+    pagination: Pagination = Depends(),
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Retrieve daily chapters.
+    """
+    query = select(DailyChapter).order_by(col(DailyChapter.start_time).desc())
+    
+    if start_date:
+        query = query.where(DailyChapter.start_time >= start_date)
+        
+    if end_date:
+        query = query.where(DailyChapter.end_time <= end_date)
+        
+    query = query.offset(pagination.offset).limit(pagination.limit)
+    
+    result = await session.execute(query)
+    return result.scalars().all()
 
 @router.get("/timeline", response_model=List[Timeline])
 async def get_timeline(

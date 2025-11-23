@@ -80,3 +80,16 @@ class DailySummary(SQLModel, table=True):
     
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+class DailyChapter(SQLModel, table=True):
+    __tablename__ = "daily_chapters"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    date: datetime = Field(index=True) # YYYY-MM-DD (stored as datetime at midnight UTC)
+    start_time: datetime
+    end_time: datetime
+    title: str
+    summary: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

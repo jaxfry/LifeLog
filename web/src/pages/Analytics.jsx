@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { sessionsAPI, eventsAPI } from '../services/api';
+import { analyticsAPI } from '../services/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Activity, Clock, Calendar, TrendingUp } from 'lucide-react';
 
@@ -9,50 +9,34 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'
 const Analytics = () => {
   const [timeRange, setTimeRange] = useState(7); // days
 
-  const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sessions', { limit: 100 }],
-    queryFn: () => sessionsAPI.getSessions({ limit: 100 }),
+  const { data: stats = {}, isLoading: statsLoading } = useQuery({
+    queryKey: ['analytics-stats'],
+    queryFn: () => analyticsAPI.getStats(),
   });
 
-  const { data: events = [], isLoading: eventsLoading } = useQuery({
-    queryKey: ['events', { limit: 500 }],
-    queryFn: () => eventsAPI.getEvents({ limit: 500 }),
+  const { data: activityVolume = [], isLoading: volumeLoading } = useQuery({
+    queryKey: ['analytics-volume', timeRange],
+    queryFn: () => analyticsAPI.getActivityVolume(timeRange),
   });
 
-  // Process data for analytics
-  const sessionsByDay = sessions.reduce((acc, session) => {
-    if (!session.start_time) return acc;
-    const date = new Date(session.start_time).toLocaleDateString();
-    acc[date] = (acc[date] || 0) + 1;
-    return acc;
-  }, {});
+  const { data: statusDistribution = [], isLoading: statusLoading } = useQuery({
+    queryKey: ['analytics-status'],
+    queryFn: () => analyticsAPI.getStatusDistribution(),
+  });
 
-  const chartData = Object.entries(sessionsByDay)
-    .sort((a, b) => new Date(a[0]) - new Date(b[0]))
-    .slice(-timeRange)
-    .map(([date, count]) => ({
-      date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      sessions: count,
-    }));
-
-  // Session status distribution
-  const statusData = sessions.reduce((acc, session) => {
-    const status = session.status || 'unknown';
-    acc[status] = (acc[status] || 0) + 1;
-    return acc;
-  }, {});
-
-  const pieData = Object.entries(statusData).map(([name, value]) => ({
-    name: name.charAt(0).toUpperCase() + name.slice(1),
-    value,
+  // Format chart data
+  const chartData = activityVolume.map(item => ({
+    date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    sessions: item.count,
   }));
 
-  // Calculate stats
-  const totalSessions = sessions.length;
-  const totalEvents = events.length;
-  const avgSessionsPerDay = totalSessions > 0 ? (totalSessions / Math.min(timeRange, 30)).toFixed(1) : 0;
+  // Format pie data
+  const pieData = statusDistribution.map(item => ({
+    name: item.name.charAt(0).toUpperCase() + item.name.slice(1),
+    value: item.value,
+  }));
 
-  const isLoading = sessionsLoading || eventsLoading;
+  const isLoading = statsLoading || volumeLoading || statusLoading;
 
   if (isLoading) {
     return (
@@ -77,9 +61,9 @@ const Analytics = () => {
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
               <Activity className="text-blue-600" size={20} />
             </div>
-            <p className="text-sm text-gray-600">Total Sessions</p>
+            <p className="text-sm text-gray-600">Total Activities</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{totalSessions}</p>
+          <p className="text-3xl font-bold text-gray-900">{stats.total_sessions || 0}</p>
         </div>
 
         <div className="card">
@@ -89,7 +73,7 @@ const Analytics = () => {
             </div>
             <p className="text-sm text-gray-600">Total Events</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{totalEvents}</p>
+          <p className="text-3xl font-bold text-gray-900">{stats.total_events || 0}</p>
         </div>
 
         <div className="card">
@@ -97,9 +81,9 @@ const Analytics = () => {
             <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
               <TrendingUp className="text-purple-600" size={20} />
             </div>
-            <p className="text-sm text-gray-600">Avg Sessions/Day</p>
+            <p className="text-sm text-gray-600">Avg Activities/Day</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{avgSessionsPerDay}</p>
+          <p className="text-3xl font-bold text-gray-900">{stats.avg_sessions_per_day || 0}</p>
         </div>
 
         <div className="card">
@@ -122,10 +106,10 @@ const Analytics = () => {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sessions Over Time */}
-        <div className="card">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Sessions Over Time</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Activity Volume */}
+        <div className="card lg:col-span-2">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Activity Volume</h3>
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={chartData}>
@@ -134,7 +118,7 @@ const Analytics = () => {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="sessions" fill="#3B82F6" />
+                <Bar dataKey="sessions" name="Activities" fill="#3B82F6" />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -144,9 +128,9 @@ const Analytics = () => {
           )}
         </div>
 
-        {/* Session Status Distribution */}
+        {/* Status Distribution */}
         <div className="card">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Session Status</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Status Distribution</h3>
           {pieData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
@@ -155,7 +139,7 @@ const Analytics = () => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -173,53 +157,6 @@ const Analytics = () => {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Recent Sessions */}
-      <div className="card mt-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">Recent Sessions</h3>
-        {sessions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Start Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Events
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sessions.slice(0, 10).map((session) => (
-                  <tr key={session.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(session.start_time).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        session.status === 'complete' ? 'bg-green-100 text-green-800' :
-                        session.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {session.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {session.event_count || 0}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-gray-500 text-center py-8">No sessions found</p>
-        )}
       </div>
     </div>
   );
