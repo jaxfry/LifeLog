@@ -1,48 +1,37 @@
-# Development Test Scripts
+# Development Scripts
 
-This directory contains simple test scripts for manual testing during development.
+This directory previously contained ad hoc test scripts that have been removed in favor of the professional test suite.
 
-## Scripts
+## Testing
 
-### test_api.py
-Tests basic API functionality including:
-- Root endpoint
-- Ingest endpoint
-- Duplicate detection
+For all testing needs, use the comprehensive test suite located in `server/tests/`:
 
-Usage:
 ```bash
-python test_api.py
+cd server
+pytest tests/
 ```
 
-### test_async_processing.py
-Tests the async processing flow:
-- Ingests a log entry
-- Verifies it's queued for processing
+The test suite includes:
+- Health check tests
+- API endpoint tests
+- Device management tests
+- Data pipeline tests
+- Configuration tests
+- Daily summary tests
 
-Usage:
+## Running Tests
+
 ```bash
-python test_async_processing.py
+# Run all tests
+cd server
+pytest
+
+# Run specific test file
+pytest tests/test_health_endpoints.py
+
+# Run with verbose output
+pytest -v
+
+# Run with coverage report
+pytest --cov=app tests/
 ```
-
-### test_aw_client.py
-Tests ActivityWatch client integration.
-
-Usage:
-```bash
-python test_aw_client.py
-```
-
-### test_processing.py
-Tests data processing pipeline.
-
-Usage:
-```bash
-python test_processing.py
-```
-
-## Notes
-
-- These scripts require the LifeLog server to be running on `http://localhost:8000`
-- They are intended for manual testing and development
-- For automated testing, see `server/tests/`

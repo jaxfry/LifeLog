@@ -5,6 +5,7 @@ from app.core.db import engine
 from datetime import datetime
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_daily_summary_generation():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Trigger summary generation for today

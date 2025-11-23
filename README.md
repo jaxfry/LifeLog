@@ -87,26 +87,41 @@ Environment variables (in `server/.env`):
 
 ### Running Tests
 
+The project includes a comprehensive test suite for all functionality:
+
 ```bash
 cd server
-pytest tests/
+pytest
 ```
 
-### Test Scripts
+Test coverage includes:
+- Health check endpoints
+- API endpoints (ingest, data, admin, client)
+- Device management
+- Data pipeline integrity
+- Configuration management
+- Daily summary generation
 
-The `scripts/` directory contains simple test utilities for development:
-- `test_api.py`: Test basic API endpoints
-- `test_async_processing.py`: Test async processing flow
-- `test_aw_client.py`: Test ActivityWatch integration
-- `test_processing.py`: Test data processing
+Run specific tests:
+```bash
+# Run a specific test file
+pytest tests/test_health_endpoints.py
 
-### Server Scripts
+# Run with verbose output
+pytest -v
 
-The `server/scripts/` directory contains utility scripts:
+# Run with coverage report
+pytest --cov=app tests/
+```
+
+### Server Utility Scripts
+
+The `server/scripts/` directory contains utility scripts for data management:
 - `seed_data.py`: Seed test data
 - `reset_db.py`: Reset database
 - `generate_timeline.py`: Manually trigger timeline generation
 - `verify_timeline.py`: Verify timeline integrity
+- `verify_summary.py`: Verify daily summary integrity
 
 ## Security
 
