@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from app.core.db import init_db
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logger import setup_logging, get_logger
-from app.api import ingest, data, admin, client
+from app.api import ingest, data, admin, client, health
 from arq import create_pool
 from arq.connections import RedisSettings
 import os
@@ -36,6 +36,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="LifeLog Core", version="4.0", lifespan=lifespan)
 
+app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(ingest.router, prefix="/api/v1", tags=["ingestion"])
 app.include_router(data.router, prefix="/api/v1", tags=["data"])
 app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
