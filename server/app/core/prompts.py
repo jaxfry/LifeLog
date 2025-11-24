@@ -3,7 +3,7 @@ This file contains all the LLM prompts used in the LifeLog application's
 Data Processing Service.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import select, col
 from app.models.config import Prompt
 from app.core.logger import get_logger
 
@@ -43,6 +43,7 @@ You are a personal biographer AI. Your task is to summarize a user's day based o
 
 **Input:**
 Date: {date_str}
+Current Time: {current_time}
 Timeline Entries:
 {timeline_json}
 
@@ -57,6 +58,7 @@ Return a valid JSON object with the following fields:
 - Ignore minor gaps or short idle periods.
 - Group related activities (e.g., "Coding in VS Code" and "Reading Documentation" are part of the same "Development" block).
 - Be objective but engaging.
+- **CRITICAL:** If the "Current Time" is before the end of the day (e.g., it is 5 PM), summarize ONLY what has happened so far. DO NOT hallucinate or predict the end of the day. Use phrases like "So far today..." or "The day began with...". Do not say "The day ended with..." if the day hasn't ended.
 
 **JSON Output:**
 """
@@ -94,7 +96,7 @@ async def get_system_prompt(db: AsyncSession, name: str = "timeline_enrichment")
     Retrieves the active system prompt from the database.
     If not found, creates it using the default.
     """
-    statement = select(Prompt).where(Prompt.name == name, Prompt.is_active == True).order_by(Prompt.version.desc())
+    statement = select(Prompt).where(Prompt.name == name, Prompt.is_active == True).order_by(col(Prompt.version).desc())
     result = await db.execute(statement)
     prompt = result.scalars().first()
     
@@ -115,11 +117,23 @@ async def get_system_prompt(db: AsyncSession, name: str = "timeline_enrichment")
 
 async def get_daily_summary_prompt(db: AsyncSession) -> str:
     name = "daily_summary"
-    statement = select(Prompt).where(Prompt.name == name, Prompt.is_active == True).order_by(Prompt.version.desc())
+    statement = select(Prompt).where(Prompt.name == name, Prompt.is_active == True).order_by(col(Prompt.version).desc())
     result = await db.execute(statement)
     prompt = result.scalars().first()
     
     if prompt:
+        # Check if prompt needs update (missing current_time)
+        if "{current_time}" not in prompt.template:
+             logger.info(f"Upgrading prompt '{name}' to include current_time.")
+             new_prompt = Prompt(
+                name=name,
+                template=DEFAULT_DAILY_SUMMARY_PROMPT,
+                version=prompt.version + 1,
+                is_active=True
+             )
+             db.add(new_prompt)
+             await db.commit()
+             return new_prompt.template
         return prompt.template
         
     logger.info(f"Prompt '{name}' not found. Creating default.")
@@ -135,7 +149,7 @@ async def get_daily_summary_prompt(db: AsyncSession) -> str:
 
 async def get_chapter_summary_prompt(db: AsyncSession) -> str:
     name = "chapter_summary"
-    statement = select(Prompt).where(Prompt.name == name, Prompt.is_active == True).order_by(Prompt.version.desc())
+    statement = select(Prompt).where(Prompt.name == name, Prompt.is_active == True).order_by(col(Prompt.version).desc())
     result = await db.execute(statement)
     prompt = result.scalars().first()
     

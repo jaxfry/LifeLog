@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { timelineAPI, chaptersAPI } from '../services/api';
 import { formatDateTime, formatRelative, formatDuration } from '../utils/dateUtils';
@@ -8,23 +8,35 @@ const Timeline = () => {
   const [page, setPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('chapters'); // 'chapters' or 'detailed'
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const limit = 20;
 
-  const { data: timeline = [], isLoading: isLoadingTimeline, isError: isErrorTimeline, error: errorTimeline, refetch: refetchTimeline } = useQuery({
-    queryKey: ['timeline', page, limit],
-    queryFn: () => timelineAPI.getTimeline({ 
+  const timelineParams = useMemo(() => {
+    const params = { 
       offset: page * limit, 
       limit 
-    }),
+    };
+    
+    if (startDate) {
+      params.start_date = new Date(startDate).toISOString();
+    }
+    if (endDate) {
+      params.end_date = new Date(endDate).toISOString();
+    }
+    
+    return params;
+  }, [page, limit, startDate, endDate]);
+
+  const { data: timeline = [], isLoading: isLoadingTimeline, isError: isErrorTimeline, error: errorTimeline, refetch: refetchTimeline } = useQuery({
+    queryKey: ['timeline', page, limit, startDate, endDate],
+    queryFn: () => timelineAPI.getTimeline(timelineParams),
     enabled: viewMode === 'detailed',
   });
 
   const { data: chapters = [], isLoading: isLoadingChapters, isError: isErrorChapters, error: errorChapters, refetch: refetchChapters } = useQuery({
-    queryKey: ['chapters', page, limit],
-    queryFn: () => chaptersAPI.getChapters({ 
-      offset: page * limit, 
-      limit 
-    }),
+    queryKey: ['chapters', page, limit, startDate, endDate],
+    queryFn: () => chaptersAPI.getChapters(timelineParams),
     enabled: viewMode === 'chapters',
   });
 
@@ -94,8 +106,8 @@ const Timeline = () => {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div className="md:col-span-2 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
@@ -106,12 +118,51 @@ const Timeline = () => {
             />
           </div>
           
+          <div>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setPage(0);
+              }}
+              placeholder="Start Date"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          
+          <div>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setPage(0);
+              }}
+              placeholder="End Date"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+        
+        <div className="flex gap-2">
           <button
             onClick={() => refetch()}
-            className="btn-secondary flex items-center gap-2 whitespace-nowrap"
+            className="btn-secondary flex items-center gap-2"
           >
             <RefreshCw size={20} />
             Refresh
+          </button>
+          <button
+            onClick={() => {
+              setSearchTerm('');
+              setStartDate('');
+              setEndDate('');
+              setPage(0);
+            }}
+            className="btn-secondary"
+          >
+            Clear Filters
           </button>
         </div>
       </div>
