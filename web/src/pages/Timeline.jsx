@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { timelineAPI, chaptersAPI } from '../services/api';
 import { formatDateTime, formatRelative, formatDuration } from '../utils/dateUtils';
@@ -12,17 +12,21 @@ const Timeline = () => {
   const [endDate, setEndDate] = useState('');
   const limit = 20;
 
-  const timelineParams = { 
-    offset: page * limit, 
-    limit 
-  };
-  
-  if (startDate) {
-    timelineParams.start_date = new Date(startDate).toISOString();
-  }
-  if (endDate) {
-    timelineParams.end_date = new Date(endDate).toISOString();
-  }
+  const timelineParams = useMemo(() => {
+    const params = { 
+      offset: page * limit, 
+      limit 
+    };
+    
+    if (startDate) {
+      params.start_date = new Date(startDate).toISOString();
+    }
+    if (endDate) {
+      params.end_date = new Date(endDate).toISOString();
+    }
+    
+    return params;
+  }, [page, limit, startDate, endDate]);
 
   const { data: timeline = [], isLoading: isLoadingTimeline, isError: isErrorTimeline, error: errorTimeline, refetch: refetchTimeline } = useQuery({
     queryKey: ['timeline', page, limit, startDate, endDate],

@@ -65,6 +65,7 @@ const Devices = () => {
   };
 
   const handleDeleteDevice = (deviceId) => {
+    // Using confirm for simplicity; in production, consider a custom modal
     const confirmed = window.confirm('Are you sure you want to delete this device? This action cannot be undone.');
     if (confirmed) {
       deleteDeviceMutation.mutate(deviceId);

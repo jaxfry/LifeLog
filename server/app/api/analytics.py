@@ -127,8 +127,11 @@ async def get_dashboard_metrics(session: AsyncSession = Depends(get_session)):
         storage_result = await session.execute(storage_query)
         storage_bytes = storage_result.scalar_one() or 0
         storage_mb = round(storage_bytes / (1024 * 1024), 2)
-    except:
-        # Fallback if the above doesn't work
+    except Exception as e:
+        # Fallback if the above doesn't work (e.g., non-PostgreSQL DB)
+        from app.core.logger import get_logger
+        logger = get_logger(__name__)
+        logger.warning(f"Could not calculate storage size: {e}")
         storage_mb = 0
     
     # Activity volume for last 7 days
