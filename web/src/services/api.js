@@ -123,6 +123,16 @@ export const analyticsAPI = {
     const response = await api.get('/analytics/status-distribution');
     return response.data;
   },
+
+  getDashboardMetrics: async () => {
+    const response = await api.get('/analytics/dashboard-metrics');
+    return response.data;
+  },
+
+  getCollectorStats: async () => {
+    const response = await api.get('/analytics/collector-stats');
+    return response.data;
+  },
 };
 
 // Devices API
@@ -169,6 +179,50 @@ export const healthAPI = {
   
   getReadiness: async () => {
     const response = await api.get('/ready');
+    return response.data;
+  },
+};
+
+// Daily Summaries API (GET)
+export const summariesAPI = {
+  getSummaries: async (params = {}) => {
+    const response = await api.get('/summaries', { params });
+    return response.data;
+  },
+
+  getSummaryByDate: async (date) => {
+    const response = await api.get(`/summaries/${date}`);
+    return response.data;
+  },
+};
+
+// Extensions API
+export const extensionsAPI = {
+  getExtensions: async () => {
+    const response = await api.get('/client/extensions');
+    return response.data;
+  },
+
+  downloadExtension: async (extensionId) => {
+    const response = await api.get(`/client/download/${extensionId}`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+};
+
+// AI Chat API
+export const aiChatAPI = {
+  sendMessage: async (message, contextDays = 7) => {
+    const response = await api.post('/ai/chat', {
+      message,
+      context_days: contextDays
+    });
+    return response.data;
+  },
+
+  checkHealth: async () => {
+    const response = await api.get('/ai/chat/health');
     return response.data;
   },
 };
