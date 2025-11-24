@@ -4,10 +4,15 @@ import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import Timeline from './pages/Timeline';
 import DailySummaries from './pages/DailySummaries';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
+import Devices from './pages/Devices';
+import Extensions from './pages/Extensions';
+import DataExplorer from './pages/DataExplorer';
+import AIInsights from './pages/AIInsights';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,7 +36,57 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Layout>
+                    <Dashboard />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/timeline"
+              element={
+                <ProtectedRoute>
+                  <Layout>
                     <Timeline />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/devices"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Devices />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/extensions"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Extensions />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/data-explorer"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <DataExplorer />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-insights"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AIInsights />
                   </Layout>
                 </ProtectedRoute>
               }

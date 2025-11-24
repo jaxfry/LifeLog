@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Home, 
+  LayoutDashboard,
+  Clock,
+  Monitor,
+  Package,
+  Database,
+  Sparkles,
   Calendar, 
   BarChart3, 
   Settings, 
@@ -23,7 +28,12 @@ const Layout = ({ children }) => {
   };
 
   const navItems = [
-    { name: 'Timeline', path: '/', icon: Home },
+    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Timeline', path: '/timeline', icon: Clock },
+    { name: 'Devices', path: '/devices', icon: Monitor },
+    { name: 'Extensions', path: '/extensions', icon: Package },
+    { name: 'Data Explorer', path: '/data-explorer', icon: Database },
+    { name: 'AI Insights', path: '/ai-insights', icon: Sparkles },
     { name: 'Daily Summaries', path: '/summaries', icon: Calendar },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Settings', path: '/settings', icon: Settings },
