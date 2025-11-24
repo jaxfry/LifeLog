@@ -55,9 +55,13 @@ async def generate_daily_summary(db: AsyncSession, target_date: datetime):
     
     # 3. Get Prompt
     prompt_template = await get_daily_summary_prompt(db)
+    
+    current_time_str = datetime.now().strftime("%H:%M")
+    
     prompt = prompt_template.format(
         date_str=target_date.strftime("%Y-%m-%d"),
-        timeline_json=timeline_str
+        timeline_json=timeline_str,
+        current_time=current_time_str
     )
     
     # 4. Call LLM

@@ -1,6 +1,6 @@
 import os
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,7 +42,7 @@ async def get_user_context(session: AsyncSession, days: int = 7) -> str:
     """
     Gather recent user activity context for the AI to reference.
     """
-    end_date = datetime.now()
+    end_date = datetime.now(timezone.utc).replace(tzinfo=None)
     start_date = end_date - timedelta(days=days)
     
     # Get recent timeline entries

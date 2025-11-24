@@ -1,5 +1,5 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, col
@@ -8,6 +8,16 @@ from app.models.data import RawLog, Event, Timeline, Session, DailyChapter, Dail
 from app.api.deps import Pagination
 
 router = APIRouter()
+
+def normalize_datetime(dt: Optional[datetime]) -> Optional[datetime]:
+    """
+    Ensure datetime is naive UTC for database comparison.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 # --- Timeline Endpoints ---
 
@@ -21,6 +31,9 @@ async def get_chapters(
     """
     Retrieve daily chapters.
     """
+    start_date = normalize_datetime(start_date)
+    end_date = normalize_datetime(end_date)
+    
     query = select(DailyChapter).order_by(col(DailyChapter.start_time).desc())
     
     if start_date:
@@ -44,6 +57,9 @@ async def get_timeline(
     """
     Retrieve processed timeline entries (the AI story).
     """
+    start_date = normalize_datetime(start_date)
+    end_date = normalize_datetime(end_date)
+
     query = select(Timeline).order_by(col(Timeline.start_time).desc())
     
     if start_date:
@@ -68,6 +84,9 @@ async def get_sessions(
     """
     Retrieve sessions (groups of events).
     """
+    start_date = normalize_datetime(start_date)
+    end_date = normalize_datetime(end_date)
+
     query = select(Session).order_by(col(Session.start_time).desc())
     
     if start_date:
@@ -94,6 +113,9 @@ async def get_logs(
     end_date: Optional[datetime] = None,
     session: AsyncSession = Depends(get_session)
 ):
+    start_date = normalize_datetime(start_date)
+    end_date = normalize_datetime(end_date)
+
     query = select(RawLog).order_by(col(RawLog.received_at).desc())
     
     if extension_id:
@@ -118,6 +140,9 @@ async def get_events(
     end_date: Optional[datetime] = None,
     session: AsyncSession = Depends(get_session)
 ):
+    start_date = normalize_datetime(start_date)
+    end_date = normalize_datetime(end_date)
+
     # If filtering by extension_id, we need to join with RawLog
     if extension_id:
         query = select(Event).join(RawLog).where(RawLog.extension_id == extension_id)
@@ -152,6 +177,9 @@ async def get_summaries(
     """
     Retrieve daily summaries.
     """
+    start_date = normalize_datetime(start_date)
+    end_date = normalize_datetime(end_date)
+
     query = select(DailySummary).order_by(col(DailySummary.date).desc())
     
     if start_date:

@@ -1,8 +1,8 @@
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, text
+from sqlalchemy import func, text, cast, Text
 from sqlmodel import select, col
 from app.core.db import get_session
 from app.models.data import Session, Event, Timeline, RawLog
@@ -52,7 +52,7 @@ async def get_activity_volume(
     """
     Get activity volume (session counts) per day for the last N days.
     """
-    end_date = datetime.now()
+    end_date = datetime.now(timezone.utc).replace(tzinfo=None)
     start_date = end_date - timedelta(days=days)
     
     # Group by date
@@ -123,10 +123,34 @@ async def get_dashboard_metrics(session: AsyncSession = Depends(get_session)):
     # Storage used (estimate based on raw logs)
     # Using pg_column_size if available, otherwise approximate
     try:
-        storage_query = select(func.sum(func.length(func.cast(RawLog.payload, text))))
-        storage_result = await session.execute(storage_query)
-        storage_bytes = storage_result.scalar_one() or 0
-        storage_mb = round(storage_bytes / (1024 * 1024), 2)
+        # Calculate size of major tables
+        # Note: This is still an approximation based on payload length for text columns
+        
+        # RawLog payload
+        raw_log_size_query = select(func.sum(func.length(cast(RawLog.payload, Text))))
+        raw_log_size = (await session.execute(raw_log_size_query)).scalar_one() or 0
+        
+        # Event data (payload is JSON)
+        event_size_query = select(func.sum(func.length(cast(Event.data, Text))))
+        event_size = (await session.execute(event_size_query)).scalar_one() or 0
+        
+        # Timeline notes
+        timeline_size_query = select(func.sum(func.length(Timeline.notes)))
+        timeline_size = (await session.execute(timeline_size_query)).scalar_one() or 0
+        
+        # Daily Summary text
+        # We need to import DailySummary first
+        from app.models.data import DailySummary
+        summary_size_query = select(func.sum(func.length(DailySummary.summary_text)))
+        summary_size = (await session.execute(summary_size_query)).scalar_one() or 0
+        
+        total_bytes = raw_log_size + event_size + timeline_size + summary_size
+        storage_mb = round(total_bytes / (1024 * 1024), 2)
+        
+        # If it's still 0 but we have events, show a minimal value
+        if storage_mb == 0 and total_events > 0:
+             storage_mb = 0.01
+
     except Exception as e:
         # Fallback if the above doesn't work (e.g., non-PostgreSQL DB)
         from app.core.logger import get_logger
@@ -135,7 +159,7 @@ async def get_dashboard_metrics(session: AsyncSession = Depends(get_session)):
         storage_mb = 0
     
     # Activity volume for last 7 days
-    end_date = datetime.now()
+    end_date = datetime.now(timezone.utc).replace(tzinfo=None)
     start_date = end_date - timedelta(days=7)
     
     activity_query = (
@@ -184,7 +208,7 @@ async def get_collector_stats(session: AsyncSession = Depends(get_session)):
     device_stats = []
     for device in devices:
         # Count logs from this device in last 24 hours
-        recent_cutoff = datetime.now() - timedelta(hours=24)
+        recent_cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
         logs_query = select(func.count()).select_from(RawLog).where(
             RawLog.device_id == device.id,
             RawLog.received_at >= recent_cutoff
