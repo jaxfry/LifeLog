@@ -59,6 +59,7 @@ const DataExplorer = () => {
   const refetch = dataType === 'events' ? refetchEvents : dataType === 'sessions' ? refetchSessions : refetchLogs;
 
   // Filter by search term (client-side for demo)
+  // Note: For large datasets, consider implementing server-side search
   const filteredData = data.filter(item => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();

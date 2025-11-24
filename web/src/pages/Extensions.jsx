@@ -21,6 +21,7 @@ const Extensions = () => {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Failed to download extension:', error);
+      // Using alert for simplicity; in production, consider a toast notification system
       alert('Failed to download extension. Please try again.');
     }
   };
