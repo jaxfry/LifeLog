@@ -51,8 +51,8 @@ async def run_chapter_summary_job():
         await generate_daily_chapters(session, today)
 
 def start_scheduler():
-    # Run processing job every 15 minutes
-    scheduler.add_job(run_processing_job, 'interval', minutes=15)
+    # Run processing job every 30 minutes
+    scheduler.add_job(run_processing_job, 'interval', minutes=30)
     
     # Run daily summary at 01:00 AM every day
     scheduler.add_job(run_daily_summary_job, 'cron', hour=1, minute=0)

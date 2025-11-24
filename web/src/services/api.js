@@ -199,13 +199,24 @@ export const summariesAPI = {
 // Extensions API
 export const extensionsAPI = {
   getExtensions: async () => {
-    const response = await api.get('/client/extensions');
+    const response = await api.get('/extensions');
     return response.data;
   },
 
   downloadExtension: async (extensionId) => {
     const response = await api.get(`/client/download/${extensionId}`, {
       responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  uploadExtension: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/extensions/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
     return response.data;
   },

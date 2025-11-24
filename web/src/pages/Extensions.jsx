@@ -1,12 +1,32 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { extensionsAPI } from '../services/api';
-import { Package, Download, CheckCircle, XCircle, Info } from 'lucide-react';
+import { Package, Download, CheckCircle, XCircle, Info, Upload } from 'lucide-react';
 
 const Extensions = () => {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef(null);
+
   const { data: extensions = [], isLoading, isError } = useQuery({
     queryKey: ['extensions'],
     queryFn: extensionsAPI.getExtensions,
   });
+
+  const handleUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      await extensionsAPI.uploadExtension(file);
+      queryClient.invalidateQueries(['extensions']);
+      alert('Extension uploaded successfully!');
+    } catch (error) {
+      console.error('Failed to upload extension:', error);
+      alert('Failed to upload extension. ' + (error.response?.data?.detail || error.message));
+    } finally {
+      event.target.value = '';
+    }
+  };
 
   const handleDownload = async (extensionId) => {
     try {
@@ -48,9 +68,27 @@ const Extensions = () => {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Extensions</h1>
-        <p className="text-gray-600">Extend LifeLog capabilities with powerful data collectors</p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Extensions</h1>
+          <p className="text-gray-600">Extend LifeLog capabilities with powerful data collectors</p>
+        </div>
+        <div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleUpload}
+            className="hidden"
+            accept=".zip"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Upload size={20} />
+            Upload Extension
+          </button>
+        </div>
       </div>
 
       {/* Info Card */}
