@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, col
 from app.core.db import get_session
-from app.models.data import RawLog, Event, Timeline, Session, DailyChapter
+from app.models.data import RawLog, Event, Timeline, Session, DailyChapter, DailySummary
 from app.api.deps import Pagination
 
 router = APIRouter()
@@ -139,4 +139,47 @@ async def get_events(
     
     result = await session.execute(query)
     return result.scalars().all()
+
+# --- Daily Summaries Endpoints ---
+
+@router.get("/summaries", response_model=List[DailySummary])
+async def get_summaries(
+    pagination: Pagination = Depends(),
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Retrieve daily summaries.
+    """
+    query = select(DailySummary).order_by(col(DailySummary.date).desc())
+    
+    if start_date:
+        query = query.where(DailySummary.date >= start_date)
+        
+    if end_date:
+        query = query.where(DailySummary.date <= end_date)
+        
+    query = query.offset(pagination.offset).limit(pagination.limit)
+    
+    result = await session.execute(query)
+    return result.scalars().all()
+
+@router.get("/summaries/{date}", response_model=Optional[DailySummary])
+async def get_summary_by_date(
+    date: str,  # YYYY-MM-DD format
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Retrieve a specific daily summary by date.
+    """
+    # Parse the date string
+    try:
+        date_obj = datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    result = await session.get(DailySummary, date_obj)
+    return result
 
