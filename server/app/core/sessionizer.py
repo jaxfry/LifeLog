@@ -7,8 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.data import Event, Session, SessionStatus
 
 # Configuration
-TIME_GAP_THRESHOLD = timedelta(minutes=15)
-MAX_SESSION_TOKENS = 12000
+TIME_GAP_THRESHOLD = timedelta(minutes=30)
+# Increased to 500k to prevent artificial splitting of long sessions.
+# Gemini Flash has a 1M context window, so this is safe.
+MAX_SESSION_TOKENS = 500000
 TOKEN_ENCODING = "cl100k_base"
 
 async def run_sessionizer(db: AsyncSession):

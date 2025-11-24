@@ -5,10 +5,39 @@ LifeLog is a self-hosted, Python-native platform for personal data aggregation, 
 ## Architecture
 
 - **Server**: FastAPI-based backend for data ingestion, processing, and AI timeline generation
+- **Web Dashboard**: Modern React-based UI for viewing timeline, analytics, and managing settings
 - **Client**: Python client for collecting data from local sources
 - **Extensions**: Modular collectors for different data sources (ActivityWatch, GPS, etc.)
 
 See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
+
+## Features
+
+### 🌐 Web Dashboard
+- **Timeline View**: Browse your AI-generated activity timeline with search and filtering
+- **Daily Summaries**: Review daily activities with productivity scores and mood tracking
+- **Analytics Dashboard**: Visualize activity patterns with interactive charts
+- **Settings Management**: Device management, system configuration, and health monitoring
+- **Secure Authentication**: JWT token-based authentication with OAuth2
+
+### 🔒 Security & Authentication
+- OAuth2 password flow with JWT tokens
+- API key authentication for device clients
+- Role-based access control (superuser/regular users)
+- Secure password hashing with bcrypt
+
+### 📊 Data Processing
+- Automatic data ingestion from multiple sources
+- Event deduplication and versioning
+- Session grouping with configurable time gaps
+- AI-powered timeline generation using LiteLLM
+- Daily summary generation with productivity tracking
+
+### 🔌 Extensible Architecture
+- Modular extension system for data collectors
+- Built-in ActivityWatch integration
+- Easy to add new data sources
+- Server-side and client-side extension support
 
 ## Documentation
 
@@ -29,6 +58,9 @@ LifeLog/
 │   ├── extensions/     # Server-side extensions
 │   ├── scripts/        # Utility scripts
 │   └── tests/          # Test suite
+├── web/                # Web dashboard (React + Vite)
+│   ├── src/           # Dashboard source code
+│   └── dist/          # Production build
 ├── lifelog_client/     # Client application
 │   ├── core/          # Core client functionality
 │   └── extensions/    # Client-side extensions
@@ -54,6 +86,30 @@ LifeLog/
    ```bash
    uvicorn app.main:app --reload
    ```
+
+### Web Dashboard
+
+1. Install dependencies:
+   ```bash
+   cd web
+   npm install
+   ```
+2. Configure the dashboard:
+   ```bash
+   cp .env.example .env
+   # Edit .env and set VITE_API_URL to your server URL
+   ```
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+4. Open your browser to http://localhost:5173
+
+For production deployment:
+```bash
+npm run build
+# Serve the files from the dist/ directory
+```
 
 ### Client
 

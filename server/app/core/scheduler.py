@@ -6,6 +6,7 @@ from app.core.sessionizer import run_sessionizer
 from app.core.timeline_processor import process_pending_sessions
 from app.core.rebuilder import process_dirty_sessions
 from app.core.daily_summary import generate_daily_summary
+from app.core.chapter_summarizer import generate_daily_chapters
 from app.core.logger import get_logger
 from datetime import datetime, timedelta, timezone
 
@@ -37,12 +38,27 @@ async def run_daily_summary_job():
         yesterday = datetime.now(timezone.utc) - timedelta(days=1)
         await generate_daily_summary(session, yesterday)
 
+async def run_chapter_summary_job():
+    """
+    Generates chapters for the current day.
+    """
+    logger.info("Running chapter summary job...")
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    
+    async with async_session() as session:
+        # Target today
+        today = datetime.now(timezone.utc)
+        await generate_daily_chapters(session, today)
+
 def start_scheduler():
-    # Run processing job every 15 minutes
-    scheduler.add_job(run_processing_job, 'interval', minutes=15)
+    # Run processing job every 30 minutes
+    scheduler.add_job(run_processing_job, 'interval', minutes=30)
     
     # Run daily summary at 01:00 AM every day
     scheduler.add_job(run_daily_summary_job, 'cron', hour=1, minute=0)
+
+    # Run chapter summary every 4 hours
+    scheduler.add_job(run_chapter_summary_job, 'interval', hours=4)
     
     scheduler.start()
 
