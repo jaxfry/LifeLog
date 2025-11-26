@@ -34,6 +34,7 @@ class Session(SQLModel, table=True):
     refined_summary: Optional[str] = Field(default=None)
     status: SessionStatus = Field(default=SessionStatus.PENDING)
     retry_count: int = Field(default=0)
+    timezone: str = Field(default="UTC")
     
     # Relationships
     events: List["Event"] = Relationship(back_populates="session")

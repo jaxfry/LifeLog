@@ -21,17 +21,23 @@ async def generate_daily_summary(db: AsyncSession, target_date: datetime):
     """
     logger.info(f"Generating daily summary for {target_date.date()}...")
 
-    # 1. Fetch Timeline entries for the day
-    # We need to handle timezones carefully. For now, let's assume the target_date is in UTC 
-    # and we want 00:00 to 23:59 UTC. 
-    # TODO: In the future, this should respect the user's primary timezone.
+    # 1. Determine User Timezone
+    # For now, we'll try to find the most recent timezone from the user's logs or sessions
+    # Ideally this should be passed in or associated with a user profile
+    # Since we are single user, we can query the latest RawLog
+    from app.models.data import RawLog
+    stmt = select(RawLog.client_timezone).where(RawLog.client_timezone.is_not(None)).order_by(RawLog.received_at.desc()).limit(1)
+    result = await db.execute(stmt)
+    user_timezone = result.scalar_one_or_none() or "UTC"
     
-    start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    from app.core.utils.time import get_day_bounds_utc, to_local_time
+    
+    # Calculate UTC bounds for the local day
+    start_utc, end_utc = get_day_bounds_utc(target_date, user_timezone)
     
     statement = select(Timeline).where(
-        Timeline.start_time >= start_of_day,
-        Timeline.start_time <= end_of_day
+        Timeline.start_time >= start_utc,
+        Timeline.start_time <= end_utc
     ).order_by(Timeline.start_time)
     
     result = await db.execute(statement)
@@ -44,9 +50,13 @@ async def generate_daily_summary(db: AsyncSession, target_date: datetime):
     # 2. Prepare Data for LLM
     timeline_json = []
     for entry in entries:
+        # Convert to local time for the prompt
+        local_start = to_local_time(entry.start_time, user_timezone)
+        local_end = to_local_time(entry.end_time, user_timezone)
+        
         timeline_json.append({
-            "start": entry.start_time.isoformat(),
-            "end": entry.end_time.isoformat(),
+            "start": local_start.strftime("%H:%M"),
+            "end": local_end.strftime("%H:%M"),
             "activity": entry.activity,
             "notes": entry.notes
         })
