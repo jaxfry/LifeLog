@@ -9,12 +9,27 @@ const api = axios.create({
   },
 });
 
-// Add auth token to requests
+// Add auth token and timezone info to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Add timezone headers
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const offset = -new Date().getTimezoneOffset();
+    const sign = offset >= 0 ? '+' : '-';
+    const pad = (num) => String(Math.floor(Math.abs(num))).padStart(2, '0');
+    const offsetStr = `${sign}${pad(offset / 60)}${pad(offset % 60)}`; // e.g. +0530 or -0800
+
+    config.headers['X-Client-Timezone'] = timezone;
+    config.headers['X-Client-Offset'] = offsetStr;
+  } catch (e) {
+    console.warn('Failed to get timezone info', e);
+  }
+
   return config;
 });
 
@@ -40,20 +55,20 @@ export const authAPI = {
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
-    
+
     const response = await api.post('/token', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
-    
+
     if (response.data.access_token) {
       localStorage.setItem('token', response.data.access_token);
     }
-    
+
     return response.data;
   },
-  
+
   logout: () => {
     localStorage.removeItem('token');
   },
@@ -113,7 +128,7 @@ export const analyticsAPI = {
     const response = await api.get('/analytics/stats');
     return response.data;
   },
-  
+
   getActivityVolume: async (days = 7) => {
     const response = await api.get('/analytics/activity-volume', { params: { days } });
     return response.data;
@@ -141,16 +156,16 @@ export const devicesAPI = {
     const response = await api.get('/devices');
     return response.data;
   },
-  
+
   createDevice: async (device) => {
     const response = await api.post('/devices', device);
     return response.data;
   },
-  
+
   deleteDevice: async (deviceId) => {
     await api.delete(`/devices/${deviceId}`);
   },
-  
+
   rotateKey: async (deviceId) => {
     const response = await api.post(`/devices/${deviceId}/rotate-key`);
     return response.data;
@@ -163,7 +178,7 @@ export const configAPI = {
     const response = await api.get('/config');
     return response.data;
   },
-  
+
   updateConfig: async (key, value, description) => {
     const response = await api.put(`/config/${key}`, { value, description });
     return response.data;
@@ -176,7 +191,7 @@ export const healthAPI = {
     const response = await api.get('/health');
     return response.data;
   },
-  
+
   getReadiness: async () => {
     const response = await api.get('/ready');
     return response.data;
