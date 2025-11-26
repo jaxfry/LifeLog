@@ -21,13 +21,24 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
     """
     logger.info(f"Generating daily chapters for {target_date.date()}...")
 
-    # 1. Fetch Timeline entries for the day
-    start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    # 1. Determine User Timezone (same logic as daily summary)
+    from app.models.data import RawLog
+    stmt = select(RawLog.client_timezone).where(RawLog.client_timezone.is_not(None)).order_by(RawLog.received_at.desc()).limit(1)
+    result = await db.execute(stmt)
+    user_timezone = result.scalar_one_or_none() or "UTC"
+    
+    from app.core.utils.time import get_day_bounds_utc, to_local_time
+    
+    # Calculate UTC bounds for the local day
+    start_utc, end_utc = get_day_bounds_utc(target_date, user_timezone)
+    
+    # Define start_of_day and end_of_day for chapter date field and deletion scope
+    start_of_day = start_utc
+    end_of_day = end_utc
     
     statement = select(Timeline).where(
-        Timeline.start_time >= start_of_day,
-        Timeline.start_time <= end_of_day
+        Timeline.start_time >= start_utc,
+        Timeline.start_time <= end_utc
     ).order_by(Timeline.start_time)
     
     result = await db.execute(statement)
@@ -40,9 +51,10 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
     # 2. Prepare Data for LLM
     timeline_json = []
     for entry in entries:
+        # Send full UTC ISO timestamps to prevent LLM from fabricating dates
         timeline_json.append({
-            "start": entry.start_time.isoformat(),
-            "end": entry.end_time.isoformat(),
+            "start": entry.start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "end": entry.end_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "activity": entry.activity,
             "notes": entry.notes
         })

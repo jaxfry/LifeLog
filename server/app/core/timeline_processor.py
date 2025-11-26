@@ -111,6 +111,9 @@ async def process_session(db: AsyncSession, session: Session):
     session_timezone_str = "UTC"
     if events and events[0].timezone:
         session_timezone_str = events[0].timezone
+        
+    # Update session timezone
+    session.timezone = session_timezone_str
 
     # Calculate day_iso in local time
     session_start_utc = session.start_time.replace(tzinfo=timezone.utc)
