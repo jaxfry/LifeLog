@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { eventsAPI, sessionsAPI, logsAPI } from '../services/api';
 import { Database, Filter, Search, Calendar, Clock, RefreshCw } from 'lucide-react';
 import { formatDateTime } from '../utils/dateUtils';
+import DatePicker from '../components/DatePicker';
 
 const DATA_TYPES = [
   { value: 'events', label: 'Events', description: 'Normalized activity events' },
@@ -14,8 +15,8 @@ const DataExplorer = () => {
   const [dataType, setDataType] = useState('events');
   const [page, setPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
   const limit = 20;
 
@@ -26,10 +27,10 @@ const DataExplorer = () => {
   };
 
   if (startDate) {
-    params.start_date = new Date(startDate).toISOString();
+    params.start_date = startDate.toISOString();
   }
   if (endDate) {
-    params.end_date = new Date(endDate).toISOString();
+    params.end_date = endDate.toISOString();
   }
   if (statusFilter && dataType === 'sessions') {
     params.status = statusFilter;
@@ -69,8 +70,8 @@ const DataExplorer = () => {
 
   const handleReset = () => {
     setSearchTerm('');
-    setStartDate('');
-    setEndDate('');
+    setStartDate(null);
+    setEndDate(null);
     setStatusFilter('');
     setPage(0);
   };
@@ -142,14 +143,13 @@ const DataExplorer = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Start Date
             </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
+            <DatePicker
+              date={startDate}
+              setDate={(date) => {
+                setStartDate(date);
                 setPage(0);
               }}
-              className="input-field"
+              placeholder="Start Date"
             />
           </div>
 
@@ -158,14 +158,13 @@ const DataExplorer = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               End Date
             </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
+            <DatePicker
+              date={endDate}
+              setDate={(date) => {
+                setEndDate(date);
                 setPage(0);
               }}
-              className="input-field"
+              placeholder="End Date"
             />
           </div>
 

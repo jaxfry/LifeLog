@@ -3,26 +3,27 @@ import { useQuery } from '@tanstack/react-query';
 import { timelineAPI, chaptersAPI } from '../services/api';
 import { formatDateTime, formatRelative, formatDuration } from '../utils/dateUtils';
 import { Clock, Calendar, Search, Filter, RefreshCw, Layers, List } from 'lucide-react';
+import DatePicker from '../components/DatePicker';
 
 const Timeline = () => {
   const [page, setPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('chapters'); // 'chapters' or 'detailed'
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const limit = 20;
 
   const timelineParams = useMemo(() => {
-    const params = { 
-      offset: page * limit, 
-      limit 
+    const params = {
+      offset: page * limit,
+      limit
     };
     
     if (startDate) {
-      params.start_date = new Date(startDate).toISOString();
+      params.start_date = startDate.toISOString();
     }
     if (endDate) {
-      params.end_date = new Date(endDate).toISOString();
+      params.end_date = endDate.toISOString();
     }
     
     return params;
@@ -119,28 +120,24 @@ const Timeline = () => {
           </div>
           
           <div>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
+            <DatePicker
+              date={startDate}
+              setDate={(date) => {
+                setStartDate(date);
                 setPage(0);
               }}
               placeholder="Start Date"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           
           <div>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
+            <DatePicker
+              date={endDate}
+              setDate={(date) => {
+                setEndDate(date);
                 setPage(0);
               }}
               placeholder="End Date"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -156,8 +153,8 @@ const Timeline = () => {
           <button
             onClick={() => {
               setSearchTerm('');
-              setStartDate('');
-              setEndDate('');
+              setStartDate(null);
+              setEndDate(null);
               setPage(0);
             }}
             className="btn-secondary"
