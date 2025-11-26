@@ -1,6 +1,10 @@
 import os
 from typing import List, Dict, Any
 from datetime import datetime, timedelta, timezone
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +12,7 @@ from sqlmodel import select, col
 from litellm import acompletion
 
 from app.core.db import get_session
-from app.models.data import Event, Timeline, Session, DailySummary
+from app.models.data import Event, Timeline, Session, DailySummary, RawLog
 from app.models.config import SystemConfig
 from app.core.logger import get_logger
 
@@ -38,10 +42,21 @@ async def get_gemini_api_key(db: AsyncSession) -> str:
         raise HTTPException(status_code=500, detail="AI service not configured. Please set GEMINI_API_KEY.")
     return api_key
 
-async def get_user_context(session: AsyncSession, days: int = 7) -> str:
+async def get_user_context(session: AsyncSession, days: int = 7, user_timezone: str = "UTC") -> str:
     """
     Gather recent user activity context for the AI to reference.
     """
+    try:
+        tz = ZoneInfo(user_timezone)
+    except Exception:
+        try:
+            # Try parsing as offset (e.g. "-0500")
+            dummy = datetime.strptime(user_timezone, "%z")
+            tz = dummy.tzinfo
+        except ValueError:
+            logger.warning(f"Invalid timezone {user_timezone}, falling back to UTC")
+            tz = timezone.utc
+
     end_date = datetime.now(timezone.utc).replace(tzinfo=None)
     start_date = end_date - timedelta(days=days)
     
@@ -75,7 +90,11 @@ async def get_user_context(session: AsyncSession, days: int = 7) -> str:
     if timeline_entries:
         context_parts.append("\n# Recent Activities")
         for entry in timeline_entries[:10]:  # Limit to 10 most recent
-            time_str = entry.start_time.strftime('%Y-%m-%d %H:%M')
+            # Convert UTC to user timezone
+            utc_time = entry.start_time.replace(tzinfo=timezone.utc)
+            local_time = utc_time.astimezone(tz)
+            time_str = local_time.strftime('%Y-%m-%d %H:%M')
+            
             context_parts.append(f"\n{time_str}: {entry.activity}")
             if entry.notes:
                 context_parts.append(f"  {entry.notes}")
@@ -94,8 +113,17 @@ async def chat_with_ai(
         # Get API key
         api_key = await get_gemini_api_key(session)
         
+        # Get user timezone from most recent RawLog
+        # This ensures we use the client's actual timezone from their device
+        timezone_query = select(RawLog.client_timezone).where(
+            RawLog.client_timezone.is_not(None)
+        ).order_by(col(RawLog.received_at).desc()).limit(1)
+        
+        timezone_result = await session.execute(timezone_query)
+        user_timezone = timezone_result.scalar_one_or_none() or "UTC"
+        
         # Get user context
-        context = await get_user_context(session, request.context_days)
+        context = await get_user_context(session, request.context_days, user_timezone)
         
         # Build the system prompt
         system_prompt = """You are LifeLog AI, an intelligent assistant that helps users understand and analyze their personal activity data.

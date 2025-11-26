@@ -43,7 +43,7 @@ ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(","
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
 # CORS Middleware
-BACKEND_CORS_ORIGINS = os.environ.get("BACKEND_CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+BACKEND_CORS_ORIGINS = os.environ.get("BACKEND_CORS_ORIGINS", "http://localhost:3000,http://localhost:8000,http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=BACKEND_CORS_ORIGINS,

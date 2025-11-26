@@ -238,4 +238,12 @@ export const aiChatAPI = {
   },
 };
 
+// Scheduler API
+export const schedulerAPI = {
+  getJobs: async () => {
+    const response = await api.get('/scheduler/jobs');
+    return response.data;
+  },
+};
+
 export default api;

@@ -5,7 +5,14 @@ import { formatDate, formatDateForAPI } from '../utils/dateUtils';
 import { Calendar, Star, Smile, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const DailySummaries = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  // Default to yesterday in UTC to avoid showing today's summary prematurely
+  const now = new Date();
+  const utcYear = now.getUTCFullYear();
+  const utcMonth = now.getUTCMonth();
+  const utcDate = now.getUTCDate();
+  // Yesterday in UTC
+  const yesterdayUTC = new Date(Date.UTC(utcYear, utcMonth, utcDate - 1));
+  const [selectedDate, setSelectedDate] = useState(yesterdayUTC);
   const queryClient = useQueryClient();
 
   const dateStr = formatDateForAPI(selectedDate);
