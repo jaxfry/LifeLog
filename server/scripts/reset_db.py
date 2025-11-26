@@ -10,6 +10,9 @@ from app.core.db import engine
 from app.models.data import SQLModel
 
 async def reset_db():
+    if os.environ.get("ALLOW_DB_RESET") != "1":
+        print("ERROR: Database reset is disabled. Set ALLOW_DB_RESET=1 to allow.")
+        return
     async with engine.begin() as conn:
         print("Dropping data tables...")
         # We need to use cascade to handle foreign keys

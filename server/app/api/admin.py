@@ -16,8 +16,29 @@ from app.models.data import Session
 from app.core.daily_summary import generate_daily_summary
 from app.api.deps import get_current_superuser
 from app.core.security import get_password_hash
+from app.core.scheduler import scheduler
 
 router = APIRouter()
+
+class JobStatus(BaseModel):
+    id: str
+    name: str
+    next_run_time: Optional[datetime]
+    trigger: str
+
+@router.get("/scheduler/jobs", response_model=List[JobStatus])
+async def get_scheduler_jobs(
+    current_user: User = Depends(get_current_superuser)
+):
+    jobs = []
+    for job in scheduler.get_jobs():
+        jobs.append(JobStatus(
+            id=job.id,
+            name=job.name,
+            next_run_time=job.next_run_time,
+            trigger=str(job.trigger)
+        ))
+    return jobs
 
 class DeviceCreate(BaseModel):
     name: str

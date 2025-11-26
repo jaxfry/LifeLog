@@ -25,14 +25,14 @@ async def async_client():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as client:
         yield client
 
-@pytest_asyncio.fixture(autouse=True)
-async def db_cleanup():
-    """Clean up database tables before each test."""
-    async with engine.begin() as conn:
-        # Truncate all tables. Order matters due to FKs.
-        # Or use CASCADE.
-        await conn.execute(text("TRUNCATE TABLE timeline, events, sessions, raw_logs, system_config, failures RESTART IDENTITY CASCADE"))
-    yield
+# @pytest_asyncio.fixture(autouse=True)
+# async def db_cleanup():
+#     """Clean up database tables before each test."""
+#     async with engine.begin() as conn:
+#         # Truncate all tables. Order matters due to FKs.
+#         # Or use CASCADE.
+#         await conn.execute(text("TRUNCATE TABLE timeline, events, sessions, raw_logs, system_config, failures RESTART IDENTITY CASCADE"))
+#     yield
 
 
 @pytest_asyncio.fixture

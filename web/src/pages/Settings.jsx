@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { devicesAPI, configAPI, healthAPI } from '../services/api';
-import { Settings as SettingsIcon, Monitor, Plus, Trash2, RefreshCw, Check, X, Activity } from 'lucide-react';
+import { devicesAPI, configAPI, healthAPI, schedulerAPI } from '../services/api';
+import { Settings as SettingsIcon, Monitor, Plus, Trash2, RefreshCw, Check, X, Activity, Clock } from 'lucide-react';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('devices');
@@ -52,6 +52,12 @@ const Settings = () => {
     queryFn: healthAPI.getHealth,
   });
 
+  // Scheduler
+  const { data: jobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery({
+    queryKey: ['scheduler-jobs'],
+    queryFn: schedulerAPI.getJobs,
+  });
+
   const handleAddDevice = () => {
     if (newDeviceName.trim()) {
       createDeviceMutation.mutate({
@@ -73,6 +79,7 @@ const Settings = () => {
     { id: 'devices', name: 'Devices', icon: Monitor },
     { id: 'config', name: 'Configuration', icon: SettingsIcon },
     { id: 'health', name: 'System Health', icon: Activity },
+    { id: 'scheduler', name: 'Scheduler', icon: Clock },
   ];
 
   return (
@@ -331,6 +338,51 @@ const Settings = () => {
                       {JSON.stringify(health, null, 2)}
                     </pre>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Scheduler Tab */}
+          {activeTab === 'scheduler' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Scheduled Jobs</h2>
+                <button
+                  onClick={() => refetchJobs()}
+                  className="btn-secondary flex items-center gap-2"
+                >
+                  <RefreshCw size={20} />
+                  Refresh
+                </button>
+              </div>
+
+              {jobsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : jobs.length === 0 ? (
+                <p className="text-gray-500 text-center py-12">No scheduled jobs found</p>
+              ) : (
+                <div className="space-y-4">
+                  {jobs.map((job) => (
+                    <div key={job.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{job.name}</h3>
+                          <p className="text-sm text-gray-600 mt-1">Trigger: {job.trigger}</p>
+                          <p className="text-sm text-gray-800 mt-2">
+                            Next Run: {job.next_run_time ? new Date(job.next_run_time).toLocaleString() : 'Not scheduled'}
+                          </p>
+                          {job.next_run_time && (
+                             <p className="text-xs text-blue-600 mt-1">
+                               Starts in {Math.max(0, Math.ceil((new Date(job.next_run_time) - new Date()) / 60000))} minutes
+                             </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
