@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { timelineAPI, chaptersAPI } from '../services/api';
 import { formatDateTime, formatRelative, formatDuration } from '../utils/dateUtils';
@@ -8,10 +8,19 @@ import DateRangePicker from '../components/DateRangePicker';
 const Timeline = () => {
   const [page, setPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('chapters'); // 'chapters' or 'detailed'
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const limit = 20;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setPage(0);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const timelineParams = useMemo(() => {
     const params = {
@@ -25,18 +34,21 @@ const Timeline = () => {
     if (endDate) {
       params.end_date = new Date(endDate).toISOString();
     }
+    if (debouncedSearchTerm) {
+      params.q = debouncedSearchTerm;
+    }
 
     return params;
-  }, [page, limit, startDate, endDate]);
+  }, [page, limit, startDate, endDate, debouncedSearchTerm]);
 
   const { data: timeline = [], isLoading: isLoadingTimeline, isError: isErrorTimeline, error: errorTimeline, refetch: refetchTimeline } = useQuery({
-    queryKey: ['timeline', page, limit, startDate, endDate],
+    queryKey: ['timeline', page, limit, startDate, endDate, debouncedSearchTerm],
     queryFn: () => timelineAPI.getTimeline(timelineParams),
     enabled: viewMode === 'detailed',
   });
 
   const { data: chapters = [], isLoading: isLoadingChapters, isError: isErrorChapters, error: errorChapters, refetch: refetchChapters } = useQuery({
-    queryKey: ['chapters', page, limit, startDate, endDate],
+    queryKey: ['chapters', page, limit, startDate, endDate, debouncedSearchTerm],
     queryFn: () => chaptersAPI.getChapters(timelineParams),
     enabled: viewMode === 'chapters',
   });
@@ -46,12 +58,6 @@ const Timeline = () => {
   const error = viewMode === 'detailed' ? errorTimeline : errorChapters;
   const data = viewMode === 'detailed' ? timeline : chapters;
   const refetch = viewMode === 'detailed' ? refetchTimeline : refetchChapters;
-
-  const filteredData = data.filter(item =>
-    !searchTerm ||
-    (item.activity || item.title)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.notes || item.summary)?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   if (isLoading) {
     return (
@@ -155,7 +161,7 @@ const Timeline = () => {
       </div>
 
       {/* Timeline Items */}
-      {filteredData.length === 0 ? (
+      {data.length === 0 ? (
         <div className="card text-center py-12">
           <Calendar className="mx-auto mb-4 text-gray-400" size={48} />
           <p className="text-gray-600 text-lg">No entries found</p>
@@ -163,7 +169,7 @@ const Timeline = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredData.map((item) => (
+          {data.map((item) => (
             <div key={item.id} className="card hover:shadow-lg transition-shadow">
               <div className="flex items-start gap-4">
                 <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${viewMode === 'chapters' ? 'bg-purple-100' : 'bg-blue-100'
