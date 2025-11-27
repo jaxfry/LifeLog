@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { timelineAPI, chaptersAPI } from '../services/api';
 import { formatDateTime, formatRelative, formatDuration } from '../utils/dateUtils';
 import { Clock, Calendar, Search, Filter, RefreshCw, Layers, List } from 'lucide-react';
+import DateRangePicker from '../components/DateRangePicker';
 
 const Timeline = () => {
   const [page, setPage] = useState(0);
@@ -13,18 +14,18 @@ const Timeline = () => {
   const limit = 20;
 
   const timelineParams = useMemo(() => {
-    const params = { 
-      offset: page * limit, 
-      limit 
+    const params = {
+      offset: page * limit,
+      limit
     };
-    
+
     if (startDate) {
       params.start_date = new Date(startDate).toISOString();
     }
     if (endDate) {
       params.end_date = new Date(endDate).toISOString();
     }
-    
+
     return params;
   }, [page, limit, startDate, endDate]);
 
@@ -46,8 +47,8 @@ const Timeline = () => {
   const data = viewMode === 'detailed' ? timeline : chapters;
   const refetch = viewMode === 'detailed' ? refetchTimeline : refetchChapters;
 
-  const filteredData = data.filter(item => 
-    !searchTerm || 
+  const filteredData = data.filter(item =>
+    !searchTerm ||
     (item.activity || item.title)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.notes || item.summary)?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -77,26 +78,24 @@ const Timeline = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Timeline</h1>
           <p className="text-gray-600">Your AI-generated activity timeline</p>
         </div>
-        
+
         <div className="flex bg-gray-100 p-1 rounded-lg">
           <button
             onClick={() => setViewMode('chapters')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'chapters' 
-                ? 'bg-white text-blue-600 shadow-sm' 
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'chapters'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+              }`}
           >
             <Layers size={18} />
             Chapters
           </button>
           <button
             onClick={() => setViewMode('detailed')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'detailed' 
-                ? 'bg-white text-blue-600 shadow-sm' 
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'detailed'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+              }`}
           >
             <List size={18} />
             Detailed
@@ -106,64 +105,52 @@ const Timeline = () => {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <div className="md:col-span-2 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search timeline..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+        <div className="flex flex-col lg:flex-row gap-4 items-start">
+          <div className="flex-1 w-full relative">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Search timeline..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => refetch()}
+                className="btn-secondary flex items-center gap-2 text-sm py-1.5"
+              >
+                <RefreshCw size={16} />
+                Refresh
+              </button>
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setStartDate('');
+                  setEndDate('');
+                  setPage(0);
+                }}
+                className="btn-secondary text-sm py-1.5"
+              >
+                Clear Filters
+              </button>
+            </div>
           </div>
-          
-          <div>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
+
+          <div className="w-full lg:w-auto">
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              onChange={({ start, end }) => {
+                setStartDate(start);
+                setEndDate(end);
                 setPage(0);
               }}
-              placeholder="Start Date"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full"
             />
           </div>
-          
-          <div>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setPage(0);
-              }}
-              placeholder="End Date"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
-          <button
-            onClick={() => refetch()}
-            className="btn-secondary flex items-center gap-2"
-          >
-            <RefreshCw size={20} />
-            Refresh
-          </button>
-          <button
-            onClick={() => {
-              setSearchTerm('');
-              setStartDate('');
-              setEndDate('');
-              setPage(0);
-            }}
-            className="btn-secondary"
-          >
-            Clear Filters
-          </button>
         </div>
       </div>
 
@@ -179,16 +166,15 @@ const Timeline = () => {
           {filteredData.map((item) => (
             <div key={item.id} className="card hover:shadow-lg transition-shadow">
               <div className="flex items-start gap-4">
-                <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
-                  viewMode === 'chapters' ? 'bg-purple-100' : 'bg-blue-100'
-                }`}>
+                <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${viewMode === 'chapters' ? 'bg-purple-100' : 'bg-blue-100'
+                  }`}>
                   {viewMode === 'chapters' ? (
                     <Layers className="text-purple-600" size={24} />
                   ) : (
                     <Clock className="text-blue-600" size={24} />
                   )}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -203,11 +189,11 @@ const Timeline = () => {
                       {formatRelative(item.start_time)}
                     </span>
                   </div>
-                  
+
                   <p className="text-gray-700 mb-3 whitespace-pre-wrap">
                     {viewMode === 'chapters' ? item.summary : item.notes}
                   </p>
-                  
+
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                     <span className="flex items-center gap-1">
                       <Calendar size={14} />
