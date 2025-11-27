@@ -213,7 +213,7 @@ const Timeline = () => {
       )}
 
       {/* Pagination */}
-      {data.length >= limit && (
+      {(page > 0 || data.length >= limit) && (
         <div className="flex justify-center gap-4 mt-8">
           <button
             onClick={() => setPage(Math.max(0, page - 1))}
