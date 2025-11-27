@@ -2,7 +2,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, col
+from sqlmodel import select, col, or_
 from app.core.db import get_session
 from app.models.data import RawLog, Event, Timeline, Session, DailyChapter, DailySummary
 from app.api.deps import Pagination
@@ -27,6 +27,7 @@ async def get_chapters(
     pagination: Pagination = Depends(),
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    q: Optional[str] = None,
     session: AsyncSession = Depends(get_session)
 ):
     """
@@ -42,6 +43,15 @@ async def get_chapters(
 
     if end_date:
         query = query.where(DailyChapter.end_time <= end_date)
+
+    if q:
+        query = query.where(
+            or_(
+                col(DailyChapter.title).ilike(f"%{q}%"),
+                col(DailyChapter.summary).ilike(f"%{q}%"),
+                col(DailyChapter.category).ilike(f"%{q}%")
+            )
+        )
 
     query = query.offset(pagination.offset).limit(pagination.limit)
 
@@ -60,6 +70,7 @@ async def get_timeline(
     pagination: Pagination = Depends(),
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    q: Optional[str] = None,
     session: AsyncSession = Depends(get_session)
 ):
     """
@@ -75,6 +86,15 @@ async def get_timeline(
         
     if end_date:
         query = query.where(Timeline.end_time <= end_date)
+
+    if q:
+        query = query.where(
+            or_(
+                col(Timeline.activity).ilike(f"%{q}%"),
+                col(Timeline.notes).ilike(f"%{q}%"),
+                col(Timeline.category).ilike(f"%{q}%")
+            )
+        )
         
     query = query.offset(pagination.offset).limit(pagination.limit)
     
