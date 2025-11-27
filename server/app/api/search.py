@@ -6,8 +6,10 @@ from app.core.db import get_session
 from app.core.vector_service import generate_embedding
 from app.models.data import Timeline, DailyChapter
 from app.core.timeline_processor import get_gemini_api_key
+from app.core.logger import get_logger
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 @router.get("/")
 async def search(
@@ -24,7 +26,13 @@ async def search(
         os.environ["GEMINI_API_KEY"] = api_key
 
     # 1. Generate Embedding for Vector Search
+    logger.info(f"Generating embedding for search query: '{q}'")
     embedding = await generate_embedding(q)
+    
+    if embedding:
+        logger.info(f"Embedding generated successfully for query: '{q}' (dimension: {len(embedding)})")
+    else:
+        logger.warning(f"No embedding generated for query: '{q}' - vector search will be skipped")
     
     # --- Timeline Search ---
     timeline_results = {}
