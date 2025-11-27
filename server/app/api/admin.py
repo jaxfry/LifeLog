@@ -17,6 +17,8 @@ from app.core.daily_summary import generate_daily_summary
 from app.api.deps import get_current_superuser
 from app.core.security import get_password_hash
 from app.core.scheduler import scheduler
+from app.core.rebuilder import backfill_embeddings, reprocess_date_range, get_reprocessing_status
+from app.core.chapter_summarizer import generate_daily_chapters
 
 router = APIRouter()
 
@@ -285,6 +287,111 @@ async def trigger_daily_summary(
         summary = result.scalars().first()
         return summary
         
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+@router.get("/admin/reprocess/status")
+async def get_reprocess_status(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Returns statistics about data that needs reprocessing.
+    Shows counts of missing embeddings and pending work.
+    """
+    return await get_reprocessing_status(session)
+
+@router.post("/admin/reprocess/embeddings")
+async def backfill_all_embeddings(
+    dry_run: bool = False,
+    force: bool = False,
+    sleep_delay: float = 0.0,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Backfills embeddings for all existing timeline entries and chapters.
+    
+    Args:
+        dry_run: Calculate what would be done without actually doing it
+        force: Regenerate embeddings even if they exist (for model updates)
+        sleep_delay: Seconds to sleep between batches (rate limiting)
+    """
+    try:
+        stats = await backfill_embeddings(
+            session,
+            batch_size=100,
+            sleep_delay=sleep_delay,
+            dry_run=dry_run,
+            force=force
+        )
+        return {
+            "status": "complete" if not dry_run else "dry_run",
+            "statistics": stats
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class DateRangeRequest(BaseModel):
+    start_date: str  # YYYY-MM-DD
+    end_date: str    # YYYY-MM-DD
+    regenerate_chapters: bool = True
+
+@router.post("/admin/reprocess/date-range")
+async def reprocess_dates(
+    request: DateRangeRequest,
+    dry_run: bool = False,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Reprocesses all sessions and chapters within a date range.
+    Useful for fixing data issues or updating to new processing logic.
+    
+    Args:
+        dry_run: Calculate what would be done without actually doing it
+    """
+    try:
+        start = datetime.strptime(request.start_date, "%Y-%m-%d").replace(tzinfo=None)
+        end = datetime.strptime(request.end_date, "%Y-%m-%d").replace(tzinfo=None)
+        
+        if start > end:
+            raise HTTPException(status_code=400, detail="start_date must be before end_date")
+        
+        stats = await reprocess_date_range(
+            session,
+            start,
+            end,
+            regenerate_chapters=request.regenerate_chapters,
+            dry_run=dry_run
+        )
+        
+        return {
+            "status": "complete" if not dry_run else "dry_run",
+            "statistics": stats
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/reprocess/chapters/{date_str}")
+async def regenerate_chapters(
+    date_str: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Regenerates chapters for a specific date.
+    """
+    try:
+        target_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=None)
+        await generate_daily_chapters(session, target_date)
+        
+        return {
+            "status": "complete",
+            "date": date_str
+        }
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 

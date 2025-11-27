@@ -6,6 +6,7 @@ from sqlmodel import select, col
 from app.core.db import get_session
 from app.models.data import RawLog, Event, Timeline, Session, DailyChapter, DailySummary
 from app.api.deps import Pagination
+import numpy as np
 
 router = APIRouter()
 
@@ -33,19 +34,26 @@ async def get_chapters(
     """
     start_date = normalize_datetime(start_date)
     end_date = normalize_datetime(end_date)
-    
+
     query = select(DailyChapter).order_by(col(DailyChapter.start_time).desc())
-    
+
     if start_date:
         query = query.where(DailyChapter.start_time >= start_date)
-        
+
     if end_date:
         query = query.where(DailyChapter.end_time <= end_date)
-        
+
     query = query.offset(pagination.offset).limit(pagination.limit)
-    
+
     result = await session.execute(query)
-    return result.scalars().all()
+    chapters = result.scalars().all()
+
+    # Convert numpy.ndarray fields to lists for serialization
+    for chapter in chapters:
+        if isinstance(chapter.embedding, np.ndarray):
+            chapter.embedding = chapter.embedding.tolist()
+
+    return chapters
 
 @router.get("/timeline", response_model=List[Timeline])
 async def get_timeline(
@@ -71,7 +79,14 @@ async def get_timeline(
     query = query.offset(pagination.offset).limit(pagination.limit)
     
     result = await session.execute(query)
-    return result.scalars().all()
+    timeline_entries = result.scalars().all()
+
+    # Convert numpy.ndarray fields to lists for serialization
+    for entry in timeline_entries:
+        if isinstance(entry.embedding, np.ndarray):
+            entry.embedding = entry.embedding.tolist()
+
+    return timeline_entries
 
 @router.get("/sessions", response_model=List[Session])
 async def get_sessions(

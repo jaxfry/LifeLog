@@ -11,6 +11,8 @@ from app.models.data import Event, Timeline, Session, SessionStatus
 from app.models.config import SystemConfig
 from app.core.prompts import get_system_prompt
 from app.core.logger import get_logger
+from app.core.vector_service import generate_embedding, EMBEDDING_MODEL, EMBEDDING_VERSION
+
 
 # Configuration
 logger = get_logger(__name__)
@@ -103,7 +105,10 @@ async def process_session(db: AsyncSession, session: Session):
         "start": "ISO8601 String (Local Time with Offset)",
         "end": "ISO8601 String (Local Time with Offset)",
         "activity": "String",
-        "notes": "String"
+        "notes": "String",
+        "category": "String (e.g. Work, Personal, Health, Social, Travel, Chores)",
+        "tags": ["String"],
+        "entities": {"person": ["String"], "place": ["String"], "item": ["String"]}
     }
     """
     
@@ -186,13 +191,23 @@ async def process_session(db: AsyncSession, session: Session):
                 start_utc = start_dt.astimezone(timezone.utc).replace(tzinfo=None)
                 end_utc = end_dt.astimezone(timezone.utc).replace(tzinfo=None)
                 
+                # Generate embedding
+                embedding_text = f"Activity: {entry['activity']}. Notes: {entry.get('notes', '')}. Category: {entry.get('category', '')}. Tags: {', '.join(entry.get('tags', []))}."
+                embedding_vector = await generate_embedding(embedding_text)
+
                 timeline_entry = Timeline(
                     session_id=session.id,
                     start_time=start_utc,
                     end_time=end_utc,
                     activity=entry["activity"],
                     notes=entry.get("notes"),
-                    timezone=tz_str
+                    timezone=tz_str,
+                    category=entry.get("category"),
+                    tags=entry.get("tags", []),
+                    entities=entry.get("entities", {}),
+                    embedding=embedding_vector,
+                    embedding_model=EMBEDDING_MODEL,
+                    embedding_version=EMBEDDING_VERSION
                 )
                 db.add(timeline_entry)
             except Exception as e:
