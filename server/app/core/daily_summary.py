@@ -35,6 +35,9 @@ async def generate_daily_summary(db: AsyncSession, target_date: datetime):
     # Calculate UTC bounds for the local day
     start_utc, end_utc = get_day_bounds_utc(target_date, user_timezone)
     
+    # Define start_of_day for summary date field
+    start_of_day = start_utc
+    
     statement = select(Timeline).where(
         Timeline.start_time >= start_utc,
         Timeline.start_time <= end_utc
