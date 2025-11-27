@@ -11,6 +11,8 @@ from app.models.data import Timeline, DailyChapter
 from app.core.prompts import get_chapter_summary_prompt
 from app.core.logger import get_logger
 from app.core.timeline_processor import get_gemini_api_key
+from app.core.vector_service import generate_embedding, EMBEDDING_MODEL, EMBEDDING_VERSION
+
 
 logger = get_logger(__name__)
 MODEL_NAME = "gemini/gemini-flash-latest"
@@ -116,12 +118,21 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
                 if end_time.tzinfo:
                     end_time = end_time.astimezone(timezone.utc).replace(tzinfo=None)
                     
+                # Generate embedding
+                embedding_text = f"Title: {chapter['title']}. Summary: {chapter.get('summary', '')}. Category: {chapter.get('category', '')}. Tags: {', '.join(chapter.get('tags', []))}."
+                embedding_vector = await generate_embedding(embedding_text)
+
                 new_chapter = DailyChapter(
                     date=start_of_day,
                     start_time=start_time,
                     end_time=end_time,
                     title=chapter["title"],
-                    summary=chapter.get("summary")
+                    summary=chapter.get("summary"),
+                    category=chapter.get("category"),
+                    tags=chapter.get("tags", []),
+                    embedding=embedding_vector,
+                    embedding_model=EMBEDDING_MODEL,
+                    embedding_version=EMBEDDING_VERSION
                 )
                 db.add(new_chapter)
             except Exception as e:

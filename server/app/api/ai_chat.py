@@ -1,10 +1,11 @@
 import os
-from typing import List, Dict, Any
 from datetime import datetime, timedelta, timezone
+
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
     from backports.zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,16 +13,22 @@ from sqlmodel import select, col
 from litellm import acompletion
 
 from app.core.db import get_session
-from app.models.data import Event, Timeline, Session, DailySummary, RawLog
+from app.models.data import Timeline, DailySummary, RawLog, DailyChapter
 from app.models.config import SystemConfig
 from app.core.logger import get_logger
+from app.core.vector_service import generate_embedding
 
 logger = get_logger(__name__)
 router = APIRouter()
 
+AI_MODEL = "gemini/gemini-flash-latest"
+NO_ACTIVITY_MESSAGE = "No recent activity data available."
+
+
 class ChatRequest(BaseModel):
     message: str
-    context_days: int = 7  # How many days of context to include
+    context_days: int = 7
+
 
 class ChatResponse(BaseModel):
     response: str
@@ -112,6 +119,7 @@ async def chat_with_ai(
     try:
         # Get API key
         api_key = await get_gemini_api_key(session)
+        os.environ["GEMINI_API_KEY"] = api_key
         
         # Get user timezone from most recent RawLog
         # This ensures we use the client's actual timezone from their device
@@ -122,22 +130,51 @@ async def chat_with_ai(
         timezone_result = await session.execute(timezone_query)
         user_timezone = timezone_result.scalar_one_or_none() or "UTC"
         
-        # Get user context
-        context = await get_user_context(session, request.context_days, user_timezone)
+        # Get user context (recent)
+        recent_context = await get_user_context(session, request.context_days, user_timezone)
         
-        # Build the system prompt
-        system_prompt = """You are LifeLog AI, an intelligent assistant that helps users understand and analyze their personal activity data.
+        # Get vector context (relevant)
+        vector_context = ""
+        embedding = await generate_embedding(request.message)
+        if embedding:
+            # Search Timeline
+            stmt_timeline = select(Timeline).where(Timeline.embedding.is_not(None)).order_by(Timeline.embedding.l2_distance(embedding)).limit(10)
+            result_timeline = await session.execute(stmt_timeline)
+            timeline_entries = result_timeline.scalars().all()
+            
+            # Search Chapters
+            stmt_chapters = select(DailyChapter).where(DailyChapter.embedding.is_not(None)).order_by(DailyChapter.embedding.l2_distance(embedding)).limit(5)
+            result_chapters = await session.execute(stmt_chapters)
+            chapters = result_chapters.scalars().all()
+            
+            parts = []
+            if chapters:
+                parts.append("## Relevant Historical Chapters")
+                for c in chapters:
+                    parts.append(f"- {c.date.date()} {c.title}: {c.summary}")
+            
+            if timeline_entries:
+                parts.append("## Relevant Historical Activities")
+                for t in timeline_entries:
+                    parts.append(f"- {t.start_time} to {t.end_time}: {t.activity} ({t.notes})")
+            
+            vector_context = "\n".join(parts)
 
-You have access to the user's recent activity timeline and daily summaries. Use this information to provide insightful, personalized responses.
+        # Build the system prompt
+        system_prompt = f"""You are LifeLog AI, an intelligent assistant that helps users understand and analyze their personal activity data.
+
+You have access to the user's recent activity timeline and daily summaries, as well as semantically relevant historical data. Use this information to provide insightful, personalized responses.
 
 When the user asks questions about their activities, productivity, or patterns, reference specific data from their timeline.
 
 Be concise, helpful, and insightful. If you don't have enough data to answer a question, say so clearly.
 
 Here is the user's recent activity data:
+{recent_context}
 
+Here is some relevant historical data based on the user's query:
+{vector_context}
 """
-        system_prompt += context
         
         # Call the AI
         response = await acompletion(
@@ -153,7 +190,7 @@ Here is the user's recent activity data:
         
         return ChatResponse(
             response=ai_response,
-            context_used=bool(context.strip() and context != "No recent activity data available.")
+            context_used=bool(recent_context.strip() and recent_context != "No recent activity data available.")
         )
         
     except Exception as e:
@@ -171,7 +208,7 @@ async def check_ai_health(session: AsyncSession = Depends(get_session)):
             "configured": bool(api_key),
             "model": "gemini/gemini-flash-latest"
         }
-    except:
+    except Exception:
         return {
             "configured": False,
             "model": None

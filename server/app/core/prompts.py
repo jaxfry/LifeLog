@@ -79,6 +79,8 @@ Return a valid JSON array of objects, where each object represents a Chapter:
 - `summary`: A 1-2 sentence summary of what happened in this chapter.
 - `start_time`: The ISO 8601 UTC start time of the chapter (use the earliest entry's start time in this chapter).
 - `end_time`: The ISO 8601 UTC end time of the chapter (use the latest entry's end time in this chapter).
+- `category`: A high-level category (e.g., "Work", "Personal", "Health").
+- `tags`: A list of 3-5 relevant tags.
 
 **Instructions:**
 - Group the provided granular entries into 3-4 logical chapters.
@@ -154,6 +156,18 @@ async def get_chapter_summary_prompt(db: AsyncSession) -> str:
     prompt = result.scalars().first()
     
     if prompt:
+        # Check if prompt needs update (missing category/tags)
+        if "category" not in prompt.template:
+             logger.info(f"Upgrading prompt '{name}' to include category/tags.")
+             new_prompt = Prompt(
+                name=name,
+                template=DEFAULT_CHAPTER_SUMMARY_PROMPT,
+                version=prompt.version + 1,
+                is_active=True
+             )
+             db.add(new_prompt)
+             await db.commit()
+             return new_prompt.template
         return prompt.template
         
     logger.info(f"Prompt '{name}' not found. Creating default.")

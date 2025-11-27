@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from enum import Enum as PyEnum
 from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy.dialects.postgresql import JSONB
+from pgvector.sqlalchemy import Vector
 
 class SessionStatus(str, PyEnum):
     PENDING = "PENDING"
@@ -35,6 +36,7 @@ class Session(SQLModel, table=True):
     status: SessionStatus = Field(default=SessionStatus.PENDING)
     retry_count: int = Field(default=0)
     timezone: str = Field(default="UTC")
+    processing_status: str = Field(default="ready")  # ready, processing, error
     
     # Relationships
     events: List["Event"] = Relationship(back_populates="session")
@@ -66,6 +68,14 @@ class Timeline(SQLModel, table=True):
     notes: Optional[str] = None
     timezone: str = Field(default="UTC")
     
+    # Classification & Vectorization
+    tags: List[str] = Field(default=[], sa_column=Column(JSONB))
+    category: Optional[str] = Field(default=None, index=True)
+    entities: Dict[str, Any] = Field(default={}, sa_column=Column(JSONB))
+    embedding: Optional[List[float]] = Field(default=None, sa_column=Column(Vector(768)))
+    embedding_model: Optional[str] = Field(default=None)  # e.g., "gemini/text-embedding-004"
+    embedding_version: Optional[str] = Field(default=None)  # e.g., "1.0"
+    
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     session: Optional[Session] = Relationship(back_populates="timeline_entries")
@@ -91,6 +101,14 @@ class DailyChapter(SQLModel, table=True):
     end_time: datetime
     title: str
     summary: Optional[str] = None
+    
+    # Classification & Vectorization
+    tags: List[str] = Field(default=[], sa_column=Column(JSONB))
+    category: Optional[str] = Field(default=None, index=True)
+    embedding: Optional[List[float]] = Field(default=None, sa_column=Column(Vector(768)))
+    embedding_model: Optional[str] = Field(default=None)
+    embedding_version: Optional[str] = Field(default=None)
+    processing_status: str = Field(default="ready")  # ready, processing, error
     
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
