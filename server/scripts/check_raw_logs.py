@@ -2,9 +2,9 @@
 import asyncio
 import os
 import sys
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, and_
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlmodel import select, col
+from sqlalchemy import desc, and_
 from datetime import datetime
 
 # Add server directory to path so imports work
@@ -16,7 +16,7 @@ from app.core.db import engine
 from app.models.data import RawLog
 
 async def main():
-    async_session = sessionmaker(
+    async_session = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
     
@@ -27,8 +27,8 @@ async def main():
         check_start = datetime(2025, 12, 1, 12, 0) # Check from yesterday noon
         
         stmt = select(RawLog).where(
-            RawLog.received_at >= check_start
-        ).order_by(RawLog.received_at)
+            col(RawLog.received_at) >= check_start
+        ).order_by(col(RawLog.received_at))
         
         result = await session.execute(stmt)
         logs = result.scalars().all()

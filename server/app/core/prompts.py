@@ -43,8 +43,9 @@ You are a personal biographer AI. Your task is to summarize a user's day based o
 
 **Input:**
 Date: {date_str}
-Current Time: {current_time}
-Timeline Entries:
+Timezone: {user_timezone}
+Current Time: {current_time} (local time)
+Timeline Entries (times in local timezone):
 {timeline_json}
 
 **Output Requirements:**
@@ -70,15 +71,16 @@ You are a high-level summarizer. Your task is to group granular timeline entries
 
 **Input:**
 Date: {date_str}
-Timeline Entries (times in UTC):
+Timezone: {user_timezone}
+Timeline Entries (times in local timezone):
 {timeline_json}
 
 **Output Requirements:**
 Return a valid JSON array of objects, where each object represents a Chapter:
 - `title`: A high-level title for the chapter (e.g., "Morning Deep Work", "Afternoon Research").
 - `summary`: A 1-2 sentence summary of what happened in this chapter.
-- `start_time`: The ISO 8601 UTC start time of the chapter (use the earliest entry's start time in this chapter).
-- `end_time`: The ISO 8601 UTC end time of the chapter (use the latest entry's end time in this chapter).
+- `start_time`: The ISO 8601 start time of the chapter in the same timezone as input (use the earliest entry's start time in this chapter).
+- `end_time`: The ISO 8601 end time of the chapter in the same timezone as input (use the latest entry's end time in this chapter).
 - `category`: A high-level category (e.g., "Work", "Personal", "Health").
 - `tags`: A list of 3-5 relevant tags.
 
@@ -124,9 +126,9 @@ async def get_daily_summary_prompt(db: AsyncSession) -> str:
     prompt = result.scalars().first()
     
     if prompt:
-        # Check if prompt needs update (missing current_time)
-        if "{current_time}" not in prompt.template:
-             logger.info(f"Upgrading prompt '{name}' to include current_time.")
+        # Check if prompt needs update (missing user_timezone for local time support)
+        if "{user_timezone}" not in prompt.template:
+             logger.info(f"Upgrading prompt '{name}' to include user_timezone for local time support.")
              new_prompt = Prompt(
                 name=name,
                 template=DEFAULT_DAILY_SUMMARY_PROMPT,
@@ -156,9 +158,9 @@ async def get_chapter_summary_prompt(db: AsyncSession) -> str:
     prompt = result.scalars().first()
     
     if prompt:
-        # Check if prompt needs update (missing category/tags)
-        if "category" not in prompt.template:
-             logger.info(f"Upgrading prompt '{name}' to include category/tags.")
+        # Check if prompt needs update (missing user_timezone for local time support)
+        if "{user_timezone}" not in prompt.template:
+             logger.info(f"Upgrading prompt '{name}' to include user_timezone for local time support.")
              new_prompt = Prompt(
                 name=name,
                 template=DEFAULT_CHAPTER_SUMMARY_PROMPT,

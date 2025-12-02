@@ -156,7 +156,10 @@ async def chat_with_ai(
             if timeline_entries:
                 parts.append("## Relevant Historical Activities")
                 for t in timeline_entries:
-                    parts.append(f"- {t.start_time} to {t.end_time}: {t.activity} ({t.notes})")
+                    # Convert UTC to user's local time for display
+                    local_start = t.start_time.replace(tzinfo=timezone.utc).astimezone(tz)
+                    local_end = t.end_time.replace(tzinfo=timezone.utc).astimezone(tz)
+                    parts.append(f"- {local_start.strftime('%Y-%m-%d %H:%M')} to {local_end.strftime('%H:%M')}: {t.activity} ({t.notes})")
             
             vector_context = "\n".join(parts)
 

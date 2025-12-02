@@ -23,11 +23,6 @@ async def list_client_extensions(
     # In a real app, we might filter by device permissions.
     # For now, return all active extensions.
     
-    # First, ensure we have the extensions in the DB that match the filesystem
-    # This is a bit of a hack for this stage of development to auto-register extensions
-    # In production, this would be a separate admin process
-    await sync_extensions_db(session)
-    
     statement = select(Extension).where(Extension.is_active == True)
     result = await session.execute(statement)
     return result.scalars().all()
