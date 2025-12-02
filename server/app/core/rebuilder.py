@@ -8,7 +8,7 @@ import asyncio
 from app.models.data import Event, Session, Timeline, SessionStatus, DailyChapter
 from app.core.processing import process_log
 from app.core.sessionizer import run_sessionizer
-from app.core.timeline_processor import process_pending_sessions, process_session
+from app.core.timeline_processor import process_pending_sessions, process_session, get_gemini_api_key
 from app.core.chapter_summarizer import generate_daily_chapters
 from app.core.vector_service import generate_embedding, get_embedding_model_info, EMBEDDING_MODEL, EMBEDDING_VERSION
 from app.core.processing_lock import get_processing_lock
@@ -234,6 +234,12 @@ async def backfill_embeddings(
             raise Exception(f"Cannot start job - another job is running: {lock.get_current_job()}")
     
     try:
+        # Fetch API Key
+        api_key = await get_gemini_api_key(session)
+        if not api_key and not os.environ.get("GEMINI_API_KEY"):
+            logger.warning("No Gemini API Key found. Aborting backfill.")
+            return stats
+
         # Backfill Timeline Embeddings
         if not chapters_only:
             logger.info("Analyzing timeline embeddings...")
@@ -268,7 +274,7 @@ async def backfill_embeddings(
                         # Generate embedding text
                         entities_str = " ".join([f"{k}: {v}" for k, v in entry.entities.items()]) if entry.entities else ""
                         embedding_text = f"Activity: {entry.activity}. Notes: {entry.notes or ''}. Category: {entry.category or ''}. Tags: {', '.join(entry.tags or [])}. Entities: {entities_str}."
-                        embedding_vector = await generate_embedding(embedding_text)
+                        embedding_vector = await generate_embedding(embedding_text, api_key=api_key)
                         
                         if embedding_vector:
                             entry.embedding = embedding_vector
@@ -350,7 +356,7 @@ async def backfill_embeddings(
                         
                         # Generate embedding text
                         embedding_text = f"Title: {chapter.title}. Summary: {chapter.summary or ''}. Category: {chapter.category or ''}. Tags: {', '.join(chapter.tags or [])}."
-                        embedding_vector = await generate_embedding(embedding_text)
+                        embedding_vector = await generate_embedding(embedding_text, api_key=api_key)
                         
                         if embedding_vector:
                             chapter.embedding = embedding_vector

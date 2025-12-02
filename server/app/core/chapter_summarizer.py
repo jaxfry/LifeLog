@@ -29,14 +29,25 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
     result = await db.execute(stmt)
     user_timezone = result.scalar_one_or_none() or "UTC"
     
-    from app.core.utils.time import get_day_bounds_utc, to_local_time
+    from app.core.utils.time import get_day_bounds_utc, to_local_time, get_timezone_obj
+    
+    # Convert target_date to user's timezone to determine the correct "day"
+    if target_date.tzinfo:
+        target_date_local = target_date.astimezone(get_timezone_obj(user_timezone))
+    else:
+        target_date_local = target_date.replace(tzinfo=timezone.utc).astimezone(get_timezone_obj(user_timezone))
     
     # Calculate UTC bounds for the local day
-    start_utc, end_utc = get_day_bounds_utc(target_date, user_timezone)
+    start_utc, end_utc = get_day_bounds_utc(target_date_local, user_timezone)
     
-    # Define start_of_day and end_of_day for chapter date field and deletion scope
-    start_of_day = start_utc
-    end_of_day = end_utc
+    # Define start_of_day for chapter date field (Normalized to Midnight UTC)
+    chapter_date = datetime(
+        target_date_local.year,
+        target_date_local.month,
+        target_date_local.day,
+        0, 0, 0, 0,
+        tzinfo=timezone.utc
+    )
     
     statement = select(Timeline).where(
         Timeline.start_time >= start_utc,
@@ -101,8 +112,7 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
         # First, delete existing chapters for the day to avoid duplicates/stale data
         # Note: We use delete() with where() clause
         delete_stmt = delete(DailyChapter).where(
-            DailyChapter.date >= start_of_day,
-            DailyChapter.date <= end_of_day
+            DailyChapter.date == chapter_date
         )
         await db.execute(delete_stmt)
         
@@ -120,10 +130,10 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
                     
                 # Generate embedding
                 embedding_text = f"Title: {chapter['title']}. Summary: {chapter.get('summary', '')}. Category: {chapter.get('category', '')}. Tags: {', '.join(chapter.get('tags', []))}."
-                embedding_vector = await generate_embedding(embedding_text)
+                embedding_vector = await generate_embedding(embedding_text, api_key=api_key)
 
                 new_chapter = DailyChapter(
-                    date=start_of_day,
+                    date=chapter_date,
                     start_time=start_time,
                     end_time=end_time,
                     title=chapter["title"],
