@@ -30,13 +30,25 @@ async def generate_daily_summary(db: AsyncSession, target_date: datetime):
     result = await db.execute(stmt)
     user_timezone = result.scalar_one_or_none() or "UTC"
     
-    from app.core.utils.time import get_day_bounds_utc, to_local_time
+    from app.core.utils.time import get_day_bounds_utc, to_local_time, get_timezone_obj
     
+    # Convert target_date to user's timezone to determine the correct "day"
+    if target_date.tzinfo:
+        target_date_local = target_date.astimezone(get_timezone_obj(user_timezone))
+    else:
+        target_date_local = target_date.replace(tzinfo=timezone.utc).astimezone(get_timezone_obj(user_timezone))
+
     # Calculate UTC bounds for the local day
-    start_utc, end_utc = get_day_bounds_utc(target_date, user_timezone)
+    start_utc, end_utc = get_day_bounds_utc(target_date_local, user_timezone)
     
-    # Define start_of_day for summary date field
-    start_of_day = start_utc
+    # Define start_of_day for summary date field (Normalized to Midnight UTC)
+    start_of_day = datetime(
+        target_date_local.year,
+        target_date_local.month,
+        target_date_local.day,
+        0, 0, 0, 0,
+        tzinfo=timezone.utc
+    )
     
     statement = select(Timeline).where(
         Timeline.start_time >= start_utc,

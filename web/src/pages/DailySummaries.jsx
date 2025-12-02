@@ -19,7 +19,7 @@ const DailySummaries = () => {
 
   const { data: summary, isLoading, isError } = useQuery({
     queryKey: ['dailySummary', dateStr],
-    queryFn: () => dailySummaryAPI.generateSummary(dateStr),
+    queryFn: () => dailySummaryAPI.getSummary(dateStr),
     retry: false,
   });
 

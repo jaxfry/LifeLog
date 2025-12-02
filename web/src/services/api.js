@@ -100,6 +100,10 @@ export const sessionsAPI = {
 
 // Daily Summary API
 export const dailySummaryAPI = {
+  getSummary: async (date) => {
+    const response = await api.get(`/summaries/${date}`);
+    return response.data;
+  },
   generateSummary: async (date) => {
     const response = await api.post(`/admin/generate-summary/${date}`);
     return response.data;

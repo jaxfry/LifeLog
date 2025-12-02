@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
+import uuid
 from app.core.timeline_processor import process_session
 from app.models.data import Session, Event, Timeline, SessionStatus
 from sqlmodel import select
@@ -17,7 +18,7 @@ async def test_process_session_success(session):
         device_id="dev1",
         extension_id="ext1",
         payload={"data": "test"},
-        payload_hash="hash1"
+        payload_hash=f"hash_{uuid.uuid4()}"
     )
     session.add(raw_log)
     await session.commit()
@@ -82,7 +83,7 @@ async def test_process_session_failure_retry(session):
         device_id="dev1",
         extension_id="ext1",
         payload={"data": "test"},
-        payload_hash="hash2"
+        payload_hash=f"hash_{uuid.uuid4()}"
     )
     session.add(raw_log)
     await session.commit()
