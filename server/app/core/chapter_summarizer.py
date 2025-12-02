@@ -40,13 +40,12 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
     # Calculate UTC bounds for the local day
     start_utc, end_utc = get_day_bounds_utc(target_date_local, user_timezone)
     
-    # Define start_of_day for chapter date field (Normalized to Midnight UTC)
+    # Define start_of_day for chapter date field (Normalized to Midnight, naive datetime for DB)
     chapter_date = datetime(
         target_date_local.year,
         target_date_local.month,
         target_date_local.day,
-        0, 0, 0, 0,
-        tzinfo=timezone.utc
+        0, 0, 0, 0
     )
     
     statement = select(Timeline).where(
@@ -64,10 +63,13 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
     # 2. Prepare Data for LLM
     timeline_json = []
     for entry in entries:
-        # Send full UTC ISO timestamps to prevent LLM from fabricating dates
+        # Convert to local time for the prompt so AI sees user's actual times
+        local_start = to_local_time(entry.start_time, user_timezone)
+        local_end = to_local_time(entry.end_time, user_timezone)
+        
         timeline_json.append({
-            "start": entry.start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "end": entry.end_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "start": local_start.isoformat(),
+            "end": local_end.isoformat(),
             "activity": entry.activity,
             "notes": entry.notes
         })
@@ -78,6 +80,7 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
     prompt_template = await get_chapter_summary_prompt(db)
     prompt = prompt_template.format(
         date_str=target_date.strftime("%Y-%m-%d"),
+        user_timezone=user_timezone,
         timeline_json=timeline_str
     )
     

@@ -2,6 +2,30 @@
 
 This directory contains the comprehensive test suite for the LifeLog server.
 
+## ⚠️ Database Safety
+
+**Tests are configured to NEVER touch your production database.**
+
+By default, tests run against an **in-memory SQLite database** to ensure complete isolation from production data.
+
+### How It Works
+
+1. **Automatic Protection**: The test suite will refuse to run if it detects `DATABASE_URL` points to a production database (contains "lifelog_db", "prod", or "production") without `TEST_DATABASE_URL` being explicitly set.
+
+2. **Default Behavior**: If no `TEST_DATABASE_URL` is set, tests use `sqlite+aiosqlite:///:memory:` (in-memory SQLite).
+
+3. **Integration Tests**: For tests requiring PostgreSQL features (like pgvector), explicitly set `TEST_DATABASE_URL`:
+   ```bash
+   TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/lifelog_test pytest -m integration
+   ```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `TEST_DATABASE_URL` | Database URL for tests (default: in-memory SQLite) |
+| `DATABASE_URL` | Ignored during tests (overridden by conftest.py) |
+
 ## Test Categories
 
 ### Unit Tests
@@ -17,7 +41,7 @@ Integration tests require external services like PostgreSQL and Redis to be runn
 
 Run integration tests only:
 ```bash
-pytest -m integration
+TEST_DATABASE_URL=postgresql+asyncpg://lifelog:lifelogpassword@localhost:5432/lifelog_test pytest -m integration
 ```
 
 ## Running Tests

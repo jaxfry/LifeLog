@@ -9,6 +9,7 @@ from app.models.config import Device
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Dict, Any, Union, List, Optional
+from app.core.rate_limit import limiter
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -21,6 +22,7 @@ class IngestRequest(BaseModel):
     timezone_offset: Optional[str] = None # e.g. "-0500"
 
 @router.post("/ingest", status_code=status.HTTP_201_CREATED)
+@limiter.limit("60/minute")
 async def ingest_log_entry(
     request: Request,
     ingest_req: IngestRequest,

@@ -92,12 +92,23 @@ class SyncEngine:
 
                 if response.status_code in [200, 201]:
                     successful_ids.append(item["id"])
+                elif response.status_code in [401, 403]:
+                    logger.error(f"Authentication failed (Status {response.status_code}). Stopping sync. Please check your API key.")
+                    self.running = False # Stop the sync engine
+                    break
                 else:
                     logger.warning(f"Failed to ingest item {item['id']}: {response.status_code} - {response.text}")
                     # Simple exponential backoff could be implemented here or at the loop level
                     # For now, we just don't add it to successful_ids so it stays in DB
+            except requests.Timeout:
+                logger.error("Request timed out during ingest.")
+                break
+            except requests.ConnectionError:
+                logger.error("Connection error during ingest. Server might be down.")
+                break
             except requests.RequestException as e:
                 logger.error(f"Network error during ingest: {e}")
+                break
                 # Stop processing this batch on network error to avoid repeated timeouts
                 break
 

@@ -10,6 +10,10 @@ from arq import create_pool
 from arq.connections import RedisSettings
 import os
 from dotenv import load_dotenv
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from app.core.rate_limit import limiter
 
 load_dotenv()
 
@@ -37,6 +41,11 @@ async def lifespan(app: FastAPI):
         await app.state.arq_pool.close()
 
 app = FastAPI(title="LifeLog Core", version="4.0", lifespan=lifespan)
+
+# Rate Limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # Security Middleware
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
