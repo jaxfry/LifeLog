@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.models.config import SystemConfig
 from app.core.prompts import get_system_prompt
 from app.core.logger import get_logger
 from app.core.vector_service import generate_embedding, EMBEDDING_MODEL, EMBEDDING_VERSION
+from app.core.utils.time import to_local_time
 
 
 # Configuration
@@ -79,16 +81,8 @@ async def process_session(db: AsyncSession, session: Session):
     for event in events:
         # Convert to local time
         utc_dt = event.created_at.replace(tzinfo=timezone.utc)
-        local_time_iso = utc_dt.isoformat()
-        
-        if event.timezone and event.timezone != "UTC":
-            try:
-                # Parse offset e.g. "-0500"
-                dummy = datetime.strptime(f"20000101120000{event.timezone}", "%Y%m%d%H%M%S%z")
-                local_dt = utc_dt.astimezone(dummy.tzinfo)
-                local_time_iso = local_dt.isoformat()
-            except Exception:
-                pass
+        local_dt = to_local_time(utc_dt, event.timezone)
+        local_time_iso = local_dt.isoformat()
 
         evt_dict = {
             "time": local_time_iso,
@@ -122,16 +116,8 @@ async def process_session(db: AsyncSession, session: Session):
 
     # Calculate day_iso in local time
     session_start_utc = session.start_time.replace(tzinfo=timezone.utc)
-    day_iso = session_start_utc.date().isoformat() # Default to UTC
-
-    if session_timezone_str != "UTC":
-        try:
-             # Parse offset e.g. "-0500"
-            dummy = datetime.strptime(f"20000101120000{session_timezone_str}", "%Y%m%d%H%M%S%z")
-            session_start_local = session_start_utc.astimezone(dummy.tzinfo)
-            day_iso = session_start_local.date().isoformat()
-        except Exception:
-            pass
+    session_start_local = to_local_time(session_start_utc, session_timezone_str)
+    day_iso = session_start_local.date().isoformat()
     
     # Fetch prompt from DB
     system_prompt_template = await get_system_prompt(db)
@@ -193,7 +179,9 @@ async def process_session(db: AsyncSession, session: Session):
                 
                 # Generate embedding
                 embedding_text = f"Activity: {entry['activity']}. Notes: {entry.get('notes', '')}. Category: {entry.get('category', '')}. Tags: {', '.join(entry.get('tags', []))}."
-                embedding_vector = await generate_embedding(embedding_text)
+                embedding_vector = await generate_embedding(embedding_text, api_key=api_key)
+                if not embedding_vector:
+                    embedding_vector = None
 
                 timeline_entry = Timeline(
                     session_id=session.id,

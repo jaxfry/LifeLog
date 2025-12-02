@@ -27,7 +27,7 @@ async def run_sessionizer(db: AsyncSession):
 
     # 2. Sort by timestamp
     def get_event_time(event: Event) -> datetime:
-        ts_str = event.data.get("timestamp")
+        ts_str = event.data.get("timestamp") or event.data.get("start_time")
         if ts_str:
             try:
                 dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
@@ -94,7 +94,7 @@ async def create_session(db: AsyncSession, events: List[Event]):
 
     # Calculate session bounds
     def get_event_time(event: Event) -> datetime:
-        ts_str = event.data.get("timestamp")
+        ts_str = event.data.get("timestamp") or event.data.get("start_time")
         if ts_str:
             try:
                 dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
