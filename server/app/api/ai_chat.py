@@ -85,6 +85,13 @@ async def get_app_usage_stats(session: AsyncSession, days: int = 7, user_timezon
         app_name = event.data.get("app", "Unknown")
         duration = event.data.get("duration", 0)
         
+        # Ensure duration is numeric (handle both int and float)
+        try:
+            duration = float(duration) if duration else 0
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid duration value in event {event.id}: {duration}")
+            duration = 0
+        
         if app_name in app_durations:
             app_durations[app_name] += duration
         else:
