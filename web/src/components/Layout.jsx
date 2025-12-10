@@ -12,7 +12,8 @@ import {
   Settings, 
   LogOut, 
   Menu, 
-  X 
+  X,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -30,6 +31,7 @@ const Layout = ({ children }) => {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Timeline', path: '/timeline', icon: Clock },
+    { name: 'Files', path: '/files', icon: FileText },
     { name: 'Devices', path: '/devices', icon: Monitor },
     { name: 'Extensions', path: '/extensions', icon: Package },
     { name: 'Data Explorer', path: '/data-explorer', icon: Database },

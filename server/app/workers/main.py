@@ -5,6 +5,7 @@ from app.core.db import engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.processing import process_log
+from app.workers.files import task_process_file_batch
 from app.models.audit import Failure
 from uuid import UUID
 from app.core.logger import get_logger
@@ -48,7 +49,7 @@ async def task_normalize_log(ctx, log_id_str: str):
             # Do not re-raise, so the worker keeps running and considers this "handled"
 
 class WorkerSettings:
-    functions = [task_normalize_log]
+    functions = [task_normalize_log, task_process_file_batch]
     redis_settings = RedisSettings.from_dsn(REDIS_URL)
     on_startup = startup
     on_shutdown = shutdown
