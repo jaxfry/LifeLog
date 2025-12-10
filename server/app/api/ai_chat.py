@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 try:
     from zoneinfo import ZoneInfo
@@ -13,7 +14,7 @@ from sqlmodel import select, col
 from litellm import acompletion
 
 from app.core.db import get_session
-from app.models.data import Timeline, DailySummary, RawLog, DailyChapter
+from app.models.data import Timeline, DailySummary, RawLog, DailyChapter, Event
 from app.models.files import FileAttachment
 from app.models.config import SystemConfig
 from app.core.logger import get_logger
@@ -50,6 +51,47 @@ async def get_gemini_api_key(db: AsyncSession) -> str:
         raise HTTPException(status_code=500, detail="AI service not configured. Please set GEMINI_API_KEY.")
     return api_key
 
+async def get_app_usage_stats(session: AsyncSession, days: int = 7, user_timezone: str = "UTC", start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> dict:
+    """
+    Aggregate application usage statistics from raw events.
+    Returns a dictionary with app names as keys and total duration in seconds as values.
+    
+    Args:
+        session: Database session
+        days: Number of days to look back (used if start_date/end_date not provided)
+        user_timezone: User's timezone
+        start_date: Optional start date for filtering (UTC)
+        end_date: Optional end date for filtering (UTC)
+    """
+    if end_date is None:
+        end_date = datetime.now(timezone.utc).replace(tzinfo=None)
+    if start_date is None:
+        start_date = end_date - timedelta(days=days)
+    
+    # Get all app_usage events in the time range
+    event_query = select(Event).where(
+        Event.type == "app_usage",
+        Event.created_at >= start_date,
+        Event.created_at <= end_date,
+        Event.is_superseded == False
+    )
+    
+    result = await session.execute(event_query)
+    events = result.scalars().all()
+    
+    # Aggregate by app name
+    app_durations = {}
+    for event in events:
+        app_name = event.data.get("app", "Unknown")
+        duration = event.data.get("duration", 0)
+        
+        if app_name in app_durations:
+            app_durations[app_name] += duration
+        else:
+            app_durations[app_name] = duration
+    
+    return app_durations
+
 async def get_user_context(session: AsyncSession, days: int = 7, user_timezone: str = "UTC") -> str:
     """
     Gather recent user activity context for the AI to reference.
@@ -84,6 +126,9 @@ async def get_user_context(session: AsyncSession, days: int = 7, user_timezone: 
     summary_result = await session.execute(summary_query)
     summaries = summary_result.scalars().all()
     
+    # Get app usage statistics
+    app_usage = await get_app_usage_stats(session, days, user_timezone)
+    
     # Build context string
     context_parts = []
     
@@ -94,6 +139,19 @@ async def get_user_context(session: AsyncSession, days: int = 7, user_timezone: 
             context_parts.append(summary.summary_text)
             if summary.key_activities:
                 context_parts.append(f"Key Activities: {', '.join(summary.key_activities)}")
+    
+    # Add app usage statistics
+    if app_usage:
+        context_parts.append("\n# Application Usage Statistics (Past {} days)".format(days))
+        # Sort by duration descending
+        sorted_apps = sorted(app_usage.items(), key=lambda x: x[1], reverse=True)
+        for app_name, total_seconds in sorted_apps[:20]:  # Top 20 apps
+            hours = total_seconds / 3600
+            minutes = (total_seconds % 3600) / 60
+            if hours >= 1:
+                context_parts.append(f"- {app_name}: {hours:.1f} hours")
+            else:
+                context_parts.append(f"- {app_name}: {minutes:.0f} minutes")
     
     if timeline_entries:
         context_parts.append("\n# Recent Activities")
@@ -190,9 +248,29 @@ async def chat_with_ai(
         # Build the system prompt
         system_prompt = f"""You are LifeLog AI, an intelligent assistant that helps users understand and analyze their personal activity data.
 
-You have access to the user's recent activity timeline and daily summaries, as well as semantically relevant historical data. Use this information to provide insightful, personalized responses.
+You have access to the user's recent activity timeline, daily summaries, application usage statistics, and semantically relevant historical data. Use this information to provide insightful, personalized responses.
 
-When the user asks questions about their activities, productivity, or patterns, reference specific data from their timeline.
+When the user asks questions about their activities, productivity, or patterns, reference specific data from their timeline and application usage statistics.
+
+**Important Guidelines for Application Usage:**
+- Application names in the "Application Usage Statistics" section represent the ACTUAL time spent in each application
+- When a user asks about time spent on activities (e.g., "How much anime have I watched?"), ALWAYS check the application usage statistics first
+- Look for applications that might be related to the activity:
+  * "Hayase" is a media player application used for watching anime/videos
+  * Video players (VLC, mpv, MPlayer, etc.) might indicate video watching
+  * Browsers combined with video-related URLs indicate streaming
+  * Applications with anime-related titles or content
+- The application usage statistics are more accurate than timeline summaries for calculating exact time spent
+- Always cite the specific applications and their durations when answering time-based questions
+- Sum up all relevant application usage to provide accurate totals
+- If an application name seems related to the user's query, include it in your answer
+
+**Example Analysis:**
+If the user asks "How much anime have I watched?", you should:
+1. Look for "Hayase" (known media player) in Application Usage Statistics
+2. Look for other video players or anime-related applications
+3. Check timeline entries for anime-related activities
+4. Sum all relevant durations and provide a total
 
 Be concise, helpful, and insightful. If you don't have enough data to answer a question, say so clearly.
 
