@@ -117,7 +117,7 @@ Yesterday you spent:
 Events table structure (relevant fields):
 - `type`: "app_usage" for application usage events
 - `data.app`: Application name (e.g., "Hayase", "Chrome", "VS Code")
-- `data.duration`: Duration in seconds
+- `data.duration`: Duration in seconds (numeric: int or float). The aggregation function validates and converts to float, defaulting to 0 for invalid values.
 - `data.title`: Window title (optional additional context)
 - `created_at`: Timestamp of the event
 
