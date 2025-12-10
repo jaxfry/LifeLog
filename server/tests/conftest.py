@@ -9,6 +9,14 @@ import pytest
 import pytest_asyncio
 import os
 import sys
+import sqlalchemy.dialects.sqlite
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import JSON
+from pgvector.sqlalchemy import Vector
+
+# Monkey-patch SQLite dialect to handle Postgres-specific types
+sqlalchemy.dialects.sqlite.base.SQLiteDialect.colspecs[JSONB] = JSON
+sqlalchemy.dialects.sqlite.base.SQLiteDialect.colspecs[Vector] = JSON
 
 # =============================================================================
 # CRITICAL SAFETY CHECK: Prevent tests from running against production database

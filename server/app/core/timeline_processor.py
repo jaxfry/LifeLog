@@ -4,11 +4,12 @@ from datetime import datetime, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from sqlmodel import select
+from sqlmodel import select, col, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from litellm import acompletion
 
 from app.models.data import Event, Timeline, Session, SessionStatus
+from app.models.files import FileAttachment
 from app.models.config import SystemConfig
 from app.core.prompts import get_system_prompt
 from app.core.logger import get_logger
@@ -76,6 +77,40 @@ async def process_session(db: AsyncSession, session: Session):
         await db.commit()
         return
 
+    # 1.5 Fetch linked files (explicitly linked to events OR created during the session)
+    event_ids = [e.id for e in events]
+    
+    # We want files that are:
+    # 1. Linked to one of the events in this session
+    # 2. OR (Not linked to any event AND created within session time range)
+    
+    stmt_files = select(FileAttachment).where(
+        or_(
+            col(FileAttachment.event_id).in_(event_ids),
+            and_(
+                FileAttachment.event_id.is_(None),
+                FileAttachment.created_at >= session.start_time,
+                FileAttachment.created_at <= session.end_time
+            )
+        )
+    )
+    
+    result_files = await db.execute(stmt_files)
+    files = result_files.scalars().all()
+    
+    # Map files to event_id (or "session" if unlinked)
+    files_by_event = {}
+    session_files = []
+    
+    for f in files:
+        if f.event_id and f.event_id in event_ids:
+            if f.event_id not in files_by_event:
+                files_by_event[f.event_id] = []
+            files_by_event[f.event_id].append(f)
+        else:
+            # Unlinked file in this time range
+            session_files.append(f)
+
     # 2. Prepare Event Data (JSON)
     events_data = []
     for event in events:
@@ -89,7 +124,45 @@ async def process_session(db: AsyncSession, session: Session):
             "type": event.type,
             "data": event.data
         }
+        
+        # Attach file info if present
+        if event.id in files_by_event:
+            evt_dict["files"] = []
+            for f in files_by_event[event.id]:
+                file_info = {
+                    "filename": f.filename,
+                    "category": f.category,
+                    "description": f.description,
+                    "summary": f.ai_metadata.get("summary") if f.ai_metadata else None,
+                    "ocr_text": f.ai_metadata.get("ocr_text")[:200] + "..." if f.ai_metadata and f.ai_metadata.get("ocr_text") else None
+                }
+                evt_dict["files"].append(file_info)
+
         events_data.append(evt_dict)
+    
+    # Add a "Session Files" event if there are unlinked files
+    if session_files:
+        # We create a synthetic event for these files so the LLM sees them
+        # We'll use the session start time or the file's time
+        for f in session_files:
+            utc_dt = f.created_at.replace(tzinfo=timezone.utc)
+            local_dt = to_local_time(utc_dt, session.timezone)
+            
+            file_evt = {
+                "time": local_dt.isoformat(),
+                "type": "file_upload",
+                "data": {
+                    "filename": f.filename,
+                    "category": f.category,
+                    "description": f.description,
+                    "summary": f.ai_metadata.get("summary") if f.ai_metadata else None,
+                    "ocr_text": f.ai_metadata.get("ocr_text")[:200] + "..." if f.ai_metadata and f.ai_metadata.get("ocr_text") else None
+                }
+            }
+            events_data.append(file_evt)
+            
+        # Re-sort events by time because we added new ones
+        events_data.sort(key=lambda x: x["time"])
         
     events_json = json.dumps(events_data, indent=2)
     

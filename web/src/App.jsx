@@ -13,6 +13,7 @@ import Devices from './pages/Devices';
 import Extensions from './pages/Extensions';
 import DataExplorer from './pages/DataExplorer';
 import AIInsights from './pages/AIInsights';
+import Files from './pages/Files';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -77,6 +78,16 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <DataExplorer />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/files"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Files />
                   </Layout>
                 </ProtectedRoute>
               }

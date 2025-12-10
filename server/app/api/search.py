@@ -5,6 +5,7 @@ import os
 from app.core.db import get_session
 from app.core.vector_service import generate_embedding
 from app.models.data import Timeline, DailyChapter
+from app.models.files import FileAttachment
 from app.core.timeline_processor import get_gemini_api_key
 from app.core.logger import get_logger
 
@@ -78,6 +79,28 @@ async def search(
     for c in result_chapters_keyword.scalars().all():
         chapter_results[c.id] = c
 
+    # --- FileAttachment Search ---
+    file_results = {}
+
+    # Vector Search
+    if embedding:
+        stmt_files_vector = select(FileAttachment).where(FileAttachment.embedding.is_not(None)).order_by(FileAttachment.embedding.l2_distance(embedding)).limit(limit)
+        result_files_vector = await db.execute(stmt_files_vector)
+        for f in result_files_vector.scalars().all():
+            file_results[f.id] = f
+
+    # Keyword Search
+    stmt_files_keyword = select(FileAttachment).where(
+        or_(
+            FileAttachment.filename.ilike(f"%{q}%"),
+            FileAttachment.description.ilike(f"%{q}%"),
+            FileAttachment.category.ilike(f"%{q}%")
+        )
+    ).limit(limit)
+    result_files_keyword = await db.execute(stmt_files_keyword)
+    for f in result_files_keyword.scalars().all():
+        file_results[f.id] = f
+
     # Convert numpy arrays to lists for JSON serialization
     import numpy as np
     
@@ -93,7 +116,14 @@ async def search(
             c.embedding = c.embedding.tolist()
         final_chapters.append(c)
 
+    final_files = []
+    for f in file_results.values():
+        if f.embedding is not None and hasattr(f.embedding, "tolist"):
+            f.embedding = f.embedding.tolist()
+        final_files.append(f)
+
     return {
         "timeline": final_timeline,
-        "chapters": final_chapters
+        "chapters": final_chapters,
+        "files": final_files
     }

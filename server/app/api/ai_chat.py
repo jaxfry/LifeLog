@@ -14,6 +14,7 @@ from litellm import acompletion
 
 from app.core.db import get_session
 from app.models.data import Timeline, DailySummary, RawLog, DailyChapter
+from app.models.files import FileAttachment
 from app.models.config import SystemConfig
 from app.core.logger import get_logger
 from app.core.vector_service import generate_embedding
@@ -129,6 +130,17 @@ async def chat_with_ai(
         
         timezone_result = await session.execute(timezone_query)
         user_timezone = timezone_result.scalar_one_or_none() or "UTC"
+
+        try:
+            tz = ZoneInfo(user_timezone)
+        except Exception:
+            try:
+                # Try parsing as offset (e.g. "-0500")
+                dummy = datetime.strptime(user_timezone, "%z")
+                tz = dummy.tzinfo
+            except ValueError:
+                logger.warning(f"Invalid timezone {user_timezone}, falling back to UTC")
+                tz = timezone.utc
         
         # Get user context (recent)
         recent_context = await get_user_context(session, request.context_days, user_timezone)
@@ -147,11 +159,23 @@ async def chat_with_ai(
             result_chapters = await session.execute(stmt_chapters)
             chapters = result_chapters.scalars().all()
             
+            # Search Files
+            stmt_files = select(FileAttachment).where(FileAttachment.embedding.is_not(None)).order_by(FileAttachment.embedding.l2_distance(embedding)).limit(5)
+            result_files = await session.execute(stmt_files)
+            files = result_files.scalars().all()
+            
             parts = []
             if chapters:
                 parts.append("## Relevant Historical Chapters")
                 for c in chapters:
                     parts.append(f"- {c.date.date()} {c.title}: {c.summary}")
+            
+            if files:
+                parts.append("## Relevant Documents/Files")
+                for f in files:
+                    parts.append(f"- {f.filename} ({f.category}): {f.description or 'No description'}")
+                    if f.ai_metadata and 'summary' in f.ai_metadata:
+                        parts.append(f"  Summary: {f.ai_metadata['summary']}")
             
             if timeline_entries:
                 parts.append("## Relevant Historical Activities")

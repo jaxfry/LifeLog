@@ -5,7 +5,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.core.db import init_db
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logger import setup_logging, get_logger
-from app.api import ingest, data, admin, client, health, auth, analytics, ai_chat, extensions, search
+from app.api import ingest, data, admin, client, health, auth, analytics, ai_chat, extensions, search, files
 from arq import create_pool
 from arq.connections import RedisSettings
 import os
@@ -71,6 +71,7 @@ app.include_router(client.router, prefix="/api/v1", tags=["client"])
 app.include_router(ai_chat.router, prefix="/api/v1/ai", tags=["ai"])
 app.include_router(extensions.router, prefix="/api/v1", tags=["extensions"])
 app.include_router(search.router, prefix="/api/v1/search", tags=["search"])
+app.include_router(files.router, prefix="/api/v1/files", tags=["files"])
 
 @app.get("/")
 async def root():

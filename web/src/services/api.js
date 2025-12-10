@@ -265,4 +265,32 @@ export const schedulerAPI = {
   },
 };
 
+// Files API
+export const filesAPI = {
+  uploadFile: async (file, metadata = {}) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (metadata.category) formData.append('category', metadata.category);
+    if (metadata.tags) formData.append('tags', metadata.tags);
+    if (metadata.description) formData.append('description', metadata.description);
+    
+    const response = await api.post('/files/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  listFiles: async (params = {}) => {
+    const response = await api.get('/files', { params });
+    return response.data;
+  },
+  
+  getFile: async (fileId) => {
+    const response = await api.get(`/files/${fileId}`);
+    return response.data;
+  },
+};
+
 export default api;
