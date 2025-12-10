@@ -73,7 +73,7 @@ async def get_app_usage_stats(session: AsyncSession, days: int = 7, user_timezon
         Event.type == "app_usage",
         Event.created_at >= start_date,
         Event.created_at <= end_date,
-        Event.is_superseded.is_(False)
+        Event.is_superseded == False
     )
     
     result = await session.execute(event_query)
