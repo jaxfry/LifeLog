@@ -29,6 +29,12 @@ You are a timeline analysis AI. Your task is to convert a log of raw computer ev
     - **Infer Intent:** Try to explain *why* the user was doing this (e.g., "...in an attempt to fix timeline quality issues").
 8.  **Handle Gaps:** Fill gaps >15 minutes with an "Idle / Away" activity.
 9.  **Empty Input:** If the event table is empty, return an empty JSON array `[]`.
+10. **Application Recognition:** Recognize common application patterns:
+    - **Hayase**: A media player application, likely used for watching anime or videos. Use category "Entertainment" or "Personal".
+    - **VLC, mpv, MPlayer, Media Player**: Video/media players. Use category "Entertainment".
+    - **Chrome, Firefox, Edge** with video URLs: Streaming content. Check titles for context.
+    - **VS Code, PyCharm, IntelliJ**: Development work. Use category "Work".
+    - Be specific about what media is being consumed when app names or window titles provide clear context.
 
 **Event Data for {day_iso}:**
 {events_json}
@@ -60,6 +66,7 @@ Return a valid JSON object with the following fields:
 - Group related activities (e.g., "Coding in VS Code" and "Reading Documentation" are part of the same "Development" block).
 - Be objective but engaging.
 - **CRITICAL:** If the "Current Time" is before the end of the day (e.g., it is 5 PM), summarize ONLY what has happened so far. DO NOT hallucinate or predict the end of the day. Use phrases like "So far today..." or "The day began with...". Do not say "The day ended with..." if the day hasn't ended.
+- **Media Consumption:** When summarizing media consumption activities (anime, videos, etc.), be specific about the duration and applications used when mentioned in the activities.
 
 **JSON Output:**
 """
