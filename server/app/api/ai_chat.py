@@ -73,7 +73,7 @@ async def get_app_usage_stats(session: AsyncSession, days: int = 7, user_timezon
         Event.type == "app_usage",
         Event.created_at >= start_date,
         Event.created_at <= end_date,
-        Event.is_superseded == False
+        Event.is_superseded.is_(False)
     )
     
     result = await session.execute(event_query)
@@ -142,7 +142,7 @@ async def get_user_context(session: AsyncSession, days: int = 7, user_timezone: 
     
     # Add app usage statistics
     if app_usage:
-        context_parts.append("\n# Application Usage Statistics (Past {} days)".format(days))
+        context_parts.append(f"\n# Application Usage Statistics (Past {days} days)")
         # Sort by duration descending
         sorted_apps = sorted(app_usage.items(), key=lambda x: x[1], reverse=True)
         for app_name, total_seconds in sorted_apps[:20]:  # Top 20 apps
