@@ -10,8 +10,7 @@ from app.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Use the same model as the rest of the app
-MODEL_NAME = "gemini/gemini-flash-latest"
+from app.core.ai_config import completion_with_fallback
 
 async def analyze_file_content(
     file_path: Path, 
@@ -21,7 +20,7 @@ async def analyze_file_content(
     category: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Analyzes a file using Gemini Flash to extract description, summary, keywords, entities, and categories.
+    Analyzes a file using Gemini Flash (via Hack Club or Google) to extract structured metadata.
     Handles Images and PDFs.
     """
     if not file_path.exists():
@@ -70,8 +69,7 @@ async def analyze_file_content(
             # Process PDF
             pdf_text = _extract_pdf_text(file_path)
             if pdf_text:
-                # Truncate if too long (Gemini Flash has a large context window, but let's be safe/efficient)
-                # 1 char ~ 0.25 tokens. 100k chars is plenty.
+                # Truncate if too long
                 if len(pdf_text) > 100000:
                     pdf_text = pdf_text[:100000] + "...(truncated)"
                 
@@ -101,9 +99,8 @@ async def analyze_file_content(
         if not content_parts:
             return {}
 
-        # Call Gemini
-        response = await acompletion(
-            model=MODEL_NAME,
+        # Call AI with fallback
+        response = await completion_with_fallback(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": content_parts}
@@ -115,7 +112,7 @@ async def analyze_file_content(
         
         # Parse JSON
         try:
-            # Clean up potential markdown code blocks if the model ignores the system prompt
+            # Clean up potential markdown code blocks
             if content.startswith("```json"):
                 content = content[7:]
             if content.endswith("```"):
@@ -128,10 +125,16 @@ async def analyze_file_content(
             return data
             
         except json.JSONDecodeError:
-            logger.error(f"Failed to parse JSON response from Gemini: {content}")
+            logger.error(f"Failed to parse JSON response: {content}")
             return {}
 
     except Exception as e:
+        # Check for rate limit errors
+        error_str = str(e).lower()
+        if "rate limit" in error_str or "429" in error_str:
+            logger.warning(f"Rate limit hit for file {file_path}: {e}")
+            raise e  # Re-raise to allow retry by worker
+            
         logger.error(f"Error analyzing file {file_path}: {e}")
         return {}
 

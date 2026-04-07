@@ -5,15 +5,13 @@ from typing import Optional, List
 
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from litellm import acompletion
+from app.core.ai_config import completion_with_fallback
 
 from app.models.data import Timeline, DailySummary
 from app.core.prompts import get_daily_summary_prompt
 from app.core.logger import get_logger
-from app.core.timeline_processor import get_gemini_api_key
 
 logger = get_logger(__name__)
-MODEL_NAME = "gemini/gemini-flash-latest"
 
 async def generate_daily_summary(db: AsyncSession, target_date: datetime):
     """
@@ -93,15 +91,7 @@ async def generate_daily_summary(db: AsyncSession, target_date: datetime):
     
     # 4. Call LLM
     try:
-        api_key = await get_gemini_api_key(db)
-        if not api_key:
-             logger.warning("GEMINI_API_KEY not set. Skipping summary generation.")
-             return
-        
-        os.environ["GEMINI_API_KEY"] = api_key
-
-        response = await acompletion(
-            model=MODEL_NAME,
+        response = await completion_with_fallback(
             messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content

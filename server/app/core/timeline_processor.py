@@ -6,20 +6,19 @@ from zoneinfo import ZoneInfo
 
 from sqlmodel import select, col, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from litellm import acompletion
+from app.core.ai_config import completion_with_fallback
 
 from app.models.data import Event, Timeline, Session, SessionStatus
 from app.models.files import FileAttachment
 from app.models.config import SystemConfig
 from app.core.prompts import get_system_prompt
 from app.core.logger import get_logger
-from app.core.vector_service import generate_embedding, EMBEDDING_MODEL, EMBEDDING_VERSION
+from app.core.vector_service import generate_embedding, get_embedding_model_info
 from app.core.utils.time import to_local_time
 
 
 # Configuration
 logger = get_logger(__name__)
-MODEL_NAME = "gemini/gemini-flash-latest"
 MAX_RETRIES = 3
 
 async def get_gemini_api_key(db: AsyncSession) -> Optional[str]:
@@ -203,17 +202,7 @@ async def process_session(db: AsyncSession, session: Session):
     
     # 4. Call LLM
     try:
-        # Ensure API key is set
-        api_key = await get_gemini_api_key(db)
-        if not api_key:
-             logger.warning("GEMINI_API_KEY not set. Skipping.")
-             return
-        
-        # Set the API key for this call
-        os.environ["GEMINI_API_KEY"] = api_key
-
-        response = await acompletion(
-            model=MODEL_NAME,
+        response = await completion_with_fallback(
             messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content
@@ -252,9 +241,11 @@ async def process_session(db: AsyncSession, session: Session):
                 
                 # Generate embedding
                 embedding_text = f"Activity: {entry['activity']}. Notes: {entry.get('notes', '')}. Category: {entry.get('category', '')}. Tags: {', '.join(entry.get('tags', []))}."
-                embedding_vector = await generate_embedding(embedding_text, api_key=api_key)
+                embedding_vector = await generate_embedding(embedding_text)
                 if not embedding_vector:
                     embedding_vector = None
+                
+                model_info = get_embedding_model_info()
 
                 timeline_entry = Timeline(
                     session_id=session.id,
@@ -267,8 +258,8 @@ async def process_session(db: AsyncSession, session: Session):
                     tags=entry.get("tags", []),
                     entities=entry.get("entities", {}),
                     embedding=embedding_vector,
-                    embedding_model=EMBEDDING_MODEL,
-                    embedding_version=EMBEDDING_VERSION
+                    embedding_model=model_info["model"],
+                    embedding_version=model_info["version"]
                 )
                 db.add(timeline_entry)
             except Exception as e:

@@ -39,9 +39,10 @@ async def task_process_file_batch(ctx):
 
         logger.info(f"Worker: Processing batch of {len(files)} files")
         
-        # Process in parallel
-        tasks = [process_single_file(session, file) for file in files]
-        await asyncio.gather(*tasks)
+        # Process sequentially to avoid rate limits
+        for file in files:
+            await process_single_file(session, file)
+            await asyncio.sleep(5) # Add delay to respect rate limits
         
         # Commit all changes
         await session.commit()

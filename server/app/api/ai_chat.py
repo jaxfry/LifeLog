@@ -11,19 +11,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, col
-from litellm import acompletion
-
+from app.core.ai_config import completion_with_fallback, embedding_with_fallback
+from app.core.logger import get_logger
 from app.core.db import get_session
 from app.models.data import Timeline, DailySummary, RawLog, DailyChapter, Event
 from app.models.files import FileAttachment
 from app.models.config import SystemConfig
-from app.core.logger import get_logger
 from app.core.vector_service import generate_embedding
 
 logger = get_logger(__name__)
 router = APIRouter()
 
-AI_MODEL = "gemini/gemini-flash-latest"
 NO_ACTIVITY_MESSAGE = "No recent activity data available."
 
 
@@ -183,10 +181,6 @@ async def chat_with_ai(
     Chat with LifeLog AI. The AI can access your recent activity data to provide insights.
     """
     try:
-        # Get API key
-        api_key = await get_gemini_api_key(session)
-        os.environ["GEMINI_API_KEY"] = api_key
-        
         # Get user timezone from most recent RawLog
         # This ensures we use the client's actual timezone from their device
         timezone_query = select(RawLog.client_timezone).where(
@@ -289,13 +283,11 @@ Here is some relevant historical data based on the user's query:
 """
         
         # Call the AI
-        response = await acompletion(
-            model="gemini/gemini-flash-latest",
+        response = await completion_with_fallback(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": request.message}
-            ],
-            api_key=api_key
+            ]
         )
         
         ai_response = response.choices[0].message.content
@@ -315,10 +307,12 @@ async def check_ai_health(session: AsyncSession = Depends(get_session)):
     Check if the AI service is properly configured.
     """
     try:
-        api_key = await get_gemini_api_key(session)
+        # Just check if we can get a key from config
+        from app.core.ai_config import AIConfig
+        configured = bool(AIConfig.get_hack_club_key() or AIConfig.get_google_key())
         return {
-            "configured": bool(api_key),
-            "model": "gemini/gemini-flash-latest"
+            "configured": configured,
+            "model": "auto-fallback"
         }
     except Exception:
         return {

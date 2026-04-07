@@ -55,11 +55,11 @@ async def test_reprocessing_pipeline():
             print(f"   and {status['chapters']['missing_or_outdated_embeddings']} chapters")
             
             # Uncomment to actually run the backfill (can be slow and use API credits)
-            # stats = await backfill_embeddings(session, batch_size=10)
-            # print(f"   ✓ Timeline: {stats['timeline_processed']} processed, {stats['timeline_failed']} failed")
-            # print(f"   ✓ Chapters: {stats['chapters_processed']} processed, {stats['chapters_failed']} failed")
+            stats = await backfill_embeddings(session, batch_size=10)
+            print(f"   ✓ Timeline: {stats['timeline_processed']} processed, {stats['timeline_failed']} failed")
+            print(f"   ✓ Chapters: {stats['chapters_processed']} processed, {stats['chapters_failed']} failed")
             
-            print("   (Skipped - uncomment in script to run)")
+            # print("   (Skipped - uncomment in script to run)")
         else:
             print("\n3. No embeddings to backfill - all data is up to date!")
         

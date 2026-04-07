@@ -32,6 +32,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
       REDIS_URL: redis://redis:6379
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      HACK_CLUB_AI_API_KEY: ${HACK_CLUB_AI_API_KEY}
 
   worker:
     build: .
@@ -46,6 +47,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
       REDIS_URL: redis://redis:6379
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      HACK_CLUB_AI_API_KEY: ${HACK_CLUB_AI_API_KEY}
 
   web:
     build: ../web

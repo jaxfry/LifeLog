@@ -5,17 +5,15 @@ from typing import Optional, List
 
 from sqlmodel import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from litellm import acompletion
+from app.core.ai_config import completion_with_fallback
 
 from app.models.data import Timeline, DailyChapter
 from app.core.prompts import get_chapter_summary_prompt
 from app.core.logger import get_logger
-from app.core.timeline_processor import get_gemini_api_key
-from app.core.vector_service import generate_embedding, EMBEDDING_MODEL, EMBEDDING_VERSION
+from app.core.vector_service import generate_embedding, get_embedding_model_info
 
 
 logger = get_logger(__name__)
-MODEL_NAME = "gemini/gemini-flash-latest"
 
 async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
     """
@@ -86,15 +84,7 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
     
     # 4. Call LLM
     try:
-        api_key = await get_gemini_api_key(db)
-        if not api_key:
-             logger.warning("GEMINI_API_KEY not set. Skipping chapter generation.")
-             return
-        
-        os.environ["GEMINI_API_KEY"] = api_key
-
-        response = await acompletion(
-            model=MODEL_NAME,
+        response = await completion_with_fallback(
             messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content
@@ -133,7 +123,9 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
                     
                 # Generate embedding
                 embedding_text = f"Title: {chapter['title']}. Summary: {chapter.get('summary', '')}. Category: {chapter.get('category', '')}. Tags: {', '.join(chapter.get('tags', []))}."
-                embedding_vector = await generate_embedding(embedding_text, api_key=api_key)
+                embedding_vector = await generate_embedding(embedding_text)
+                
+                model_info = get_embedding_model_info()
 
                 new_chapter = DailyChapter(
                     date=chapter_date,
@@ -144,8 +136,8 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
                     category=chapter.get("category"),
                     tags=chapter.get("tags", []),
                     embedding=embedding_vector,
-                    embedding_model=EMBEDDING_MODEL,
-                    embedding_version=EMBEDDING_VERSION
+                    embedding_model=model_info["model"],
+                    embedding_version=model_info["version"]
                 )
                 db.add(new_chapter)
             except Exception as e:

@@ -7,6 +7,35 @@ from app.core.logger import get_logger
 
 logger = get_logger(__name__)
 
+def _sanitize_metadata_value(value: Any) -> Any:
+    """
+    Recursively sanitizes metadata values to ensure they are JSON serializable.
+    Handles PIL IFDRational, bytes, and other non-standard types.
+    """
+    if isinstance(value, str):
+        return value.replace('\x00', '').strip()
+    if isinstance(value, (int, float, bool, type(None))):
+        return value
+    if isinstance(value, bytes):
+        try:
+            return value.decode('utf-8', errors='replace').strip('\x00')
+        except:
+            return str(value)
+    if isinstance(value, (list, tuple)):
+        return [_sanitize_metadata_value(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _sanitize_metadata_value(v) for k, v in value.items()}
+    
+    # Handle PIL IFDRational and similar types
+    if hasattr(value, 'numerator') and hasattr(value, 'denominator'):
+        try:
+            return float(value)
+        except:
+            return str(value)
+            
+    # Fallback to string representation for any other objects
+    return str(value)
+
 def extract_image_metadata(file_path: Path) -> Dict[str, Any]:
     """
     Extracts EXIF and other metadata from an image file.
@@ -25,18 +54,13 @@ def extract_image_metadata(file_path: Path) -> Dict[str, Any]:
                 for tag_id, value in exif_data.items():
                     tag_name = ExifTags.TAGS.get(tag_id, tag_id)
                     
-                    # Decode bytes to string if needed
-                    if isinstance(value, bytes):
-                        try:
-                            value = value.decode()
-                        except:
-                            value = str(value)
+                    sanitized_value = _sanitize_metadata_value(value)
                             
-                    # Skip long binary data (like maker notes)
-                    if isinstance(value, str) and len(value) > 500:
+                    # Skip long binary data or strings (like maker notes)
+                    if isinstance(sanitized_value, str) and len(sanitized_value) > 500:
                         continue
                         
-                    metadata[str(tag_name)] = value
+                    metadata[str(tag_name)] = sanitized_value
                     
             # Normalize common fields
             if "DateTimeOriginal" in metadata:
@@ -72,7 +96,7 @@ def extract_pdf_metadata(file_path: Path) -> Dict[str, Any]:
                 if hasattr(value, "getObject"):
                     value = value.getObject()
                     
-                metadata[clean_key] = str(value)
+                metadata[clean_key] = _sanitize_metadata_value(value)
                 
     except Exception as e:
         logger.error(f"Error extracting PDF metadata from {file_path}: {e}")
