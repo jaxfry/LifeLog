@@ -1,12 +1,26 @@
 """
 Configuration for the Local Daemon.
 """
+import logging
 import os
 import socket
 
+logger = logging.getLogger(__name__)
+
 # Placeholder for the central server's data ingestion endpoint
 CENTRAL_SERVER_ENDPOINT = os.getenv("CENTRAL_SERVER_ENDPOINT", "http://localhost:8001/api/v1/ingest")
-SERVER_AUTH_TOKEN = os.getenv("SERVER_AUTH_TOKEN", "your_secret_token_here") # TODO: Replace with a secure token
+
+# Shared secret used to authenticate with the ingestion service.
+# Must match the INGESTION_AUTH_TOKEN set on the server side.
+_DEFAULT_TOKEN_SENTINEL = "your_secret_token_here"
+SERVER_AUTH_TOKEN: str = os.getenv("SERVER_AUTH_TOKEN", _DEFAULT_TOKEN_SENTINEL)
+
+if not SERVER_AUTH_TOKEN or SERVER_AUTH_TOKEN == _DEFAULT_TOKEN_SENTINEL:
+    logger.warning(
+        "SERVER_AUTH_TOKEN is not configured or is using the placeholder value. "
+        "Data will NOT be accepted by the ingestion service. "
+        "Set SERVER_AUTH_TOKEN in your environment to the value of INGESTION_AUTH_TOKEN on the server."
+    )
 
 # Interval for collecting data from sources (e.g., ActivityWatch) in seconds
 COLLECTION_INTERVAL_SECONDS = int(os.getenv("COLLECTION_INTERVAL_SECONDS", 60)) # 1 minute

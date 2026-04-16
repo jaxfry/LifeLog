@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up LifeLog API Service...")
+    settings.validate_security()
     try:
         await init_db()
         logger.info("Database initialized successfully.")
