@@ -130,8 +130,8 @@ class TestAuthenticateUser(unittest.TestCase):
         with patch.object(hmac, "compare_digest", wraps=hmac.compare_digest) as mock_cd:
             with self._patch_settings():
                 auth_module.authenticate_user("admin", "StrongPass1!")
-            self.assertGreaterEqual(mock_cd.call_count, 2,
-                msg="Both username and password must be compared via hmac.compare_digest")
+            self.assertEqual(mock_cd.call_count, 2,
+                msg="Both username and password must each be compared via hmac.compare_digest (exactly 2 calls)")
 
 
 class TestIngestionAuth(unittest.TestCase):

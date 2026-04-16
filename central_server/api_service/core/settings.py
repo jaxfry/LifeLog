@@ -89,13 +89,13 @@ class Settings(BaseSettings):
         # --- SECRET_KEY ---
         if self.SECRET_KEY in _FORBIDDEN_SECRET_KEYS:
             errors.append(
-                "SECRET_KEY is not set. "
+                "SECRET_KEY is not set or uses the default placeholder value. "
                 "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
             )
         elif len(self.SECRET_KEY) < _SECRET_KEY_MIN_LENGTH:
             errors.append(
-                f"SECRET_KEY is too short ({len(self.SECRET_KEY)} chars). "
-                f"Minimum required length is {_SECRET_KEY_MIN_LENGTH} characters."
+                f"SECRET_KEY is too short (minimum {_SECRET_KEY_MIN_LENGTH} characters required). "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
             )
 
         # --- LIFELOG_PASSWORD ---
