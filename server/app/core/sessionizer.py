@@ -65,14 +65,18 @@ async def run_sessionizer(db: AsyncSession):
         
         should_break = False
         
+        # Check Logical Date Boundary
+        if current_session_events and current_session_events[-1].logical_date != event.logical_date:
+            should_break = True
+        
         # Check Time Gap
-        if last_event_end_time:
+        if last_event_end_time and not should_break:
             gap = event_start - last_event_end_time
             if gap > TIME_GAP_THRESHOLD:
                 should_break = True
                 
         # Check Token Limit
-        if current_token_count + event_tokens > MAX_SESSION_TOKENS:
+        if current_token_count + event_tokens > MAX_SESSION_TOKENS and not should_break:
             should_break = True
             
         if should_break and current_session_events:
@@ -120,11 +124,17 @@ async def create_session(db: AsyncSession, events: List[Event]):
     session_start = min(start_times)
     session_end = max(end_times)
     
+    # Inherit context from the first event
+    first_event = events[0]
+    
     # Create Session
     session = Session(
         start_time=session_start,
         end_time=session_end,
-        status=SessionStatus.PENDING
+        status=SessionStatus.PENDING,
+        timezone=first_event.timezone,
+        iana_timezone=first_event.iana_timezone,
+        logical_date=first_event.logical_date
     )
     db.add(session)
     await db.commit()

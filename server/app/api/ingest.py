@@ -20,6 +20,7 @@ class IngestRequest(BaseModel):
     payload: Union[Dict[str, Any], List[Dict[str, Any]]]
     client_timestamp: Optional[datetime] = None
     timezone_offset: Optional[str] = None # e.g. "-0500"
+    iana_timezone: Optional[str] = None # e.g. "America/New_York"
 
 @router.post("/ingest", status_code=status.HTTP_201_CREATED)
 @limiter.limit("60/minute")
@@ -39,20 +40,22 @@ async def ingest_log_entry(
     # Extract timezone/timestamp from headers if not in body
     client_timestamp = ingest_req.client_timestamp
     timezone_offset = ingest_req.timezone_offset
+    iana_timezone = ingest_req.iana_timezone
     
     if not timezone_offset:
         timezone_offset = request.headers.get("X-Client-Offset")
         
-    # Also check for IANA timezone if offset is missing or we want to store it
-    # For now, we stick to offset as per model, but we could expand
-    
+    if not iana_timezone:
+        iana_timezone = request.headers.get("X-Client-Timezone")
+        
     log, created = await ingest_log(
         session=session,
         device_id=device.id,
         extension_id=ingest_req.extension_id,
         payload=ingest_req.payload,
         client_timestamp=client_timestamp,
-        timezone_offset=timezone_offset
+        timezone_offset=timezone_offset,
+        iana_timezone=iana_timezone
     )
     
     if not created:

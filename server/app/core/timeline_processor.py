@@ -254,6 +254,8 @@ async def process_session(db: AsyncSession, session: Session):
                     activity=entry["activity"],
                     notes=entry.get("notes"),
                     timezone=tz_str,
+                    iana_timezone=session.iana_timezone,
+                    logical_date=session.logical_date,
                     category=entry.get("category"),
                     tags=entry.get("tags", []),
                     entities=entry.get("entities", {}),
@@ -269,6 +271,49 @@ async def process_session(db: AsyncSession, session: Session):
         # Update session status
         session.status = SessionStatus.PROCESSED
         db.add(session)
+        
+        # Mark DailySummary and DailyChapter as DIRTY for this logical_date
+        from app.models.data import DailyChapter, DailySummary
+        
+        # Chapter
+        stmt_chap = select(DailyChapter).where(DailyChapter.logical_date == session.logical_date)
+        chapters = (await db.execute(stmt_chap)).scalars().all()
+        if chapters:
+            for chap in chapters:
+                chap.processing_status = "DIRTY"
+                chap.last_touched_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.add(chap)
+        else:
+            # Create a placeholder dummy chapter to hold the dirty state
+            dummy_chap = DailyChapter(
+                date=session.start_time, # Legacy Date
+                logical_date=session.logical_date,
+                start_time=session.start_time,
+                end_time=session.end_time,
+                title="Pending Chapters",
+                processing_status="DIRTY",
+                last_touched_at=datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+            db.add(dummy_chap)
+
+        # Summary
+        stmt_sum = select(DailySummary).where(DailySummary.logical_date == session.logical_date)
+        summary_obj = (await db.execute(stmt_sum)).scalars().first()
+        if summary_obj:
+            summary_obj.status = "DIRTY"
+            summary_obj.last_touched_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            db.add(summary_obj)
+        else:
+            dummy_sum = DailySummary(
+                date=datetime.strptime(session.logical_date, "%Y-%m-%d"), # Legacy mapped to logical_date to prevent PK collisions
+                logical_date=session.logical_date,
+                summary_text="Pending Summary...",
+                key_activities=[],
+                status="DIRTY",
+                last_touched_at=datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+            db.add(dummy_sum)
+
         await db.commit()
         logger.info(f"Successfully processed session {session.id} with {len(timeline_data)} timeline entries.")
         

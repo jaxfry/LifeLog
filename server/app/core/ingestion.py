@@ -21,7 +21,8 @@ async def ingest_log(
     extension_id: str, 
     payload: Union[Dict[str, Any], List[Dict[str, Any]]],
     client_timestamp: Optional[datetime] = None,
-    timezone_offset: Optional[str] = None
+    timezone_offset: Optional[str] = None,
+    iana_timezone: Optional[str] = None
 ) -> Tuple[RawLog, bool]:
     """
     Ingests a log entry.
@@ -47,13 +48,23 @@ async def ingest_log(
     if client_timestamp and client_timestamp.tzinfo:
         client_timestamp = client_timestamp.replace(tzinfo=None)
 
+    # Use defaults if context is not provided
+    effective_iana = iana_timezone or "UTC"
+
+    # We can compute logical_date for the log roughly using received_at
+    from datetime import timezone
+    from app.core.utils.time import get_logical_date
+    logical_date = get_logical_date(datetime.now(timezone.utc), effective_iana)
+
     new_log = RawLog(
         device_id=device_id,
         extension_id=extension_id,
         payload=payload,
         payload_hash=payload_hash,
         client_timestamp=client_timestamp,
-        client_timezone=timezone_offset
+        client_timezone=timezone_offset,
+        iana_timezone=iana_timezone,
+        logical_date=logical_date
     )
     session.add(new_log)
     

@@ -71,6 +71,33 @@ Return a valid JSON object with the following fields:
 **JSON Output:**
 """
 
+DEFAULT_DAILY_SUMMARY_PATCH_PROMPT = """
+You are a personal biographer AI. Your task is to UPDATE an existing daily summary with new timeline activities that just occurred. By updating the summary, we preserve the earlier narrative while incorporating the new events seamlessly.
+
+**Input:**
+Date: {date_str}
+Timezone: {user_timezone}
+Current Time: {current_time} (local time)
+
+Existing Summary:
+{existing_summary_text}
+
+Existing Key Activities:
+{existing_key_activities}
+
+New Timeline Entries (times in local timezone):
+{timeline_json}
+
+**Output Requirements:**
+Return a valid JSON object with the following fields:
+- `summary_text`: The updated, well-written paragraph (3-5 sentences) that incorporates the new timeline entries into the narrative.
+- `key_activities`: An updated list of 3-6 short bullet points. You can keep existing ones and add new ones for significant new accomplishments.
+- `productivity_score`: An updated integer from 1-10.
+- `mood`: An updated one-word adjective inferring the current likely mood.
+
+**JSON Output:**
+"""
+
 # --- Chapter Summary Prompt ---
 
 DEFAULT_CHAPTER_SUMMARY_PROMPT = """
@@ -190,3 +217,75 @@ async def get_chapter_summary_prompt(db: AsyncSession) -> str:
     await db.commit()
     return new_prompt.template
 
+
+async def get_daily_summary_patch_prompt(db: AsyncSession) -> str:
+    name = "daily_summary_patch"
+    statement = select(Prompt).where(Prompt.name == name, Prompt.is_active == True).order_by(col(Prompt.version).desc())
+    result = await db.execute(statement)
+    prompt = result.scalars().first()
+    
+    if prompt:
+        return prompt.template
+        
+    logger.info(f"Prompt '{name}' not found. Creating default.")
+    new_prompt = Prompt(
+        name=name,
+        template=DEFAULT_DAILY_SUMMARY_PATCH_PROMPT,
+        version=1,
+        is_active=True
+    )
+    db.add(new_prompt)
+    await db.commit()
+    return new_prompt.template
+
+DEFAULT_CHAPTER_SUMMARY_PATCH_PROMPT = """
+You are a high-level summarizer. Your task is to UPDATE an existing set of daily Chapters with new timeline entries that just occurred.
+
+**Input:**
+Date: {date_str}
+Timezone: {user_timezone}
+
+Existing Chapters:
+{existing_chapters_json}
+
+New Timeline Entries (times in local timezone):
+{timeline_json}
+
+**Output Requirements:**
+Return a valid JSON array of objects, where each object represents an updated/new Chapter:
+- `title`: A high-level title for the chapter.
+- `summary`: A 1-2 sentence summary of what happened in this chapter.
+- `start_time`: The ISO 8601 start time of the chapter.
+- `end_time`: The ISO 8601 end time of the chapter.
+- `category`: A high-level category.
+- `tags`: A list of 3-5 relevant tags.
+
+**Instructions:**
+- Read the existing chapters and the new timeline entries.
+- If the new entries logically extend an existing chapter (e.g. continuing to code), update that chapter's `end_time` and `summary`.
+- If the new entries represent a major shift in context, append a new chapter to the array.
+- Output the ENTIRE updated list of chapters for the day. Do not drop old chapters.
+- Ensure chronological order.
+
+**JSON Output:**
+"""
+
+async def get_chapter_summary_patch_prompt(db: AsyncSession) -> str:
+    name = "chapter_summary_patch"
+    statement = select(Prompt).where(Prompt.name == name, Prompt.is_active == True).order_by(col(Prompt.version).desc())
+    result = await db.execute(statement)
+    prompt = result.scalars().first()
+    
+    if prompt:
+        return prompt.template
+        
+    logger.info(f"Prompt '{name}' not found. Creating default.")
+    new_prompt = Prompt(
+        name=name,
+        template=DEFAULT_CHAPTER_SUMMARY_PATCH_PROMPT,
+        version=1,
+        is_active=True
+    )
+    db.add(new_prompt)
+    await db.commit()
+    return new_prompt.template

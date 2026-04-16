@@ -8,60 +8,53 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.ai_config import completion_with_fallback
 
 from app.models.data import Timeline, DailyChapter
-from app.core.prompts import get_chapter_summary_prompt
+from app.core.prompts import get_chapter_summary_prompt, get_chapter_summary_patch_prompt
 from app.core.logger import get_logger
 from app.core.vector_service import generate_embedding, get_embedding_model_info
 
 
 logger = get_logger(__name__)
 
-async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
-    """
-    Generates high-level chapters for a specific day based on Timeline entries.
-    """
-    logger.info(f"Generating daily chapters for {target_date.date()}...")
-
-    # 1. Determine User Timezone (same logic as daily summary)
-    from app.models.data import RawLog
-    stmt = select(RawLog.client_timezone).where(RawLog.client_timezone.is_not(None)).order_by(RawLog.received_at.desc()).limit(1)
-    result = await db.execute(stmt)
-    user_timezone = result.scalar_one_or_none() or "UTC"
+async def generate_daily_chapters_for_logical_date(db: AsyncSession, logical_date: str):
+    logger.info(f"Generating/Patching daily chapters for {logical_date}...")
     
-    from app.core.utils.time import get_day_bounds_utc, to_local_time, get_timezone_obj
+    # 1. Fetch Existing Chapters
+    stmt = select(DailyChapter).where(DailyChapter.logical_date == logical_date).order_by(DailyChapter.start_time)
+    existing_chapters = (await db.execute(stmt)).scalars().all()
     
-    # Convert target_date to user's timezone to determine the correct "day"
-    if target_date.tzinfo:
-        target_date_local = target_date.astimezone(get_timezone_obj(user_timezone))
+    # 2. Are we patching?
+    is_patch = existing_chapters and any(c.title != "Pending Chapters" for c in existing_chapters)
+    max_updated_at = max((c.updated_at for c in existing_chapters if c.updated_at), default=None)
+    
+    if max_updated_at:
+        # Get NEW timeline entries since last success
+        statement = select(Timeline).where(
+            Timeline.logical_date == logical_date,
+            Timeline.created_at > max_updated_at
+        ).order_by(Timeline.start_time)
     else:
-        target_date_local = target_date.replace(tzinfo=timezone.utc).astimezone(get_timezone_obj(user_timezone))
-    
-    # Calculate UTC bounds for the local day
-    start_utc, end_utc = get_day_bounds_utc(target_date_local, user_timezone)
-    
-    # Define start_of_day for chapter date field (Normalized to Midnight, naive datetime for DB)
-    chapter_date = datetime(
-        target_date_local.year,
-        target_date_local.month,
-        target_date_local.day,
-        0, 0, 0, 0
-    )
-    
-    statement = select(Timeline).where(
-        Timeline.start_time >= start_utc,
-        Timeline.start_time <= end_utc
-    ).order_by(Timeline.start_time)
-    
+        # Full rebuild
+        statement = select(Timeline).where(
+            Timeline.logical_date == logical_date
+        ).order_by(Timeline.start_time)
+        
     result = await db.execute(statement)
     entries = result.scalars().all()
     
     if not entries:
-        logger.info(f"No timeline entries found for {target_date.date()}.")
+        logger.info(f"No new timeline entries found for {logical_date}. Marking as ready.")
+        for chap in existing_chapters:
+            if chap.processing_status != "ready":
+                chap.processing_status = "ready"
+                db.add(chap)
+        await db.commit()
         return
 
-    # 2. Prepare Data for LLM
+    user_timezone = entries[0].iana_timezone if entries[0].iana_timezone else "UTC"
+    from app.core.utils.time import to_local_time
+    
     timeline_json = []
     for entry in entries:
-        # Convert to local time for the prompt so AI sees user's actual times
         local_start = to_local_time(entry.start_time, user_timezone)
         local_end = to_local_time(entry.end_time, user_timezone)
         
@@ -74,61 +67,79 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
     
     timeline_str = json.dumps(timeline_json, indent=2)
     
-    # 3. Get Prompt
-    prompt_template = await get_chapter_summary_prompt(db)
-    prompt = prompt_template.format(
-        date_str=target_date.strftime("%Y-%m-%d"),
-        user_timezone=user_timezone,
-        timeline_json=timeline_str
-    )
+    if is_patch:
+        logger.info(f"Patching {len(existing_chapters)} existing chapters for {logical_date} with {len(entries)} new events.")
+        
+        chapters_json = []
+        for chap in existing_chapters:
+            if chap.title == "Pending Chapters": continue
+            local_start = to_local_time(chap.start_time, user_timezone)
+            local_end = to_local_time(chap.end_time, user_timezone)
+            chapters_json.append({
+                "title": chap.title,
+                "summary": chap.summary,
+                "start_time": local_start.isoformat(),
+                "end_time": local_end.isoformat(),
+                "category": chap.category,
+                "tags": chap.tags
+            })
+            
+        prompt_template = await get_chapter_summary_patch_prompt(db)
+        prompt = prompt_template.format(
+            date_str=logical_date,
+            user_timezone=user_timezone,
+            existing_chapters_json=json.dumps(chapters_json, indent=2),
+            timeline_json=timeline_str
+        )
+    else:
+        logger.info(f"Generating full chapters for {logical_date} with {len(entries)} events.")
+        prompt_template = await get_chapter_summary_prompt(db)
+        prompt = prompt_template.format(
+            date_str=logical_date,
+            user_timezone=user_timezone,
+            timeline_json=timeline_str
+        )
     
-    # 4. Call LLM
     try:
         response = await completion_with_fallback(
             messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content
         
-        # Clean up code blocks
-        if content.startswith("```json"):
-            content = content[7:]
-        elif content.startswith("```"):
-            content = content[3:]
-        if content.endswith("```"):
-            content = content[:-3]
+        if content.startswith("```json"): content = content[7:]
+        elif content.startswith("```"): content = content[3:]
+        if content.endswith("```"): content = content[:-3]
             
         content = content.strip()
-        
         chapters_data = json.loads(content)
         
         # 5. Save Chapters
-        # First, delete existing chapters for the day to avoid duplicates/stale data
-        # Note: We use delete() with where() clause
-        delete_stmt = delete(DailyChapter).where(
-            DailyChapter.date == chapter_date
-        )
+        # Instead of individually diffing with SQL functions, since we are delta updating the list
+        # via the LLM, the LLM returned the ENTIRE NEW LIST. We drop the old ones safely here
+        # because the LLM did the heavy lifting of maintaining structure.
+        delete_stmt = delete(DailyChapter).where(DailyChapter.logical_date == logical_date)
         await db.execute(delete_stmt)
         
+        target_date_local = datetime.strptime(logical_date, "%Y-%m-%d")
+        chapter_date = datetime(target_date_local.year, target_date_local.month, target_date_local.day)
+        
+        now_time = datetime.now(timezone.utc).replace(tzinfo=None)
+        
         for chapter in chapters_data:
-            # Parse times
             try:
                 start_time = datetime.fromisoformat(chapter["start_time"].replace("Z", "+00:00"))
                 end_time = datetime.fromisoformat(chapter["end_time"].replace("Z", "+00:00"))
                 
-                # Ensure timezone naive if that's what we store (based on other models)
-                if start_time.tzinfo:
-                    start_time = start_time.astimezone(timezone.utc).replace(tzinfo=None)
-                if end_time.tzinfo:
-                    end_time = end_time.astimezone(timezone.utc).replace(tzinfo=None)
+                if start_time.tzinfo: start_time = start_time.astimezone(timezone.utc).replace(tzinfo=None)
+                if end_time.tzinfo: end_time = end_time.astimezone(timezone.utc).replace(tzinfo=None)
                     
-                # Generate embedding
                 embedding_text = f"Title: {chapter['title']}. Summary: {chapter.get('summary', '')}. Category: {chapter.get('category', '')}. Tags: {', '.join(chapter.get('tags', []))}."
                 embedding_vector = await generate_embedding(embedding_text)
-                
                 model_info = get_embedding_model_info()
 
                 new_chapter = DailyChapter(
                     date=chapter_date,
+                    logical_date=logical_date,
                     start_time=start_time,
                     end_time=end_time,
                     title=chapter["title"],
@@ -137,7 +148,10 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
                     tags=chapter.get("tags", []),
                     embedding=embedding_vector,
                     embedding_model=model_info["model"],
-                    embedding_version=model_info["version"]
+                    embedding_version=model_info["version"],
+                    processing_status="ready",
+                    updated_at=now_time,
+                    last_touched_at=now_time
                 )
                 db.add(new_chapter)
             except Exception as e:
@@ -145,9 +159,13 @@ async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
                 continue
             
         await db.commit()
-        logger.info(f"Successfully generated {len(chapters_data)} chapters for {target_date.date()}")
-        
     except Exception as e:
         logger.error(f"Error generating daily chapters: {e}")
-        import traceback
-        traceback.print_exc()
+        
+async def generate_daily_chapters(db: AsyncSession, target_date: datetime):
+    # Try to grab a logical date from the target date naive
+    from app.core.utils.time import get_logical_date, get_timezone_obj
+
+    # Just fall back to making logical date from string
+    logical_date_str = target_date.strftime("%Y-%m-%d")
+    await generate_daily_chapters_for_logical_date(db, logical_date_str)

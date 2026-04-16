@@ -8,10 +8,10 @@ logger = get_logger(__name__)
 
 # Constants
 HACK_CLUB_BASE_URL = "https://ai.hackclub.com/proxy/v1"
-HACK_CLUB_CHAT_MODEL = "google/gemini-2.5-flash" # OpenRouter/HackClub usually prefixes with provider or just model
+HACK_CLUB_CHAT_MODEL = "google/gemini-3-flash-preview" # OpenRouter/HackClub usually prefixes with provider or just model
 # The user said "google/gemini-2.5-flash".
 # Hack Club docs example: "qwen/qwen3-32b". So "google/gemini-2.5-flash" is likely correct.
-HACK_CLUB_MODEL_ID = "google/gemini-2.5-flash"
+HACK_CLUB_MODEL_ID = "google/gemini-3-flash-preview"
 
 # Fallback Google Model
 GOOGLE_MODEL_ID = "gemini/gemini-flash-latest" 

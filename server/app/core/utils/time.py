@@ -82,3 +82,21 @@ def get_day_bounds_utc(date_obj: datetime, timezone_str: str) -> Tuple[datetime,
     end_utc = local_end.astimezone(timezone.utc).replace(tzinfo=None)
     
     return start_utc, end_utc
+
+def get_logical_date(dt_utc: datetime, iana_timezone: str, rollover_hour: int = 4) -> str:
+    """
+    Computes the 'logical day' string (YYYY-MM-DD) for a given UTC instant.
+    For example, if rollover_hour=4, any local time before 4:00 AM belongs to the previous day.
+    """
+    if dt_utc.tzinfo is None:
+        dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+    
+    # Convert absolute instant to local time
+    tz = get_timezone_obj(iana_timezone)
+    local_dt = dt_utc.astimezone(tz)
+    
+    # Check if we should roll back
+    if local_dt.hour < rollover_hour:
+        local_dt = local_dt - timedelta(days=1)
+        
+    return local_dt.strftime("%Y-%m-%d")
