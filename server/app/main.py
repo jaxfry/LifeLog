@@ -9,7 +9,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.api import auth, devices, health, ingest
+from app.api import admin, auth, devices, health, ingest, summaries, timeline
 from app.core.config import settings
 from app.core.database import async_session_factory, close_db, init_db
 from app.core.logger import get_logger, setup_logging
@@ -149,6 +149,9 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(devices.router, prefix="/api/v1", tags=["devices"])
 app.include_router(ingest.router, prefix="/api/v1", tags=["ingestion"])
+app.include_router(timeline.router, prefix="/api/v1", tags=["timeline"])
+app.include_router(summaries.router, prefix="/api/v1", tags=["summaries"])
+app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
 
 if not settings.SECRET_KEY or settings.SECRET_KEY == "change-this-to-a-random-secret-key":
     if not settings.DEBUG:
