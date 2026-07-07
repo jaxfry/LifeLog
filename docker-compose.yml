@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: lifelog
+      POSTGRES_PASSWORD: lifelogpassword
+      POSTGRES_DB: lifelog_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifelog -d lifelog_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./server:/app
+      - ./server/storage:/app/storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      HACK_CLUB_AI_API_KEY: ${HACK_CLUB_AI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+
+  test_db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: lifelog_test
+      POSTGRES_PASSWORD: lifelog_test_password
+      POSTGRES_DB: lifelog_test_db
+    ports:
+      - "5433:5432"
+    profiles:
+      - testing
+
+volumes:
+  postgres_data:
