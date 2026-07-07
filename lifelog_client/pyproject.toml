@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "lifelog-client"
+version = "5.0.0"
+description = "LifeLog desktop client — background activity collector and sync engine"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "pystray>=0.19",
+    "Pillow>=10.0",
+    "click>=8.1",
+    "schedule>=1.2",
+]
+
+[project.scripts]
+lifelog = "lifelog_client.main:main"
+lifelog-install = "lifelog_client.install:cli"
+
+[tool.setuptools.packages.find]
+include = ["lifelog_client*"]

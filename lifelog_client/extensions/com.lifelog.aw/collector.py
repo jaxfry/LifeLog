@@ -4,19 +4,25 @@ import os
 import json
 import sys
 from datetime import datetime, timezone, timedelta
+from processor import normalize as normalize_events
 
 # Configuration from Environment Variables
 API_KEY = os.environ.get("LIFELOG_API_KEY")
 SERVER_URL = os.environ.get("LIFELOG_SERVER_URL")
 DEVICE_ID = os.environ.get("LIFELOG_DEVICE_ID")
 AW_API_URL = "http://localhost:5600/api/0"
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
+STATE_DIR = os.environ.get("LIFELOG_STATE_DIR", os.path.expanduser("~/.lifelog/state"))
+STATE_FILE = os.path.join(STATE_DIR, "com.lifelog.aw.json")
 
 def get_iso_time(dt):
     return dt.replace(microsecond=0).isoformat()
 
+def ensure_state_dir():
+    os.makedirs(STATE_DIR, exist_ok=True)
+
 def load_last_synced():
     try:
+        ensure_state_dir()
         if os.path.exists(STATE_FILE):
             with open(STATE_FILE, 'r') as f:
                 data = json.load(f)
@@ -29,6 +35,7 @@ def load_last_synced():
 
 def save_last_synced(dt):
     try:
+        ensure_state_dir()
         with open(STATE_FILE, 'w') as f:
             json.dump({"last_synced": get_iso_time(dt)}, f)
     except Exception as e:
@@ -128,8 +135,10 @@ def main():
             time_since_flush = time.time() - last_flush_time
             if len(event_buffer) >= 50 or time_since_flush > 30:
                 if event_buffer:
-                    print(json.dumps(event_buffer), flush=True)
-                    print(f"Flushed {len(event_buffer)} events.", file=sys.stderr)
+                    normalized = normalize_events(event_buffer)
+                    output = {"events": normalized}
+                    print(json.dumps(output), flush=True)
+                    print(f"Flushed {len(event_buffer)} raw -> {len(normalized)} events.", file=sys.stderr)
                     event_buffer = []
                 
                 # Save state (checkpoint)

@@ -5,11 +5,12 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from .config import config_manager
 from .database import db_manager
 
 logger = logging.getLogger(__name__)
+
 
 class SyncEngine:
     def __init__(self, interval: int = 30):
@@ -17,6 +18,14 @@ class SyncEngine:
         self.running = False
         self.thread: threading.Thread = None
         self._stop_event = threading.Event()
+        self._backoff = 1
+        self._max_backoff = 300
+
+    def _reset_backoff(self):
+        self._backoff = 1
+
+    def _next_backoff(self):
+        self._backoff = min(self._backoff * 2, self._max_backoff)
 
     def start(self):
         if self.running:
@@ -33,7 +42,7 @@ class SyncEngine:
         self.running = False
         self._stop_event.set()
         if self.thread:
-            self.thread.join()
+            self.thread.join(timeout=15)
         logger.info("SyncEngine stopped.")
 
     def _run_loop(self):
@@ -41,11 +50,12 @@ class SyncEngine:
             if config_manager.is_configured:
                 try:
                     self._sync_batch()
+                    self._reset_backoff()
                 except Exception as e:
                     logger.error(f"Sync error: {e}")
-            
-            # Sleep for interval or until stopped
-            if self._stop_event.wait(self.interval):
+
+            wait = self._backoff if self._backoff > self.interval else self.interval
+            if self._stop_event.wait(wait):
                 break
 
     def _sync_batch(self):
@@ -56,20 +66,20 @@ class SyncEngine:
         server_url = config_manager.get("server_url")
         device_id = config_manager.get("device_id")
         api_key = config_manager.get("api_key")
-        
+
         headers = {
             "Content-Type": "application/json",
-            "X-API-Key": api_key
+            "X-API-Key": api_key,
         }
 
         successful_ids = []
+        network_error = False
 
         for item in batch:
             payload = item["payload"]
-            payload_str = json.dumps(payload, sort_keys=True)
+            payload_str = json.dumps(payload, sort_keys=True, default=str)
             payload_hash = hashlib.sha256(payload_str.encode()).hexdigest()
-            
-            # Add hash to headers as per architecture doc
+
             item_headers = headers.copy()
             item_headers["X-Payload-Hash"] = payload_hash
 
@@ -79,7 +89,7 @@ class SyncEngine:
                 "extension_id": item["extension_id"],
                 "payload": payload,
                 "client_timestamp": now.isoformat(),
-                "timezone_offset": now.strftime('%z')
+                "timezone_offset": now.strftime("%z"),
             }
 
             try:
@@ -87,33 +97,45 @@ class SyncEngine:
                     f"{server_url}/api/v1/ingest",
                     json=ingest_data,
                     headers=item_headers,
-                    timeout=10
+                    timeout=10,
                 )
 
                 if response.status_code in [200, 201]:
                     successful_ids.append(item["id"])
                 elif response.status_code in [401, 403]:
-                    logger.error(f"Authentication failed (Status {response.status_code}). Stopping sync. Please check your API key.")
-                    self.running = False # Stop the sync engine
+                    logger.error(
+                        "Auth failed (%d). Stopping sync. Check API key.",
+                        response.status_code,
+                    )
+                    self.running = False
                     break
                 else:
-                    logger.warning(f"Failed to ingest item {item['id']}: {response.status_code} - {response.text}")
-                    # Simple exponential backoff could be implemented here or at the loop level
-                    # For now, we just don't add it to successful_ids so it stays in DB
+                    logger.warning(
+                        "Failed item %s: %d - %s",
+                        item["id"],
+                        response.status_code,
+                        response.text[:200],
+                    )
             except requests.Timeout:
                 logger.error("Request timed out during ingest.")
+                network_error = True
                 break
             except requests.ConnectionError:
-                logger.error("Connection error during ingest. Server might be down.")
+                logger.error("Connection error. Server may be down.")
+                network_error = True
                 break
             except requests.RequestException as e:
                 logger.error(f"Network error during ingest: {e}")
-                break
-                # Stop processing this batch on network error to avoid repeated timeouts
+                network_error = True
                 break
 
         if successful_ids:
             db_manager.delete_batch(successful_ids)
-            logger.info(f"Successfully synced {len(successful_ids)} items.")
+            logger.info("Synced %d items.", len(successful_ids))
+
+        if network_error:
+            self._next_backoff()
+            logger.info("Backing off: %ds", self._backoff)
+
 
 sync_engine = SyncEngine()

@@ -17,6 +17,8 @@ from .database import db_manager
 logger = logging.getLogger(__name__)
 
 EXTENSIONS_DIR = Path(__file__).parent.parent / "extensions"
+CRASH_RETRY_DELAY = 15
+
 
 class ExtensionManager:
     def __init__(self):
@@ -31,46 +33,109 @@ class ExtensionManager:
     def _monitor_process(self, ext_id: str, process: subprocess.Popen):
         """
         Reads stdout from the collector process and pushes to DB.
+        Restarts the process if it crashes unexpectedly.
         """
-        logger.info(f"Started monitoring thread for {ext_id}")
-        
+        logger.info("Started monitoring thread for %s", ext_id)
+
         if process.stdout is None:
-            logger.error(f"[{ext_id}] Process stdout is None, cannot monitor.")
+            logger.error("[%s] Process stdout is None, cannot monitor.", ext_id)
             return
 
         try:
-            # Read line by line
-            for line in iter(process.stdout.readline, ''):
+            for line in iter(process.stdout.readline, ""):
                 if not line:
                     break
-                
+
                 line = line.strip()
                 if not line:
                     continue
 
                 try:
-                    # Parse JSON
                     payload = json.loads(line)
-                    
-                    # Push to Local Buffer
                     db_manager.push(extension_id=ext_id, payload=payload)
-                    logger.debug(f"Captured event from {ext_id}")
-                    
+                    logger.debug("Captured event from %s", ext_id)
+
                 except json.JSONDecodeError:
-                    logger.warning(f"[{ext_id}] Invalid JSON output: {line}")
+                    logger.warning("[%s] Invalid JSON output: %s", ext_id, line)
                 except Exception as e:
-                    logger.error(f"[{ext_id}] Error processing output: {e}")
-                    
+                    logger.error("[%s] Error processing output: %s", ext_id, e)
+
         except Exception as e:
-            logger.error(f"Error monitoring {ext_id}: {e}")
+            logger.error("Error monitoring %s: %s", ext_id, e)
         finally:
-            logger.info(f"Monitoring thread for {ext_id} stopped")
+            logger.info("Monitoring thread for %s stopped", ext_id)
             if process.poll() is not None:
-                logger.error(f"[{ext_id}] Process exited with code {process.returncode}")
+                logger.error(
+                    "[%s] Process exited with code %d",
+                    ext_id,
+                    process.returncode,
+                )
                 if process.stderr:
                     stderr_output = process.stderr.read()
                     if stderr_output:
-                        logger.error(f"[{ext_id}] Stderr: {stderr_output}")
+                        logger.error("[%s] Stderr: %s", ext_id, stderr_output)
+
+            self.processes.pop(ext_id, None)
+            logger.info("[%s] Restarting in %ds...", ext_id, CRASH_RETRY_DELAY)
+            time.sleep(CRASH_RETRY_DELAY)
+            self._start_single_collector(ext_id)
+
+    def _start_single_collector(self, ext_id: str):
+        """Start a single extension collector process."""
+        ext_path = EXTENSIONS_DIR / ext_id
+        manifest_path = ext_path / "manifest.json"
+
+        if not ext_path.is_dir() or not manifest_path.exists():
+            logger.warning("Extension %s not found, skipping start.", ext_id)
+            return
+
+        try:
+            with open(manifest_path, "r") as f:
+                manifest = json.load(f)
+
+            client_config = manifest.get("client", {})
+            if client_config.get("type") != "python":
+                logger.info("Skipping non-python extension %s", ext_id)
+                return
+
+            script_file = client_config.get("file")
+            if not script_file:
+                logger.warning("No script file defined for %s", ext_id)
+                return
+
+            script_path = ext_path / script_file
+            if not script_path.exists():
+                logger.warning("Script %s not found for %s", script_file, ext_id)
+                return
+
+            env = os.environ.copy()
+            env["LIFELOG_API_KEY"] = config_manager.get("api_key", "")
+            env["LIFELOG_SERVER_URL"] = config_manager.get("server_url", "")
+            env["LIFELOG_DEVICE_ID"] = config_manager.get("device_id", "")
+            env["LIFELOG_STATE_DIR"] = str(Path.home() / ".lifelog" / "state")
+            env["PYTHONPATH"] = str(ext_path) + os.pathsep + env.get("PYTHONPATH", "")
+
+            logger.info("Spawning collector for %s: %s", ext_id, script_file)
+            proc = subprocess.Popen(
+                [sys.executable, str(script_path)],
+                cwd=str(ext_path),
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+            self.processes[ext_id] = proc
+
+            monitor_thread = threading.Thread(
+                target=self._monitor_process,
+                args=(ext_id, proc),
+                daemon=True,
+            )
+            monitor_thread.start()
+
+        except Exception as e:
+            logger.error("Failed to start collector for %s: %s", ext_id, e)
 
     def start_collectors(self):
         """
@@ -78,8 +143,7 @@ class ExtensionManager:
         """
         logger.info("Starting collectors...")
         self._ensure_extensions_dir()
-        
-        # Stop existing processes first (simple reload strategy)
+
         self.stop_collectors()
 
         if not any(os.scandir(EXTENSIONS_DIR)):
@@ -87,65 +151,7 @@ class ExtensionManager:
             return
 
         for ext_id in os.listdir(EXTENSIONS_DIR):
-            ext_path = EXTENSIONS_DIR / ext_id
-            if not ext_path.is_dir():
-                continue
-            
-            manifest_path = ext_path / "manifest.json"
-            if not manifest_path.exists():
-                logger.warning(f"No manifest found for {ext_id}, skipping.")
-                continue
-                
-            try:
-                with open(manifest_path, "r") as f:
-                    manifest = json.load(f)
-                
-                client_config = manifest.get("client", {})
-                if client_config.get("type") != "python":
-                    logger.info(f"Skipping non-python extension {ext_id}")
-                    continue
-                
-                script_file = client_config.get("file")
-                if not script_file:
-                    logger.warning(f"No script file defined for {ext_id}")
-                    continue
-                
-                script_path = ext_path / script_file
-                if not script_path.exists():
-                    logger.warning(f"Script {script_file} not found for {ext_id}")
-                    continue
-                
-                # Prepare Environment Variables
-                env = os.environ.copy()
-                env["LIFELOG_API_KEY"] = config_manager.get("api_key", "")
-                env["LIFELOG_SERVER_URL"] = config_manager.get("server_url", "")
-                env["LIFELOG_DEVICE_ID"] = config_manager.get("device_id", "")
-                # Add extension directory to PYTHONPATH so it can import local modules if needed
-                env["PYTHONPATH"] = str(ext_path) + os.pathsep + env.get("PYTHONPATH", "")
-
-                # Spawn Process
-                logger.info(f"Spawning collector for {ext_id}: {script_file}")
-                proc = subprocess.Popen(
-                    [sys.executable, str(script_path)],
-                    cwd=str(ext_path),
-                    env=env,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE, # We could also monitor stderr in a separate thread
-                    text=True,
-                    bufsize=1 # Line buffered
-                )
-                self.processes[ext_id] = proc
-                
-                # Start Monitoring Thread
-                monitor_thread = threading.Thread(
-                    target=self._monitor_process,
-                    args=(ext_id, proc),
-                    daemon=True
-                )
-                monitor_thread.start()
-                
-            except Exception as e:
-                logger.error(f"Failed to start collector for {ext_id}: {e}")
+            self._start_single_collector(ext_id)
 
     def stop_collectors(self):
         for ext_id, proc in self.processes.items():

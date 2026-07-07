@@ -2,6 +2,7 @@ import sys
 import threading
 import time
 import logging
+from pathlib import Path
 from PIL import Image, ImageDraw
 import pystray
 from core.config import config_manager
@@ -9,12 +10,14 @@ from core.sync_engine import sync_engine
 from core.extension_manager import extension_manager
 import schedule
 
-# Configure logging
+LOG_DIR = Path.home() / ".lifelog"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("lifelog_client.log"),
+        logging.FileHandler(LOG_DIR / "client.log"),
         logging.StreamHandler()
     ]
 )
