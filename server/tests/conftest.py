@@ -11,12 +11,15 @@ import os
 import sys
 import sqlalchemy.dialects.sqlite
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.types import JSON
-from pgvector.sqlalchemy import Vector
 
-# Monkey-patch SQLite dialect to handle Postgres-specific types
-sqlalchemy.dialects.sqlite.base.SQLiteDialect.colspecs[JSONB] = JSON
-sqlalchemy.dialects.sqlite.base.SQLiteDialect.colspecs[Vector] = JSON
+# Register SQLite handlers for Postgres-specific types
+_sqlite_compiler = sqlalchemy.dialects.sqlite.base.SQLiteTypeCompiler
+setattr(_sqlite_compiler, "visit_JSONB", _sqlite_compiler.visit_JSON)
+try:
+    from pgvector.sqlalchemy import Vector
+    setattr(_sqlite_compiler, "visit_VECTOR", _sqlite_compiler.visit_JSON)
+except ImportError:
+    pass
 
 # =============================================================================
 # CRITICAL SAFETY CHECK: Prevent tests from running against production database
@@ -51,9 +54,15 @@ if _is_production_database(_current_db_url) and not os.environ.get("TEST_DATABAS
 # Test Database Configuration
 # =============================================================================
 # Use TEST_DATABASE_URL if set, otherwise use in-memory SQLite for safety
+import tempfile
+
+_TEST_DB_FILE = os.environ.get("TEST_DB_FILE") or os.path.join(
+    tempfile.gettempdir(), f"lifelog_test_{os.getpid()}.db"
+)
+
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "sqlite+aiosqlite:///:memory:"
+    f"sqlite+aiosqlite:///{_TEST_DB_FILE}",
 )
 
 # Override the DATABASE_URL for tests BEFORE importing app modules
@@ -67,15 +76,21 @@ from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel
 import uuid
 
-# Import models first to register them with SQLModel metadata
-from app.models import data, config  # noqa: F401
+# Import models to register them with SQLModel metadata
+from app.models import (  # noqa: F401
+    accounting,
+    auth,
+    config,
+    ingest,
+    processing,
+)
 
-# Create test engine with NullPool to avoid connection sharing issues
+# Create test engine
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
     echo=False,
     future=True,
-    poolclass=NullPool,  # Don't pool connections - fixes asyncpg issues
+    poolclass=NullPool if "postgresql" in TEST_DATABASE_URL else None,
 )
 
 # Create async session factory
@@ -96,6 +111,14 @@ def event_loop():
     yield loop
     loop.close()
 
+
+def _cleanup_test_db():
+    if "sqlite" in TEST_DATABASE_URL and not TEST_DATABASE_URL.startswith("sqlite+aiosqlite:///:memory"):
+        try:
+            os.unlink(_TEST_DB_FILE)
+        except OSError:
+            pass
+
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_test_database():
     """Create all tables at the start of the test session."""
@@ -110,8 +133,9 @@ async def setup_test_database():
     # Cleanup after all tests
     async with test_engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
-    
+
     await test_engine.dispose()
+    _cleanup_test_db()
 
 @pytest_asyncio.fixture
 async def session():
@@ -122,9 +146,14 @@ async def session():
 
 @pytest_asyncio.fixture(autouse=True)
 async def cleanup_tables(session):
-    """Clean up tables after each test to ensure isolation."""
+    """Clean up all data after each test to ensure isolation."""
     yield
-    # Clean up after each test - rollback handles this
+    if "sqlite" in TEST_DATABASE_URL:
+        await session.execute(text("PRAGMA foreign_keys = OFF"))
+        for table in reversed(SQLModel.metadata.sorted_tables):
+            await session.execute(table.delete())
+        await session.execute(text("PRAGMA foreign_keys = ON"))
+        await session.commit()
 
 @pytest_asyncio.fixture
 async def async_client():
