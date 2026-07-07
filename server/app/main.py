@@ -1,4 +1,5 @@
-import os
+from datetime import datetime, timezone
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -28,12 +29,37 @@ async def _run_scheduled_sessionizer():
             logger.info("Scheduled processing: %s", result)
 
 
+async def _run_scheduled_timeline():
+    """APScheduler job: generate timeline entries for pending sessions."""
+    async with async_session_factory() as session:
+        from app.services.timeline import process_pending_sessions
+
+        count = await process_pending_sessions(session)
+        if count:
+            logger.info("Timeline: generated %d entries", count)
+
+
+async def _run_scheduled_summary():
+    """APScheduler job: generate daily summary for today."""
+    async with async_session_factory() as session:
+        from app.services.summarizer import generate_daily_summary
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        await generate_daily_summary(session, today)
+        logger.info("Daily summary generated for %s", today)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting LifeLog server...")
 
     await init_db()
     logger.info("Database initialized")
+
+    async with async_session_factory() as session:
+        from app.services.prompts import seed_default_prompts
+        await seed_default_prompts(session)
+    logger.info("Default prompts seeded")
 
     arq_pool = None
     try:
@@ -58,6 +84,21 @@ async def lifespan(app: FastAPI):
             "interval",
             minutes=settings.SESSIONIZER_INTERVAL_MINUTES,
             id="sessionizer",
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            _run_scheduled_timeline,
+            "interval",
+            minutes=settings.SESSIONIZER_INTERVAL_MINUTES,
+            id="timeline",
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            _run_scheduled_summary,
+            "cron",
+            hour=settings.SUMMARY_CRON_HOUR,
+            minute=settings.SUMMARY_CRON_MINUTE,
+            id="daily_summary",
             replace_existing=True,
         )
         scheduler.start()
