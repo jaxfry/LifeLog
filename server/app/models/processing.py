@@ -7,6 +7,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 class Session(SQLModel, table=True):
     __tablename__ = "sessions"
 
@@ -17,18 +21,9 @@ class Session(SQLModel, table=True):
     retry_count: int = Field(default=0)
     logical_date: Optional[str] = Field(default=None, index=True)
     processing_status: str = Field(default="ready")
-    last_touched_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
+    last_touched_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     events: List["Event"] = Relationship(back_populates="session")
     timeline_entries: List["TimelineEntry"] = Relationship(back_populates="session")
@@ -46,22 +41,14 @@ class TimelineEntry(SQLModel, table=True):
     activity: str = Field(nullable=False)
     notes: Optional[str] = None
     category: Optional[str] = Field(default=None, index=True)
-    tags: List[str] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    tags: List[str] = Field(default=None, sa_column=Column(JSONB))
     prompt_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="prompts.id"
     )
     is_summarized: bool = Field(default=False)
     logical_date: Optional[str] = Field(default=None, index=True)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     session: Optional[Session] = Relationship(back_populates="timeline_entries")
 
@@ -71,21 +58,10 @@ class DailySummary(SQLModel, table=True):
 
     logical_date: str = Field(primary_key=True)
     summary_text: str = Field(nullable=False)
-    key_activities: List[str] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    key_activities: List[str] = Field(default=None, sa_column=Column(JSONB))
     productivity_score: Optional[int] = None
     mood: Optional[str] = None
     status: str = Field(default="ready")
-    last_touched_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
+    last_touched_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
