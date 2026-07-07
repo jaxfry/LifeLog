@@ -10,12 +10,22 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.api import auth, devices, health, ingest
 from app.core.config import settings
-from app.core.database import close_db, init_db
+from app.core.database import async_session_factory, close_db, init_db
 from app.core.logger import get_logger, setup_logging
 from app.core.rate_limit import limiter
 
 setup_logging(log_level=settings.LOG_LEVEL, log_file=settings.LOG_FILE)
 logger = get_logger(__name__)
+
+
+async def _run_scheduled_sessionizer():
+    """APScheduler job: run the processing pipeline."""
+    async with async_session_factory() as session:
+        from app.services.processing import run_processing_pipeline
+
+        result = await run_processing_pipeline(session)
+        if result["sessions_created"] or result["sessions_marked_dirty"]:
+            logger.info("Scheduled processing: %s", result)
 
 
 @asynccontextmanager
@@ -38,8 +48,32 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.warning("Redis unavailable — background workers disabled")
 
+    scheduler = None
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(
+            _run_scheduled_sessionizer,
+            "interval",
+            minutes=settings.SESSIONIZER_INTERVAL_MINUTES,
+            id="sessionizer",
+            replace_existing=True,
+        )
+        scheduler.start()
+        app.state.scheduler = scheduler
+        logger.info(
+            "Scheduler started (sessionizer every %d min)",
+            settings.SESSIONIZER_INTERVAL_MINUTES,
+        )
+    except Exception:
+        logger.warning("Scheduler unavailable")
+
     yield
 
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
+        logger.info("Scheduler stopped")
     if arq_pool is not None:
         await arq_pool.close()
         logger.info("Redis connection closed")
@@ -75,7 +109,6 @@ app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(devices.router, prefix="/api/v1", tags=["devices"])
 app.include_router(ingest.router, prefix="/api/v1", tags=["ingestion"])
 
-# Raise on missing SECRET_KEY in production
 if not settings.SECRET_KEY or settings.SECRET_KEY == "change-this-to-a-random-secret-key":
     if not settings.DEBUG:
         raise RuntimeError(
