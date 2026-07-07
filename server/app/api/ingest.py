@@ -1,73 +1,51 @@
-from fastapi import APIRouter, Depends, status, Request, HTTPException
-from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.db import get_session
-from app.core.ingestion import ingest_log
-from app.core.logger import get_logger
-from app.api.deps import verify_api_key
-from app.models.config import Device
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Dict, Any, Union, List, Optional
-from app.core.rate_limit import limiter
+from typing import Any, Dict, Optional
 
-logger = get_logger(__name__)
+from fastapi import APIRouter, Depends, Request, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_session
+from app.core.dependencies import verify_device
+from app.core.rate_limit import limiter
+from app.models.auth import Device
+from app.services.ingestion import ingest_log
+
 router = APIRouter()
 
+
 class IngestRequest(BaseModel):
-    device_id: str
     extension_id: str
-    payload: Union[Dict[str, Any], List[Dict[str, Any]]]
+    payload: Dict[str, Any]
     client_timestamp: Optional[datetime] = None
-    timezone_offset: Optional[str] = None # e.g. "-0500"
-    iana_timezone: Optional[str] = None # e.g. "America/New_York"
+    client_timezone: Optional[str] = None
 
-@router.post("/ingest", status_code=status.HTTP_201_CREATED)
+
+@router.post("/ingest")
 @limiter.limit("60/minute")
-async def ingest_log_entry(
+async def ingest(
     request: Request,
-    ingest_req: IngestRequest,
+    body: IngestRequest,
+    device: Device = Depends(verify_device),
     session: AsyncSession = Depends(get_session),
-    device: Device = Depends(verify_api_key)
 ):
-    # Ensure the device_id in the body matches the authenticated device
-    if ingest_req.device_id != device.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail=f"Device ID mismatch. Authenticated as {device.id}, but tried to ingest for {ingest_req.device_id}"
-        )
-
-    # Extract timezone/timestamp from headers if not in body
-    client_timestamp = ingest_req.client_timestamp
-    timezone_offset = ingest_req.timezone_offset
-    iana_timezone = ingest_req.iana_timezone
-    
-    if not timezone_offset:
-        timezone_offset = request.headers.get("X-Client-Offset")
-        
-    if not iana_timezone:
-        iana_timezone = request.headers.get("X-Client-Timezone")
-        
-    log, created = await ingest_log(
+    raw_log, created = await ingest_log(
         session=session,
         device_id=device.id,
-        extension_id=ingest_req.extension_id,
-        payload=ingest_req.payload,
-        client_timestamp=client_timestamp,
-        timezone_offset=timezone_offset,
-        iana_timezone=iana_timezone
+        extension_id=body.extension_id,
+        payload=body.payload,
+        client_timestamp=body.client_timestamp,
+        client_timezone=body.client_timezone,
     )
-    
+
     if not created:
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={"status": "skipped", "message": "Log already exists", "id": str(log.id)}
+            content={"status": "duplicate", "id": str(raw_log.id)},
         )
-    
-    # Enqueue processing task
-    if hasattr(request.app.state, "arq_pool"):
-        await request.app.state.arq_pool.enqueue_job("task_normalize_log", str(log.id))
-    else:
-        logger.warning("ARQ pool not available, skipping processing task.")
-    
-    return {"status": "created", "id": log.id}
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={"status": "created", "id": str(raw_log.id)},
+    )

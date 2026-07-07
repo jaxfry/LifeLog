@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -7,7 +8,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.api import auth, devices, health
+from app.api import auth, devices, health, ingest
 from app.core.config import settings
 from app.core.database import close_db, init_db
 from app.core.logger import get_logger, setup_logging
@@ -20,11 +21,30 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting LifeLog server...")
+
     await init_db()
     logger.info("Database initialized")
+
+    arq_pool = None
+    try:
+        from arq import create_pool
+        from arq.connections import RedisSettings
+
+        arq_pool = await create_pool(
+            RedisSettings.from_dsn(settings.REDIS_URL, retry_on_start=False),
+        )
+        app.state.arq_pool = arq_pool
+        logger.info("Connected to Redis")
+    except Exception:
+        logger.warning("Redis unavailable — background workers disabled")
+
     yield
-    logger.info("Shutting down...")
+
+    if arq_pool is not None:
+        await arq_pool.close()
+        logger.info("Redis connection closed")
     await close_db()
+    logger.info("Shutdown complete")
 
 
 app = FastAPI(
@@ -53,6 +73,16 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(devices.router, prefix="/api/v1", tags=["devices"])
+app.include_router(ingest.router, prefix="/api/v1", tags=["ingestion"])
+
+# Raise on missing SECRET_KEY in production
+if not settings.SECRET_KEY or settings.SECRET_KEY == "change-this-to-a-random-secret-key":
+    if not settings.DEBUG:
+        raise RuntimeError(
+            "SECRET_KEY must be set in production. "
+            "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+        )
+    logger.warning("Using default SECRET_KEY — not suitable for production")
 
 
 @app.get("/")
