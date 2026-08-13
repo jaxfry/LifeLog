@@ -1,78 +1,103 @@
+from datetime import UTC, datetime
+
 import pytest
 from httpx import AsyncClient
-from app.models.data import Timeline, DailyChapter, Session, SessionStatus
-from datetime import datetime, timezone
-import uuid
-from unittest.mock import patch, AsyncMock
-import numpy as np
 
-# Create a fake embedding of the correct dimension (768)
-def fake_embedding():
-    """Generate a random 768-dimensional embedding for testing."""
-    return list(np.random.rand(768).astype(np.float32))
+from app.models.processing import TimelineEntry
+from app.services.kernel import create_entity, create_relation
+
+
+def _now():
+    return datetime.now(UTC).replace(tzinfo=None)
+
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_search_endpoint(async_client: AsyncClient, session, mock_superuser):
-    # Create a session first
-    s1 = Session(
-        id=uuid.uuid4(),
-        start_time=datetime.now(timezone.utc).replace(tzinfo=None),
-        end_time=datetime.now(timezone.utc).replace(tzinfo=None),
-        status=SessionStatus.PROCESSED,
-        timezone="UTC"
-    )
-    session.add(s1)
-    
-    # Create a timeline entry with a specific keyword (using fake embedding)
-    t1 = Timeline(
-        session_id=s1.id,
-        start_time=datetime.now(timezone.utc).replace(tzinfo=None),
-        end_time=datetime.now(timezone.utc).replace(tzinfo=None),
+async def test_search_endpoint(async_client: AsyncClient, session, mock_superuser, mock_user):
+    # Create a timeline entry with a specific keyword
+    t1 = TimelineEntry(
+        start_time=_now(),
+        end_time=_now(),
         activity="Coding in Python",
         notes="Implementing search functionality",
         category="Work",
         tags=["coding", "python"],
-        embedding=fake_embedding()
     )
     session.add(t1)
-    
-    # Create a chapter with a specific keyword (using fake embedding)
-    c1 = DailyChapter(
-        date=datetime.now(timezone.utc).replace(tzinfo=None),
-        start_time=datetime.now(timezone.utc).replace(tzinfo=None),
-        end_time=datetime.now(timezone.utc).replace(tzinfo=None),
-        title="Deep Work Session",
-        summary="Focused on backend development",
-        category="Work",
-        tags=["deep work"],
-        embedding=fake_embedding()
+
+    # Create a file attachment with a matching keyword
+    from app.models.files import FileAttachment
+
+    f1 = FileAttachment(
+        filename="project-notes.txt",
+        stored_path="ab/cd/hash123",
+        mime_type="text/plain",
+        content_hash="hash123",
+        description="Notes about the LifeLog dashboard",
+        category="Docs",
     )
-    session.add(c1)
-    
+    session.add(f1)
+
     await session.commit()
 
-    # Test Keyword Search
-    response = await async_client.get("/api/v1/search/", params={"q": "Python"})
+    # Test keyword search over timeline
+    response = await async_client.get("/api/v1/search", params={"q": "Python"})
     assert response.status_code == 200
     data = response.json()
-    
-    # Should find the timeline entry
-    assert len(data["timeline"]) >= 1
-    found_t1 = False
-    for t in data["timeline"]:
-        if t["activity"] == "Coding in Python":
-            found_t1 = True
-            break
-    assert found_t1
 
-    # Test Vector Search (Semantic)
-    # "Programming" is semantically related to "Coding"
-    response = await async_client.get("/api/v1/search/", params={"q": "Programming"})
-    assert response.status_code == 200
-    data = response.json()
-    
-    # Check that the response structure is correct
     assert "timeline" in data
-    assert "chapters" in data
+    assert "files" in data
+    found = any(item["id"] == str(t1.id) for item in data["timeline"])
+    assert found
 
+    # Test search over files
+    response = await async_client.get("/api/v1/search", params={"q": "LifeLog"})
+    assert response.status_code == 200
+    data = response.json()
+    found = any(item["id"] == str(f1.id) for item in data["files"])
+    assert found
+
+    # Test no-match query
+    response = await async_client.get("/api/v1/search", params={"q": "NonexistentXYZ"})
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["timeline"]) == 0
+    assert len(data["files"]) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_search_reports_actual_mode_and_graph_fact_shape(
+    async_client: AsyncClient,
+    session,
+    mock_user,
+):
+    course = await create_entity(session, "course", "CS 101")
+    assignment = await create_entity(session, "assignment", "Graph Essay")
+    await create_relation(
+        session,
+        subject_id=assignment.id,
+        subject_type="entity",
+        predicate="for_course",
+        object_id=course.id,
+        object_type="entity",
+        confidence=1.0,
+    )
+    await session.commit()
+
+    response = await async_client.get("/api/v1/search", params={"q": "CS 101"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mode"] == "lexical_graph"
+    assert any(hit["source_type"] == "entity" for hit in data["hits"])
+    assert data["graph_facts"][0] == {
+        "subject": "Graph Essay",
+        "predicate": "for_course",
+        "object": "CS 101",
+        "occurred_from": None,
+        "occurred_until": None,
+        "confidence": 1.0,
+        "source_event_id": None,
+        "source_file_id": None,
+        "source_chunk_id": None,
+    }

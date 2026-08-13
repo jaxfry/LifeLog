@@ -43,6 +43,16 @@ async def create_entity(
     )
     session.add(entity)
     await session.flush()
+    from app.services.retrieval import upsert_search_document
+
+    await upsert_search_document(
+        session,
+        source_type="entity",
+        source_id=entity.id,
+        title=entity.name,
+        content=f"{entity.entity_type}: {entity.name or ''}\n{entity.data or {}}",
+        metadata={"entity_type": entity.entity_type},
+    )
     return entity
 
 

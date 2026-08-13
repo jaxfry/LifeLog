@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -8,6 +9,7 @@ from app.models.processing import DailySummary, TimelineEntry
 from app.services.ai import call_llm
 from app.services.cache import _cache_key
 from app.services.prompts import get_prompt, render_prompt
+from app.services.retrieval import upsert_search_document
 
 logger = get_logger(__name__)
 
@@ -20,6 +22,8 @@ async def generate_daily_summary(
     existing = await db_session.get(DailySummary, logical_date)
     if existing and existing.status == "completed" and not force:
         logger.info("Daily summary for %s already exists, skipping", logical_date)
+        await _index_summary(db_session, existing)
+        await db_session.commit()
         return existing
 
     stmt = (
@@ -41,6 +45,8 @@ async def generate_daily_summary(
             status="completed",
         )
         db_session.add(summary)
+        await db_session.flush()
+        await _index_summary(db_session, summary)
         await db_session.commit()
         return summary
 
@@ -86,13 +92,12 @@ async def generate_daily_summary(
         return summary
 
     activities = [e.activity for e in entries if e.activity]
-    categories = [e.category for e in entries if e.category]
 
     if existing:
         existing.summary_text = content.strip()
         existing.key_activities = activities
         existing.status = "completed"
-        existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        existing.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db_session.add(existing)
     else:
         summary = DailySummary(
@@ -103,9 +108,27 @@ async def generate_daily_summary(
         )
         db_session.add(summary)
 
+    current = existing or summary
+    await db_session.flush()
+    await _index_summary(db_session, current)
     await db_session.commit()
     logger.info("Generated daily summary for %s", logical_date)
-    return existing or summary
+    return current
+
+
+async def _index_summary(db_session: AsyncSession, summary: DailySummary) -> None:
+    await upsert_search_document(
+        db_session,
+        source_type="daily_summary",
+        source_id=uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"lifelog:daily-summary:{summary.logical_date}",
+        ),
+        title=summary.logical_date,
+        content=summary.summary_text,
+        logical_date=summary.logical_date,
+        metadata={"status": summary.status},
+    )
 
 
 async def update_summaries_for_range(

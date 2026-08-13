@@ -1,112 +1,111 @@
+from datetime import datetime
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta
-import uuid
-from app.core.timeline_processor import process_session
-from app.models.data import Session, Event, Timeline, SessionStatus
 from sqlmodel import select
 
-@pytest.mark.asyncio
-async def test_process_session_success(session):
-    # Setup Data
-    start_time = datetime(2023, 1, 1, 12, 0, 0)
-    end_time = datetime(2023, 1, 1, 13, 0, 0)
-    
-    # Create RawLog first (required by Event FK)
-    from app.models.data import RawLog
+from app.models.ingest import Event, RawLog
+from app.models.processing import Session, TimelineEntry
+from app.services.timeline import generate_timeline_for_session
+
+
+async def _create_session_with_event(session, status="pending", retry_count=0):
     raw_log = RawLog(
         device_id="dev1",
         extension_id="ext1",
         payload={"data": "test"},
-        payload_hash=f"hash_{uuid.uuid4()}"
+        payload_hash="hash_timeline_1",
     )
     session.add(raw_log)
     await session.commit()
     await session.refresh(raw_log)
 
+    start_time = datetime(2023, 1, 1, 12, 0, 0)
     db_session = Session(
         start_time=start_time,
-        end_time=end_time,
-        status=SessionStatus.PENDING
+        end_time=datetime(2023, 1, 1, 13, 0, 0),
+        status=status,
+        retry_count=retry_count,
     )
     session.add(db_session)
     await session.commit()
     await session.refresh(db_session)
-    
+
     event = Event(
         source_log_id=raw_log.id,
         session_id=db_session.id,
-        type="test",
-        data={"msg": "hello"},
-        created_at=start_time,
-        is_superseded=False
+        event_type="app_usage",
+        start_time=start_time,
+        data={"app": "VS Code"},
+        is_superseded=False,
     )
     session.add(event)
     await session.commit()
 
-    # Mock LLM
-    mock_content = '[{"start": "2023-01-01T12:00:00Z", "end": "2023-01-01T13:00:00Z", "activity": "Test Activity", "notes": "Notes"}]'
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock(message=MagicMock(content=mock_content))]
+    return db_session
 
-    with patch("app.core.timeline_processor.acompletion", return_value=mock_response):
-        with patch("app.core.timeline_processor.get_gemini_api_key", return_value="fake_key"):
-            with patch("app.core.timeline_processor.get_system_prompt", return_value="Prompt"):
-                await process_session(session, db_session)
 
-    # Verify
+@pytest.mark.asyncio
+async def test_generate_timeline_success(session):
+    db_session = await _create_session_with_event(session)
+
+    with patch("app.services.timeline.call_llm", return_value="Coding in VS Code"):
+        entry = await generate_timeline_for_session(session, db_session)
+
+    assert entry is not None
+    assert entry.activity == "Coding in VS Code"
+    assert entry.session_id == db_session.id
+
     await session.refresh(db_session)
-    assert db_session.status == SessionStatus.PROCESSED
-    
-    stmt = select(Timeline).where(Timeline.session_id == db_session.id)
+    assert db_session.status == "completed"
+    assert db_session.processing_status == "completed"
+
+    stmt = select(TimelineEntry).where(TimelineEntry.session_id == db_session.id)
     result = await session.execute(stmt)
     entries = result.scalars().all()
     assert len(entries) == 1
-    assert entries[0].activity == "Test Activity"
+
 
 @pytest.mark.asyncio
-async def test_process_session_failure_retry(session):
-    # Setup Data
+async def test_generate_timeline_failure_retry(session):
+    db_session = await _create_session_with_event(session, retry_count=0)
+
+    with patch("app.services.timeline.call_llm", side_effect=RuntimeError("LLM Error")):
+        entry = await generate_timeline_for_session(session, db_session)
+
+    assert entry is None
+
+    await session.refresh(db_session)
+    assert db_session.status == "failed"
+    assert db_session.processing_status == "failed"
+    assert db_session.retry_count == 1
+
+
+@pytest.mark.asyncio
+async def test_generate_timeline_skips_non_pending(session):
+    db_session = await _create_session_with_event(session, status="completed")
+
+    entry = await generate_timeline_for_session(session, db_session)
+
+    assert entry is None
+
+
+@pytest.mark.asyncio
+async def test_generate_timeline_no_events_completes_session(session):
     db_session = Session(
-        start_time=datetime.now(),
-        end_time=datetime.now(),
-        status=SessionStatus.PENDING,
-        retry_count=0
+        start_time=datetime(2023, 1, 1, 12, 0, 0),
+        end_time=datetime(2023, 1, 1, 13, 0, 0),
+        status="pending",
     )
     session.add(db_session)
     await session.commit()
+
+    entry = await generate_timeline_for_session(session, db_session)
+
+    assert entry is None
     await session.refresh(db_session)
+    assert db_session.status == "completed"
 
-    # Create RawLog and Event so session is not skipped
-    from app.models.data import RawLog
-    raw_log = RawLog(
-        device_id="dev1",
-        extension_id="ext1",
-        payload={"data": "test"},
-        payload_hash=f"hash_{uuid.uuid4()}"
-    )
-    session.add(raw_log)
-    await session.commit()
-    await session.refresh(raw_log)
-
-    event = Event(
-        source_log_id=raw_log.id,
-        session_id=db_session.id,
-        type="test",
-        data={"msg": "hello"},
-        created_at=datetime.now(),
-        is_superseded=False
-    )
-    session.add(event)
-    await session.commit()
-
-    # Mock LLM Failure
-    with patch("app.core.timeline_processor.acompletion", side_effect=Exception("LLM Error")):
-        with patch("app.core.timeline_processor.get_gemini_api_key", return_value="fake_key"):
-             with patch("app.core.timeline_processor.get_system_prompt", return_value="Prompt"):
-                await process_session(session, db_session)
-
-    # Verify Retry Count
-    await session.refresh(db_session)
-    assert db_session.retry_count == 1
-    assert db_session.status == SessionStatus.PENDING
+    # No events linked -> no Event rows exist at all in this test
+    result = await session.execute(select(Event))
+    assert len(result.scalars().all()) == 0

@@ -2,7 +2,6 @@ import uuid
 from datetime import datetime
 
 import pytest
-from sqlmodel import select
 
 from app.models.ingest import Event, RawLog
 from app.models.processing import Session
@@ -10,7 +9,6 @@ from app.services.processing import (
     get_sessions_ready_for_ai,
     run_processing_pipeline,
 )
-from app.services.sessionizer import run_sessionizer
 
 
 def _make_raw_log(session, device_id: str = "dev") -> RawLog:
@@ -27,6 +25,7 @@ def _make_raw_log(session, device_id: str = "dev") -> RawLog:
 @pytest.mark.asyncio
 async def test_run_processing_pipeline_creates_sessions(session):
     rl = _make_raw_log(session)
+    await session.flush()
     e1 = Event(
         source_log_id=rl.id,
         event_type="app_usage",

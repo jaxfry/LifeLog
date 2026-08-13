@@ -1,17 +1,15 @@
-from datetime import datetime
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.core.config import settings
 from app.core.logger import get_logger
 from app.models.ingest import Event
 from app.models.processing import Session, TimelineEntry
-from app.services.ai import call_llm, count_tokens
+from app.services.ai import call_llm
 from app.services.cache import _cache_key
-from app.services.prompts import get_prompt, render_prompt
 from app.services.processing import get_sessions_ready_for_ai
+from app.services.prompts import get_prompt, render_prompt
+from app.services.retrieval import upsert_search_document
 
 logger = get_logger(__name__)
 
@@ -19,7 +17,7 @@ logger = get_logger(__name__)
 async def generate_timeline_for_session(
     db_session: AsyncSession,
     session_obj: Session,
-) -> Optional[TimelineEntry]:
+) -> TimelineEntry | None:
     if session_obj.status != "pending":
         return None
 
@@ -78,6 +76,15 @@ async def generate_timeline_for_session(
     )
     db_session.add(entry)
     await db_session.flush()
+    await upsert_search_document(
+        db_session,
+        source_type="timeline",
+        source_id=entry.id,
+        title=entry.activity,
+        content=entry.activity,
+        occurred_at=entry.start_time,
+        logical_date=entry.logical_date,
+    )
 
     session_obj.status = "completed"
     session_obj.processing_status = "completed"

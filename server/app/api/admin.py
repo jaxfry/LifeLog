@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from typing import Optional
+import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -13,6 +13,7 @@ from app.models.accounting import AIUsage
 from app.models.auth import User
 from app.models.config import Prompt
 from app.models.processing import Session
+from app.models.retrieval import ProcessingFailure
 
 logger = get_logger(__name__)
 
@@ -77,6 +78,21 @@ async def trigger_sessionizer(
     return result
 
 
+@router.post("/admin/process/memory")
+async def trigger_memory_backfill(
+    limit: int = 500,
+    current_user: User = Depends(get_current_superuser),
+    db_session: AsyncSession = Depends(get_session),
+) -> dict[str, int]:
+    if not 1 <= limit <= 5000:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+    from app.services.extraction import backfill_event_facts
+
+    result = await backfill_event_facts(db_session, limit=limit)
+    await db_session.commit()
+    return result
+
+
 @router.post("/admin/process/timeline")
 async def trigger_timeline(
     limit: int = 10,
@@ -113,7 +129,9 @@ async def get_ai_usage(
     current_user: User = Depends(get_current_superuser),
     db_session: AsyncSession = Depends(get_session),
 ):
-    cutoff = datetime.now(timezone.utc).replace(tzinfo=None)
+    if not 1 <= days <= 3650:
+        raise HTTPException(status_code=400, detail="days must be between 1 and 3650")
+    cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
     statement = (
         select(AIUsage)
         .where(AIUsage.created_at >= cutoff)
@@ -133,7 +151,7 @@ async def get_ai_usage(
 
 @router.get("/admin/sessions")
 async def list_sessions(
-    status_filter: Optional[str] = None,
+    status_filter: str | None = None,
     limit: int = 50,
     current_user: User = Depends(get_current_superuser),
     db_session: AsyncSession = Depends(get_session),
@@ -144,3 +162,65 @@ async def list_sessions(
     statement = statement.order_by(Session.start_time.desc()).limit(limit)
     result = await db_session.execute(statement)
     return result.scalars().all()
+
+
+@router.get("/admin/failures", response_model=list[ProcessingFailure])
+async def list_processing_failures(
+    failure_status: str = "open",
+    limit: int = 100,
+    current_user: User = Depends(get_current_superuser),
+    db_session: AsyncSession = Depends(get_session),
+) -> list[ProcessingFailure]:
+    statement = (
+        select(ProcessingFailure)
+        .where(ProcessingFailure.status == failure_status)
+        .order_by(ProcessingFailure.last_failed_at.desc())
+        .limit(min(max(limit, 1), 1000))
+    )
+    return list((await db_session.execute(statement)).scalars().all())
+
+
+@router.post("/admin/failures/{failure_id}/retry", response_model=ProcessingFailure)
+async def retry_processing_failure(
+    failure_id: uuid.UUID,
+    current_user: User = Depends(get_current_superuser),
+    db_session: AsyncSession = Depends(get_session),
+) -> ProcessingFailure:
+    failure = await db_session.get(ProcessingFailure, failure_id)
+    if failure is None:
+        raise HTTPException(status_code=404, detail="Failure not found")
+    if failure.source_id is None:
+        raise HTTPException(status_code=400, detail="This failure requires its extension scheduler to retry")
+    if failure.source_type == "raw_log":
+        from app.workers.process import process_log
+
+        await process_log(db_session, failure.source_id)
+    elif failure.source_type == "file_attachment":
+        from app.services.artifacts import process_artifact
+
+        await process_artifact(db_session, failure.source_id, force=True)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported retry source: {failure.source_type}")
+    failure.status = "resolved"
+    failure.resolved_at = datetime.now(UTC).replace(tzinfo=None)
+    db_session.add(failure)
+    await db_session.commit()
+    await db_session.refresh(failure)
+    return failure
+
+
+@router.post("/admin/failures/{failure_id}/resolve", response_model=ProcessingFailure)
+async def resolve_processing_failure(
+    failure_id: uuid.UUID,
+    current_user: User = Depends(get_current_superuser),
+    db_session: AsyncSession = Depends(get_session),
+) -> ProcessingFailure:
+    failure = await db_session.get(ProcessingFailure, failure_id)
+    if failure is None:
+        raise HTTPException(status_code=404, detail="Failure not found")
+    failure.status = "resolved"
+    failure.resolved_at = datetime.now(UTC).replace(tzinfo=None)
+    db_session.add(failure)
+    await db_session.commit()
+    await db_session.refresh(failure)
+    return failure

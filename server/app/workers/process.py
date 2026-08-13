@@ -1,80 +1,109 @@
-from datetime import datetime
+from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.core.database import async_session_factory
 from app.core.logger import get_logger
+from app.core.utils.time import get_logical_date
+from app.loader.runner import run_normalization
 from app.models.ingest import Event, RawLog
+from app.services.extraction import extract_event_facts
+from app.services.failures import record_processing_failure
+from app.services.retrieval import upsert_search_document
 
 logger = get_logger(__name__)
 
 
-async def process_raw_log(ctx: dict, raw_log_id: str) -> bool:
+async def process_log(session: AsyncSession, log_id: UUID) -> list[Event]:
     """
-    ARQ worker task: normalize a RawLog into Events.
-
-    For now this extracts simple events from the payload. Extensions can
-    provide custom normalization logic later.
+    Loads a RawLog, runs the extension processor, and saves Events.
     """
-    async with async_session_factory() as session:
-        raw_log = await session.get(RawLog, raw_log_id)
-        if not raw_log:
-            logger.warning("RawLog %s not found, skipping", raw_log_id)
-            return False
+    log = await session.get(RawLog, log_id)
+    if not log:
+        logger.error("Log %s not found", log_id)
+        return []
 
-        try:
-            payload = raw_log.payload
-            if not isinstance(payload, dict):
-                payload = {}
-
-            events_data = payload.get("events", [payload])
-            if isinstance(events_data, dict):
-                events_data = [events_data]
-
-            for evt in events_data:
-                event = Event(
-                    source_log_id=raw_log.id,
-                    event_type=evt.get("type", "unknown"),
-                    start_time=_parse_dt(evt.get("start_time")) or raw_log.received_at,
-                    end_time=_parse_dt(evt.get("end_time")),
-                    data=evt,
-                    logical_date=raw_log.logical_date,
-                )
-                session.add(event)
-
-            raw_log.processing_status = "done"
-            session.add(raw_log)
-            await session.commit()
-            logger.info(
-                "Processed RawLog %s -> %d events",
-                raw_log_id,
-                len(events_data),
+    if log.processing_status == "done":
+        existing_events = (
+            await session.execute(
+                select(Event)
+                .where(Event.source_log_id == log.id)
+                .where(Event.is_superseded == False)
             )
-            return True
+        ).scalars().all()
+        for event in existing_events:
+            await extract_event_facts(session, event)
+        await session.commit()
+        return list(existing_events)
 
-        except Exception:
-            raw_log.processing_status = "failed"
-            session.add(raw_log)
+    logger.info("Processing log %s with extension %s", log_id, log.extension_id)
+
+    try:
+        events_data = run_normalization(log.extension_id, log.payload)
+        created_events = []
+        for event_data in events_data:
+            data = event_data.get("data", {})
+            start_time_iso = data.get("timestamp") or data.get("start_time")
+            event_dt = _parse_event_time(start_time_iso, log.received_at)
+            event = Event(
+                source_log_id=log.id,
+                event_type=event_data.get("type", "unknown"),
+                start_time=event_dt,
+                data=data,
+                logical_date=get_logical_date(event_dt, "UTC"),
+                processing_version=1,
+                confidence=1.0 if start_time_iso else 0.7,
+            )
+            session.add(event)
+            created_events.append(event)
+
+        await session.flush()
+        for event in created_events:
+            await extract_event_facts(session, event)
+            await upsert_search_document(
+                session,
+                source_type="event",
+                source_id=event.id,
+                title=event.event_type,
+                content=f"{event.event_type}\n{event.data}",
+                occurred_at=event.start_time,
+                logical_date=event.logical_date,
+                metadata={"extension_id": log.extension_id, "event_type": event.event_type},
+            )
+
+        log.processing_status = "done"
+        session.add(log)
+        await session.commit()
+    except Exception as exc:
+        await session.rollback()
+        failed_log = await session.get(RawLog, log_id)
+        if failed_log is not None:
+            failed_log.processing_status = "failed"
+            session.add(failed_log)
+            await record_processing_failure(
+                session,
+                source_type="raw_log",
+                source_id=log_id,
+                stage="normalization",
+                error=exc,
+                context={"extension_id": failed_log.extension_id},
+            )
             await session.commit()
-            logger.exception("Failed to process RawLog %s", raw_log_id)
-            return False
+        logger.exception("Normalization or memory extraction failed for log %s", log_id)
+        raise
+
+    logger.info("Created %d events and extracted their memory facts", len(created_events))
+    return created_events
 
 
-async def enqueue_process_raw_log(arq_pool, raw_log_id: str):
-    """Enqueue a raw_log for processing by the ARQ worker."""
-    await arq_pool.enqueue_job("process_raw_log", raw_log_id)
-
-
-def _parse_dt(value) -> datetime | None:
+def _parse_event_time(value: object, fallback: datetime) -> datetime:
     if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value.replace(tzinfo=None) if value.tzinfo else value
-    if isinstance(value, str):
-        try:
-            dt = datetime.fromisoformat(value)
-            return dt.replace(tzinfo=None) if dt.tzinfo else dt
-        except ValueError:
-            return None
-    return None
+        return fallback.replace(tzinfo=None)
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return fallback.replace(tzinfo=None)
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(UTC).replace(tzinfo=None)
+    return parsed

@@ -5,19 +5,19 @@ IMPORTANT: Tests use an in-memory SQLite database by default to ensure
 production data is NEVER touched. For integration tests that require
 PostgreSQL features (like pgvector), set TEST_DATABASE_URL explicitly.
 """
-import pytest
-import pytest_asyncio
 import os
 import sys
+
+import pytest
+import pytest_asyncio
 import sqlalchemy.dialects.sqlite
-from sqlalchemy.dialects.postgresql import JSONB
 
 # Register SQLite handlers for Postgres-specific types
 _sqlite_compiler = sqlalchemy.dialects.sqlite.base.SQLiteTypeCompiler
-setattr(_sqlite_compiler, "visit_JSONB", _sqlite_compiler.visit_JSON)
+_sqlite_compiler.visit_JSONB = _sqlite_compiler.visit_JSON
 try:
-    from pgvector.sqlalchemy import Vector
-    setattr(_sqlite_compiler, "visit_VECTOR", _sqlite_compiler.visit_JSON)
+    from pgvector.sqlalchemy import Vector  # noqa: F401  (used via setattr below)
+    _sqlite_compiler.visit_VECTOR = _sqlite_compiler.visit_JSON
 except ImportError:
     pass
 
@@ -68,13 +68,18 @@ TEST_DATABASE_URL = os.environ.get(
 # Override the DATABASE_URL for tests BEFORE importing app modules
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
-from httpx import AsyncClient, ASGITransport
+# Tests never run in production mode; provide a test SECRET_KEY
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
+os.environ.setdefault("DEBUG", "true")
+
+import uuid
+
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel
-import uuid
 
 # Import models to register them with SQLModel metadata
 from app.models import (  # noqa: F401
@@ -82,6 +87,7 @@ from app.models import (  # noqa: F401
     auth,
     config,
     ingest,
+    kernel,
     processing,
 )
 
@@ -95,8 +101,8 @@ test_engine = create_async_engine(
 
 # Create async session factory
 TestAsyncSessionLocal = sessionmaker(
-    test_engine, 
-    class_=AsyncSession, 
+    test_engine,
+    class_=AsyncSession,
     expire_on_commit=False,
     autocommit=False,
     autoflush=False,
@@ -127,9 +133,9 @@ async def setup_test_database():
         if "postgresql" in TEST_DATABASE_URL:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(SQLModel.metadata.create_all)
-    
+
     yield
-    
+
     # Cleanup after all tests
     async with test_engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
@@ -148,42 +154,57 @@ async def session():
 async def cleanup_tables(session):
     """Clean up all data after each test to ensure isolation."""
     yield
+    await session.rollback()
     if "sqlite" in TEST_DATABASE_URL:
         await session.execute(text("PRAGMA foreign_keys = OFF"))
-        for table in reversed(SQLModel.metadata.sorted_tables):
-            await session.execute(table.delete())
+    for table in reversed(SQLModel.metadata.sorted_tables):
+        await session.execute(table.delete())
+    if "sqlite" in TEST_DATABASE_URL:
         await session.execute(text("PRAGMA foreign_keys = ON"))
-        await session.commit()
+    await session.commit()
 
 @pytest_asyncio.fixture
 async def async_client():
     """Create an async HTTP client for testing."""
     # Import here to use our overridden DATABASE_URL
+    from app.core.database import get_session
     from app.main import app
-    from app.core.db import get_session
-    
+
     # Create a fresh session for each request
     async def get_test_session():
         async with TestAsyncSessionLocal() as s:
             yield s
             await s.rollback()
-    
+
     # Override the database session
     app.dependency_overrides[get_session] = get_test_session
-    
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as client:
         yield client
-    
+
     # Clean up override
     app.dependency_overrides.pop(get_session, None)
 
 @pytest.fixture
+def mock_user():
+    """Override get_current_user dependency with a regular (non-superuser) user."""
+    from app.core.dependencies import get_current_user
+    from app.main import app
+    from app.models.auth import User
+
+    user = User(id=uuid.uuid4(), username="regular", is_superuser=False, is_active=True, hashed_password="xxx")
+    app.dependency_overrides[get_current_user] = lambda: user
+    yield user
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
 def mock_superuser():
     """Override get_current_superuser dependency."""
+    from app.core.dependencies import get_current_superuser
     from app.main import app
-    from app.api.deps import get_current_superuser
-    from app.models.config import User
-    
+    from app.models.auth import User
+
     user = User(id=uuid.uuid4(), username="admin", is_superuser=True, is_active=True, hashed_password="xxx")
     app.dependency_overrides[get_current_superuser] = lambda: user
     yield user
@@ -192,12 +213,11 @@ def mock_superuser():
 @pytest.fixture
 def mock_device_auth():
     """Override verify_api_key dependency."""
+    from app.core.dependencies import verify_device
     from app.main import app
-    from app.api.deps import verify_api_key
-    from app.models.config import Device
-    
-    device = Device(id="test_device_1", name="Test Device", type="test", api_key_hash="hash")
-    app.dependency_overrides[verify_api_key] = lambda: device
-    yield device
-    app.dependency_overrides.pop(verify_api_key, None)
+    from app.models.auth import Device
 
+    device = Device(id="test-device-1", name="Test Device", device_type="test", api_key_hash="hash")
+    app.dependency_overrides[verify_device] = lambda: device
+    yield device
+    app.dependency_overrides.pop(verify_device, None)
