@@ -1,151 +1,218 @@
-***
+# LifeLog System Architecture
 
-# LifeLog System Architecture v4.0
+## 1. Purpose and invariants
 
-## 1. Executive Summary
-**LifeLog** is a self-hosted, Python-native platform for personal data aggregation, timeline generation, and AI-driven insight.
-*   **Philosophy:** "Rebuild the Present from the Past." The system prioritizes infinite reprocessing capabilities.
-*   **Architecture:** Secure Central Server (Python) with Distributed Clients.
-*   **Extension Model:** "Managed Trust." Extensions are Python packages executed by the Core, capable of full data analysis and network I/O.
+LifeLog is a self-hosted, Python-native system for collecting personal data,
+reconstructing a timeline, and building correctable AI-assisted memory over a
+lifetime. It is a modular monolith: one FastAPI deployment with explicit
+`api -> services -> models` boundaries, ARQ workers for durable background
+work, APScheduler for periodic orchestration, PostgreSQL/pgvector for durable
+state and recall, and Redis for the queue and distributed locks.
 
----
+The architecture follows four invariants:
 
-## 2. Tech Stack
-*   **Language:** Python 3.11+
-*   **API:** FastAPI (Async).
-*   **ORM:** SQLModel (Pydantic + SQLAlchemy).
-*   **Database:** PostgreSQL 16+ (`JSONB` for Logs, `pgvector` for Embeddings).
-*   **Task Queue:** Redis + ARQ.
-*   **Scheduler:** APScheduler (Cron management).
-*   **AI Client:** LiteLLM.
+1. Raw source material is retained; derived state is rebuildable.
+2. Every derived fact has explicit provenance and versioning.
+3. AI may propose uncertain knowledge but cannot silently turn unsupported text
+   into authoritative memory.
+4. Extensions adapt sources. The base owns durable memory, retrieval, planning,
+   and policy. The normative boundary is in
+   [EXTENSION_CONTRACT.md](EXTENSION_CONTRACT.md).
 
----
+All database timestamps are stored as naive UTC. Alembic exclusively owns
+schema creation and upgrades; application startup checks connectivity but does
+not call `create_all`.
 
-## 3. The 4-Domain Database Schema
-
-The database is organized into four logical domains.
-
-### Domain A: The Data Pipeline (Lineage & Versioning)
-| Table | Key Columns | Purpose |
-| :--- | :--- | :--- |
-| **`raw_logs`** (L1) | `id`, `device_id`, `extension_id`, `payload`, `received_at`, **`payload_hash`** | **Immutable Inbox.** `payload_hash` enforces idempotency (prevents duplicates). |
-| **`events`** (L2) | `id`, **`source_log_id`**, `type`, `data`, **`processing_version`**, **`is_superseded`** | **Normalized Stream.** Linked to L1. `is_superseded` flags old versions of reprocessed data. |
-| **`sessions`** (L3-A) | `id`, `start_time`, `end_time`, **`needs_rebuild`** | **Time Chunks.** Groups L2 events. Flag triggers AI regeneration. |
-| **`timeline`** (L3-B) | `id`, `session_id`, `summary`, `embedding`, `prompt_version_id` | **The Narrative.** The AI output, strictly linked to a specific prompt version. |
-
-### Domain B: Administration & Config
-| Table | Key Columns | Purpose |
-| :--- | :--- | :--- |
-| `devices` | `id`, `api_key_hash`, **`last_cursor`** | Tracks the last synced timestamp per extension to optimize bandwidth. |
-| `extensions` | `id`, `version`, `config` (Encrypted), **`scheduler_cron`** | Registry. `scheduler_cron` defines server-side polling tasks. |
-| **`prompts`** | `id`, `name`, `template`, `version`, `is_active` | **Prompt Registry.** Stores System Prompts and Templates, allowing versioned updates without code changes. |
-
-### Domain C: Accounting
-| Table | Key Columns | Purpose |
-| :--- | :--- | :--- |
-| `ai_usage` | `id`, `timeline_entry_id`, `provider`, `model`, `input_tokens`, `output_tokens`, `cost`, `latency` | Granular financial audit trail. |
-
-### Domain D: Infrastructure
-| Table | Key Columns | Purpose |
-| :--- | :--- | :--- |
-| `blobs` | `id`, `hash`, `path` | Binary storage metadata. |
-| `failures` | `id`, `traceback`, `context` | Dead Letter Queue. |
-
----
-
-## 4. Core Logic Flows
-
-### 4.1 Smart Ingestion (Deduplication)
-1.  **Client Side:**
-    *   Calculates `hash = sha256(payload)`.
-    *   Sends `POST /ingest` with Header `X-Payload-Hash: <hash>`.
-2.  **Server Side:**
-    *   Checks `raw_logs` for existing `(device_id, payload_hash)`.
-    *   **If Exists:** Returns `200 OK (Skipped)`. No data written.
-    *   **If New:** Saves to `raw_logs`. Returns `201 Created`.
-
-### 4.2 The Processing Pipeline (L1 $\to$ L2)
-1.  **Trigger:** New L1 Log created.
-2.  **Worker:**
-    *   Imports the Extension's Python module (`extensions.{id}.processor`).
-    *   Executes `processor.normalize(payload)`.
-    *   Writes output to `events`.
-    *   **Lineage:** Sets `events.source_log_id = raw_logs.id`.
-
-### 4.3 Cascading Rebuilds (L2 $\to$ L3)
-The system guarantees consistency when logic changes.
-1.  **Scenario:** Normalizer logic updates or User requests reprocessing.
-2.  **L2 Update:**
-    *   System marks old `events` as `is_superseded = True`.
-    *   Writes new `events` with current `processing_version`.
-3.  **L3 Invalidation:**
-    *   System identifies all `sessions` linked to the superseded events.
-    *   Sets `sessions.needs_rebuild = True`.
-4.  **Scheduler:**
-    *   Detects "Dirty" sessions.
-    *   Re-runs AI summarization using the current System Prompt.
-    *   Updates `timeline` entries.
-
----
-
-## 5. The Extension Ecosystem
-
-Extensions are **Python Packages** managed by the Core.
-
-### 5.1 Structure
-*   `manifest.json`: Permissions (`network`, `filesystem`), Dependencies, Cron Schedule.
-*   `processor.py`: Contains `normalize(payload)` function.
-*   `poller.py`: (Optional) Contains `run()` function for scheduled tasks.
-*   `prompts.yaml`: (Optional) Defines extension-specific prompt templates.
-
-### 5.2 Capabilities
-*   **Analysis:** Full access to Python ecosystem (`pandas`, `numpy`) for data cleaning.
-*   **Network:** Can poll external APIs (Spotify, Weather) if permission granted.
-*   **Scheduling:** Server uses `APScheduler` to run `poller.py` based on the Manifest's Cron expression.
-
----
-
-## 6. AI & Prompt Management
-
-### 6.1 Prompt Versioning
-*   Prompts are **Data**, not Code.
-*   Stored in `prompts` table.
-*   When AI generates a Timeline entry, it links to the specific `prompt_id` used.
-*   **Update Flow:**
-    1.  User updates System Prompt in UI.
-    2.  New row created in `prompts` (Version N+1).
-    3.  New AI jobs use Version N+1.
-    4.  Old Timeline entries remain linked to Version N (Historical fidelity).
-
-### 6.2 Accounting
-*   Every call to the LLM is wrapped by the **AIBroker**.
-*   Logs specific Token counts (Input/Output) and Cost to `ai_usage`.
-*   Allows querying: *"How much did the 'Sarcastic Robot' persona cost me last month?"*
-
----
-
-## 7. Directory Structure
+## 2. Runtime architecture
 
 ```text
-/lifelog_core
-├── /app
-│   ├── /models             # SQLModel Classes
-│   │   ├── data.py         # Logs, Events, Sessions, Timeline
-│   │   ├── config.py       # Devices, Extensions, Prompts
-│   │   └── audit.py        # AI Usage, Blobs, Failures
-│   ├── /core               # System Engines
-│   │   ├── ingestion.py    # Dedup & Hash Logic
-│   │   ├── rebuilder.py    # Cascading Update Logic
-│   │   └── scheduler.py    # APScheduler Setup
-│   ├── /loader             # Extension Import Logic
-│   │   └── runner.py       # Safe execution wrapper
-│   └── /api                # FastAPI Routes
-├── /extensions             # Installed Python Packages
-│   ├── /com.lifelog.gps
-│   │   ├── manifest.json
-│   │   └── processor.py
-│   └── /com.lifelog.aw
-├── /storage
-│   └── /blobs              # Binary files
-└── docker-compose.yml
+collectors / pollers / artifact uploads
+                 |
+                 v
+        immutable RawLog / FileAttachment
+                 |
+          normalization / extraction
+                 |
+       Event + ContentChunk + provenance
+          |              |
+     sessionization      +--> MemoryProposal --> reviewed/promoted memory
+          |                              |
+          v                              v
+ Session --> TimelineEntry          Entity / Relation
+          |                              |
+          +-----------> SearchDocument <-+
+                              |
+                 hybrid recall + graph context
+                              |
+                  grounded chat / planning
 ```
+
+Redis or an AI provider may be unavailable without preventing immutable
+ingestion. Lexical recall remains available without embeddings. Work that
+cannot complete is retained as pending source state or a durable
+`ProcessingFailure`, not only in application logs.
+
+## 3. Code boundaries
+
+```text
+server/app/
+├── api/         thin HTTP validation, authentication, response models
+├── services/    domain logic and orchestration
+├── models/      SQLModel persistence schema
+├── core/        configuration, DB, auth, logging, files, shared infrastructure
+├── workers/     ARQ entry points for normalization and artifact processing
+└── loader/      validated extension contracts and trusted module loading
+```
+
+- `api/` may call services and query models for simple reads.
+- Business workflows belong in `services/`, not route handlers.
+- Workers are durable entry points and delegate to services.
+- Extensions never own an authoritative shadow memory store.
+
+## 4. Persistent domains
+
+The schema is grouped by responsibility rather than an obsolete fixed count.
+
+### Identity and configuration
+
+| Table | Purpose |
+| --- | --- |
+| `users` | JWT-authenticated users and superuser state. |
+| `devices` | Hashed device credentials and sync cursors. |
+| `extensions` | Installed manifest, API version, configuration, active state, and cron schedule. |
+| `system_config` | Runtime configuration records. |
+| `prompts` | Versioned AI prompt templates. |
+| `ai_usage` | Provider/model/token/cost/latency accounting with operation and source lineage. |
+
+### Immutable ingestion and episodic processing
+
+| Table | Purpose |
+| --- | --- |
+| `raw_logs` | Deduplicated immutable source envelopes. |
+| `events` | Versioned normalized observations linked to a raw log. |
+| `sessions` | Logical-date-bounded groups of events, normally split after a 30-minute gap. |
+| `timeline_entries` | AI-generated episodic narrative linked to a session and prompt. |
+| `daily_summaries` | Rebuildable summaries keyed by logical date. |
+
+`timeline_entries` do **not** contain embeddings. Semantic indexing is isolated
+in the rebuildable recall projection described below.
+
+### Memory kernel
+
+| Table | Purpose |
+| --- | --- |
+| `entities` | Current or superseded people, places, courses, projects, applications, and other concepts. |
+| `entity_aliases` | Deterministic identity aliases and normalized lookup keys. |
+| `relations` | Typed entity/event edges with valid time, confidence, supersession, source event/file/chunk, extractor, and extraction version. |
+
+The graph is a rebuildable semantic projection, not source truth. Automatically
+extracted relations carry explicit lineage. Entity merges preserve history via
+supersession. Neighborhood traversal is bounded to depth 1–3 and a capped edge
+count. Predicate filters and valid-time duration rollups provide general
+structural and aggregate recall.
+
+### Artifacts, action, and delivery
+
+| Table | Purpose |
+| --- | --- |
+| `file_attachments` | Content-addressed source files and durable processing state. |
+| `content_chunks` | Versioned native text, OCR, or transcript excerpts with locators. |
+| `memory_proposals` | Evidence-grounded entity/relation/commitment candidates with review state. |
+| `commitments` | Domain-neutral obligations and outcomes. |
+| `commitment_progress` | Evidence of work completed, optionally linked to events. |
+| `plan_blocks` | Revisable planned allocations toward commitments. |
+| `notifications` | Base-owned durable notification/outbox records. |
+
+The base selects native extraction, image or scanned-PDF OCR, and audio/video
+transcription. A proposal can auto-promote only when it clears the configured
+confidence threshold and its evidence quote occurs in the source chunk.
+Otherwise it remains reviewable.
+
+### Recall and resilience
+
+| Table | Purpose |
+| --- | --- |
+| `search_documents` | Disposable, versioned recall projection over events, timeline, summaries, chunks, and entities. |
+| `processing_failures` | Durable dead-letter records with stage, source, attempts, traceback, context, and resolution state. |
+
+PostgreSQL lexical recall uses `to_tsvector('english', content)` with a GIN
+index. Semantic recall uses 768-dimensional pgvector embeddings and an HNSW
+cosine index. Reciprocal-rank fusion combines lexical and semantic rankings.
+SQLite tests use deterministic lexical fallbacks; production PostgreSQL is the
+semantic execution target.
+
+Embedding enrichment runs in a bounded scheduled batch outside ingestion
+transactions. When the embedding provider is unavailable, source writes and
+lexical search still succeed. `/search/reindex` rebuilds projections from
+durable source tables.
+
+## 5. Core workflows
+
+### Event ingestion
+
+1. A device or poller submits a source envelope.
+2. The base hashes and deduplicates the payload into `raw_logs`.
+3. ARQ or the trusted runtime calls the extension `normalize(payload)` adapter.
+4. The base writes `events`, applies deterministic/registered fact extraction,
+   and writes recall documents with explicit lineage.
+5. Sessionization, timeline generation, and daily summaries build episodic
+   projections. Corrections supersede old derived records rather than erasing
+   their provenance.
+
+### Artifact intelligence
+
+1. A user or `artifact_source` extension uploads original bytes and hints.
+2. The base stores bytes by SHA-256 and creates durable processing state.
+3. A worker extracts, OCRs, or transcribes into versioned cited chunks.
+4. Chunks enter lexical recall immediately; embeddings are added asynchronously.
+5. AI emits structured proposals with verbatim evidence.
+6. Deterministic policy promotes grounded high-confidence proposals; other
+   proposals await review.
+7. Commitments can produce reminders, progress evidence, and revisable plans.
+
+### Grounded chat
+
+Chat fuses four sources:
+
+- a bounded recent timeline and summary window;
+- query-relevant hybrid `SearchDocument` results;
+- directly retrieved artifact chunks with stable `[S#]` citations;
+- query-relevant current graph facts.
+
+The model is instructed to cite retrieved evidence, disclose missing evidence,
+and never fabricate citation identifiers. AI usage is accounted by operation
+and source context.
+
+## 6. Extension contract
+
+Manifests are validated by `loader/contracts.py` and declare an API version,
+capabilities, permissions, optional `scheduler_cron`, and optional deterministic
+`fact_mappings`.
+
+| Capability | Extension responsibility |
+| --- | --- |
+| `collector` | Acquire proprietary/source-specific records. |
+| `normalizer` | Convert a source payload into generic Event envelopes. |
+| `artifact_source` | Submit original files or recordings and optional hints. |
+| `notification_channel` | Deliver base-owned notifications through an approved channel. |
+
+An optional `poller.py` exposes sync or async
+`poll(config) -> list[dict]`. APScheduler invokes it from the manifest cron,
+then the base deduplicates, persists, normalizes, indexes, and records failures.
+Installed extensions are trusted Python code; manifest permissions are an
+auditable declaration, not an OS sandbox.
+
+Deterministic fact mappings project stable Event data paths into entity/relation
+facts with transform, confidence, extractor identity
+`manifest:{extension_id}:{mapping_index}`, and extraction-version lineage.
+
+## 7. Deployment and verification
+
+Production requires PostgreSQL with pgvector, Redis for queued work, content
+storage, a non-default `SECRET_KEY`, and `uv run alembic upgrade head` before
+API/worker startup. Docker Compose includes a migration service and an isolated
+`pgvector/pgvector:pg16` test database profile.
+
+The default test suite runs safely on SQLite for speed and portability. The
+PostgreSQL gate applies the full Alembic chain and exercises real full-text and
+pgvector cosine/RRF behavior through `TEST_DATABASE_URL`.

@@ -1,6 +1,5 @@
-from datetime import datetime, timezone
-
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +8,24 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.api import admin, auth, devices, health, ingest, summaries, timeline
+from app.api import (
+    admin,
+    ai_chat,
+    analytics,
+    auth,
+    client,
+    commitments,
+    data,
+    devices,
+    extensions,
+    files,
+    health,
+    ingest,
+    kernel,
+    search,
+    summaries,
+    timeline,
+)
 from app.core.config import settings
 from app.core.database import async_session_factory, close_db, init_db
 from app.core.logger import get_logger, setup_logging
@@ -44,9 +60,20 @@ async def _run_scheduled_summary():
     async with async_session_factory() as session:
         from app.services.summarizer import generate_daily_summary
 
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
         await generate_daily_summary(session, today)
         logger.info("Daily summary generated for %s", today)
+
+
+async def _run_scheduled_embeddings():
+    """Enrich lexical recall documents without blocking ingestion."""
+    async with async_session_factory() as session:
+        from app.services.retrieval import embed_pending_documents
+
+        count = await embed_pending_documents(session, limit=100)
+        await session.commit()
+        if count:
+            logger.info("Generated embeddings for %d recall documents", count)
 
 
 @asynccontextmanager
@@ -57,7 +84,9 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialized")
 
     async with async_session_factory() as session:
+        from app.core.extension_utils import sync_extensions_db
         from app.services.prompts import seed_default_prompts
+        await sync_extensions_db(session)
         await seed_default_prompts(session)
     logger.info("Default prompts seeded")
 
@@ -101,12 +130,24 @@ async def lifespan(app: FastAPI):
             id="daily_summary",
             replace_existing=True,
         )
+        scheduler.add_job(
+            _run_scheduled_embeddings,
+            "interval",
+            minutes=5,
+            id="retrieval_embeddings",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
+        from app.services.extension_runtime import configure_extension_pollers
+        poller_count = await configure_extension_pollers(scheduler)
         scheduler.start()
         app.state.scheduler = scheduler
         logger.info(
             "Scheduler started (sessionizer every %d min)",
             settings.SESSIONIZER_INTERVAL_MINUTES,
         )
+        logger.info("Configured %d extension pollers", poller_count)
     except Exception:
         logger.warning("Scheduler unavailable")
 
@@ -152,6 +193,15 @@ app.include_router(ingest.router, prefix="/api/v1", tags=["ingestion"])
 app.include_router(timeline.router, prefix="/api/v1", tags=["timeline"])
 app.include_router(summaries.router, prefix="/api/v1", tags=["summaries"])
 app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
+app.include_router(data.router, prefix="/api/v1", tags=["data"])
+app.include_router(search.router, prefix="/api/v1/search", tags=["search"])
+app.include_router(ai_chat.router, prefix="/api/v1/ai", tags=["ai"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
+app.include_router(extensions.router, prefix="/api/v1", tags=["extensions"])
+app.include_router(files.router, prefix="/api/v1/files", tags=["files"])
+app.include_router(client.router, prefix="/api/v1", tags=["client"])
+app.include_router(commitments.router, prefix="/api/v1", tags=["commitments"])
+app.include_router(kernel.router, prefix="/api/v1/kernel", tags=["kernel"])
 
 if not settings.SECRET_KEY or settings.SECRET_KEY == "change-this-to-a-random-secret-key":
     if not settings.DEBUG:

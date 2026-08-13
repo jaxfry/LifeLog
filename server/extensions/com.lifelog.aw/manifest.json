@@ -1,6 +1,9 @@
 {
     "id": "com.lifelog.aw",
     "version": "1.0.5",
+    "api_version": "1",
+    "capabilities": ["collector", "normalizer"],
+    "permissions": ["network"],
     "client": {
         "file": "collector.py",
         "type": "python"

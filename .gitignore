@@ -170,6 +170,9 @@ poetry.toml
 # ruff
 .ruff_cache/
 
+# LifeLog runtime data (content-addressed user uploads are not source code)
+server/storage/uploads/
+
 # LSP config files
 pyrightconfig.json
 

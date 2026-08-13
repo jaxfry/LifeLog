@@ -1,6 +1,7 @@
-from typing import Dict, Any, List, Union
+from typing import Any
 
-def normalize(payload: Union[Dict[str, Any], List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+
+def normalize(payload: dict[str, Any] | list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Normalizes the raw payload from the ActivityWatch collector.
     """
@@ -20,7 +21,7 @@ def normalize(payload: Union[Dict[str, Any], List[Dict[str, Any]]]) -> List[Dict
         bucket_type = raw_event.get("bucket_type", "unknown")
         bucket_id = raw_event.get("bucket_id", "")
         raw_inner_data = raw_event.get("data", {})
-        
+
         event_type = "unknown"
         normalized_data = {
             "start_time": raw_event.get("timestamp"),
@@ -32,16 +33,16 @@ def normalize(payload: Union[Dict[str, Any], List[Dict[str, Any]]]) -> List[Dict
             event_type = "app_usage"
             normalized_data["app"] = raw_inner_data.get("app")
             normalized_data["title"] = raw_inner_data.get("title")
-            
+
         elif "afk" in bucket_type or "afk" in bucket_id:
             event_type = "device_status"
             normalized_data["status"] = raw_inner_data.get("status") # 'afk' or 'not-afk'
-            
+
         elif "web" in bucket_type or "browser" in bucket_id:
             event_type = "browsing"
             normalized_data["url"] = raw_inner_data.get("url")
             normalized_data["title"] = raw_inner_data.get("title")
-            
+
         else:
             # Fallback for unknown types, keep raw data to debug
             normalized_data["raw"] = raw_inner_data
