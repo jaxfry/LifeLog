@@ -1,9 +1,12 @@
 import asyncio
 import os
-from sqlalchemy.orm import sessionmaker
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.db import engine
+from sqlalchemy.orm import sessionmaker
+
+from app.core.database import engine
 from app.models.config import SystemConfig
+
 
 async def seed_config():
     async_session = sessionmaker(
@@ -12,7 +15,7 @@ async def seed_config():
     async with async_session() as session:
         key = os.environ.get("GEMINI_API_KEY")
         if key:
-            print(f"Seeding GEMINI_API_KEY from env...")
+            print("Seeding GEMINI_API_KEY from env...")
             config = await session.get(SystemConfig, "GEMINI_API_KEY")
             if not config:
                 config = SystemConfig(key="GEMINI_API_KEY", value=key, description="API Key for Gemini LLM")

@@ -1,4 +1,3 @@
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -26,7 +25,7 @@ DEFAULT_PROMPTS: dict[str, str] = {
 }
 
 
-async def get_prompt(db_session: AsyncSession, name: str) -> Optional[str]:
+async def get_prompt(db_session: AsyncSession, name: str) -> str | None:
     statement = (
         select(Prompt)
         .where(Prompt.name == name)

@@ -1,12 +1,15 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 import pytest
 from sqlmodel import select
 
 from app.models.ingest import Event, RawLog
 from app.models.processing import Session
-from app.services.sessionizer import run_sessionizer, _group_into_sessions, _logical_date
+from app.services.sessionizer import (
+    _group_into_sessions,
+    run_sessionizer,
+)
 
 
 @pytest.mark.asyncio

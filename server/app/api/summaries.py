@@ -1,11 +1,10 @@
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.database import get_session
-from app.core.dependencies import get_current_user
+from app.core.dependencies import Pagination, get_current_user
 from app.models.auth import User
 from app.models.processing import DailySummary
 
@@ -26,8 +25,9 @@ async def get_daily_summary(
 
 @router.get("/summaries")
 async def list_daily_summaries(
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
+    pagination: Pagination = Depends(),
     current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_session),
 ):
@@ -38,7 +38,11 @@ async def list_daily_summaries(
     if end_date:
         statement = statement.where(DailySummary.logical_date <= end_date)
 
-    statement = statement.order_by(DailySummary.logical_date.desc())
+    statement = (
+        statement.order_by(DailySummary.logical_date.desc())
+        .offset(pagination.offset)
+        .limit(pagination.limit)
+    )
     result = await db_session.execute(statement)
     summaries = result.scalars().all()
     return summaries

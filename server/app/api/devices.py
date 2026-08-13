@@ -1,10 +1,9 @@
 import secrets
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -21,32 +20,32 @@ router = APIRouter()
 
 class DeviceCreate(BaseModel):
     id: str
-    name: Optional[str] = None
-    device_type: Optional[str] = None
+    name: str | None = None
+    device_type: str | None = None
 
 
 class DeviceUpdate(BaseModel):
-    name: Optional[str] = None
-    device_type: Optional[str] = None
-    is_active: Optional[bool] = None
+    name: str | None = None
+    device_type: str | None = None
+    is_active: bool | None = None
 
 
 class DeviceResponse(BaseModel):
     id: str
-    name: Optional[str]
-    device_type: Optional[str]
+    name: str | None
+    device_type: str | None
     is_active: bool
-    last_cursor: Optional[datetime]
+    last_cursor: datetime | None
     created_at: datetime
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
 
 class DevicePublic(BaseModel):
     id: str
-    name: Optional[str]
-    device_type: Optional[str]
+    name: str | None
+    device_type: str | None
     is_active: bool
-    last_cursor: Optional[datetime]
+    last_cursor: datetime | None
     created_at: datetime
     updated_at: datetime
 

@@ -1,7 +1,7 @@
 import asyncio
-from logging.config import fileConfig
 import os
 import sys
+from logging.config import fileConfig
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
@@ -13,11 +13,15 @@ from sqlmodel import SQLModel
 from alembic import context
 
 # Import all models so SQLModel.metadata is populated
-from app.models import auth  # noqa
-from app.models import ingest  # noqa
-from app.models import processing  # noqa
-from app.models import config  # noqa
-from app.models import accounting  # noqa
+from app.models import (
+    accounting,  # noqa
+    auth,  # noqa
+    config,
+    files,  # noqa
+    ingest,  # noqa
+    kernel,  # noqa
+    processing,  # noqa
+)
 
 config = context.config
 

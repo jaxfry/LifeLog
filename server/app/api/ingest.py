@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
@@ -17,9 +17,9 @@ router = APIRouter()
 
 class IngestRequest(BaseModel):
     extension_id: str
-    payload: Dict[str, Any]
-    client_timestamp: Optional[datetime] = None
-    client_timezone: Optional[str] = None
+    payload: dict[str, Any]
+    client_timestamp: datetime | None = None
+    client_timezone: str | None = None
 
 
 @router.post("/ingest")

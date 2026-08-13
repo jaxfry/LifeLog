@@ -1,66 +1,61 @@
+import io
 import os
 import zipfile
-import io
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from app.core.db import get_session
+
+from app.core.database import get_session
+from app.core.dependencies import verify_device
+from app.core.extension_utils import EXTENSIONS_DIR
 from app.core.logger import get_logger
-from app.models.config import Extension, Device
-from app.api.deps import verify_api_key
-from app.core.extension_utils import sync_extensions_db, EXTENSIONS_DIR
+from app.models.auth import Device
+from app.models.config import Extension
 
 logger = get_logger(__name__)
 router = APIRouter()
 
-@router.get("/client/extensions", response_model=List[Extension])
+
+@router.get("/client/extensions", response_model=list[Extension])
 async def list_client_extensions(
-    session: AsyncSession = Depends(get_session),
-    device: Device = Depends(verify_api_key)
+    db_session: AsyncSession = Depends(get_session),
+    device: Device = Depends(verify_device),
 ):
-    # In a real app, we might filter by device permissions.
-    # For now, return all active extensions.
-    
-    statement = select(Extension).where(Extension.is_active == True)
-    result = await session.execute(statement)
+    result = await db_session.execute(
+        select(Extension).where(Extension.is_active == True)
+    )
     return result.scalars().all()
+
 
 @router.get("/client/download/{extension_id}")
 async def download_extension(
     extension_id: str,
-    session: AsyncSession = Depends(get_session),
-    device: Device = Depends(verify_api_key)
+    db_session: AsyncSession = Depends(get_session),
+    device: Device = Depends(verify_device),
 ):
-    # Verify extension exists
-    extension = await session.get(Extension, extension_id)
+    extension = await db_session.get(Extension, extension_id)
     if not extension:
         raise HTTPException(status_code=404, detail="Extension not found")
-    
+
     ext_path = os.path.join(EXTENSIONS_DIR, extension_id)
     if not os.path.exists(ext_path):
         raise HTTPException(status_code=404, detail="Extension files not found on server")
-    
-    # Create a zip file in memory
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for root, dirs, files in os.walk(ext_path):
-            for file in files:
-                # Don't include __pycache__
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, _dirs, files in os.walk(ext_path):
+            for fname in files:
                 if "__pycache__" in root:
                     continue
-                
-                file_path = os.path.join(root, file)
-                # Ensure we are getting the path relative to the extension folder
-                archive_name = os.path.relpath(file_path, ext_path)
-                logger.debug(f"Zipping {file_path} as {archive_name}")
-                zip_file.write(file_path, archive_name)
-    
-    zip_buffer.seek(0)
-    
+                fpath = os.path.join(root, fname)
+                arcname = os.path.relpath(fpath, ext_path)
+                zf.write(fpath, arcname)
+
+    buf.seek(0)
     return StreamingResponse(
-        zip_buffer,
+        buf,
         media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={extension_id}.zip"}
+        headers={"Content-Disposition": f'attachment; filename="{extension_id}.zip"'},
     )

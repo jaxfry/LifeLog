@@ -57,9 +57,16 @@ const Devices = () => {
 
   const handleAddDevice = () => {
     if (newDeviceName.trim()) {
+      const id = newDeviceName
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        || `device-${Date.now()}`;
       createDeviceMutation.mutate({
+        id,
         name: newDeviceName,
-        type: newDeviceType,
+        device_type: newDeviceType,
       });
     }
   };
@@ -173,7 +180,7 @@ const Devices = () => {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {enrichedDevices.map((device) => {
-            const DeviceIcon = deviceIcons[device.type] || Monitor;
+            const DeviceIcon = deviceIcons[device.device_type] || Monitor;
             
             return (
               <div key={device.id} className="card hover:shadow-lg transition-shadow">
@@ -186,7 +193,7 @@ const Devices = () => {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">{device.name || 'Unnamed Device'}</h3>
-                      <p className="text-sm text-gray-500 capitalize">{device.type || 'unknown'}</p>
+                      <p className="text-sm text-gray-500 capitalize">{device.device_type || device.type || "unknown"}</p>
                       
                       {/* Status Badge */}
                       <div className="flex items-center gap-2 mt-2">

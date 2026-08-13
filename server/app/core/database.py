@@ -1,5 +1,7 @@
+from collections.abc import AsyncGenerator
+
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlmodel import SQLModel
 
 from app.core.config import settings
 
@@ -13,12 +15,13 @@ engine = create_async_engine(
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-async def init_db():
+async def init_db() -> None:
+    """Verify connectivity; schema ownership belongs exclusively to Alembic."""
     async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.execute(text("SELECT 1"))
 
 
-async def get_session():
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:
         try:
             yield session
@@ -26,5 +29,5 @@ async def get_session():
             await session.close()
 
 
-async def close_db():
+async def close_db() -> None:
     await engine.dispose()

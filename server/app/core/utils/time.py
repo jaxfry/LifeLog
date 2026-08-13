@@ -1,11 +1,11 @@
-from datetime import datetime, timezone, timedelta
-from typing import Tuple, Optional
+from datetime import UTC, datetime, timedelta, timezone
+
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
     from backports.zoneinfo import ZoneInfo
 
-def parse_offset(offset_str: str) -> Optional[timezone]:
+def parse_offset(offset_str: str) -> timezone | None:
     """
     Parses a timezone offset string (e.g. "-0500", "+05:30") into a timezone object.
     """
@@ -26,61 +26,59 @@ def get_timezone_obj(timezone_str: str) -> timezone:
     Defaults to UTC if invalid.
     """
     if not timezone_str or timezone_str == "UTC":
-        return timezone.utc
-    
+        return UTC
+
     try:
         return ZoneInfo(timezone_str)
     except Exception:
         # Try parsing as offset
         tz = parse_offset(timezone_str)
-        return tz if tz else timezone.utc
+        return tz if tz else UTC
 
 def to_local_time(dt: datetime, timezone_str: str) -> datetime:
     """
     Converts a UTC datetime to local time based on the timezone string.
     """
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    
+        dt = dt.replace(tzinfo=UTC)
+
     tz = get_timezone_obj(timezone_str)
     return dt.astimezone(tz)
 
-def get_day_bounds_utc(date_obj: datetime, timezone_str: str) -> Tuple[datetime, datetime]:
+def get_day_bounds_utc(date_obj: datetime, timezone_str: str) -> tuple[datetime, datetime]:
     """
     Returns the start and end of a day in UTC, given a local date and timezone.
-    
-    Args:
+        Args:
         date_obj: The date (can be datetime, will use .date())
         timezone_str: The local timezone
-        
-    Returns:
+            Returns:
         (start_utc, end_utc)
     """
     tz = get_timezone_obj(timezone_str)
-    
+
     # Create local start of day
     # We use the year, month, day from date_obj
     local_start = datetime(
-        date_obj.year, 
-        date_obj.month, 
-        date_obj.day, 
-        0, 0, 0, 0, 
+        date_obj.year,
+        date_obj.month,
+        date_obj.day,
+        0, 0, 0, 0,
         tzinfo=tz
     )
-    
+
     # Create local end of day
     local_end = datetime(
-        date_obj.year, 
-        date_obj.month, 
-        date_obj.day, 
-        23, 59, 59, 999999, 
+        date_obj.year,
+        date_obj.month,
+        date_obj.day,
+        23, 59, 59, 999999,
         tzinfo=tz
     )
-    
+
     # Convert to UTC
-    start_utc = local_start.astimezone(timezone.utc).replace(tzinfo=None)
-    end_utc = local_end.astimezone(timezone.utc).replace(tzinfo=None)
-    
+    start_utc = local_start.astimezone(UTC).replace(tzinfo=None)
+    end_utc = local_end.astimezone(UTC).replace(tzinfo=None)
+
     return start_utc, end_utc
 
 def get_logical_date(dt_utc: datetime, iana_timezone: str, rollover_hour: int = 4) -> str:
@@ -89,14 +87,14 @@ def get_logical_date(dt_utc: datetime, iana_timezone: str, rollover_hour: int = 
     For example, if rollover_hour=4, any local time before 4:00 AM belongs to the previous day.
     """
     if dt_utc.tzinfo is None:
-        dt_utc = dt_utc.replace(tzinfo=timezone.utc)
-    
+        dt_utc = dt_utc.replace(tzinfo=UTC)
+
     # Convert absolute instant to local time
     tz = get_timezone_obj(iana_timezone)
     local_dt = dt_utc.astimezone(tz)
-    
+
     # Check if we should roll back
     if local_dt.hour < rollover_hour:
         local_dt = local_dt - timedelta(days=1)
-        
+
     return local_dt.strftime("%Y-%m-%d")

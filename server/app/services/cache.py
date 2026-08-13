@@ -1,7 +1,7 @@
 import hashlib
 import json
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any
 
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -32,7 +32,7 @@ async def _get_redis():
     return _redis if _redis is not False else None
 
 
-async def get_cached_response(cache_key: str) -> Optional[str]:
+async def get_cached_response(cache_key: str) -> str | None:
     r = await _get_redis()
     if r is None:
         return None

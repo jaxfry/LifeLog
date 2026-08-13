@@ -64,7 +64,6 @@ class SyncEngine:
             return
 
         server_url = config_manager.get("server_url")
-        device_id = config_manager.get("device_id")
         api_key = config_manager.get("api_key")
 
         headers = {
@@ -85,11 +84,10 @@ class SyncEngine:
 
             now = datetime.now().astimezone()
             ingest_data = {
-                "device_id": device_id,
                 "extension_id": item["extension_id"],
                 "payload": payload,
                 "client_timestamp": now.isoformat(),
-                "timezone_offset": now.strftime("%z"),
+                "client_timezone": now.strftime("%z"),
             }
 
             try:

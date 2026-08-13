@@ -1,12 +1,28 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+from typing import Any
 
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+class Extension(SQLModel, table=True):
+    __tablename__ = "extensions"
+
+    id: str = Field(primary_key=True)
+    version: str = Field(nullable=False)
+    api_version: str = Field(default="1", nullable=False)
+    config: dict[str, Any] = Field(default={}, sa_column=Column(JSONB))
+    scheduler_cron: str | None = None
+    is_active: bool = Field(default=True)
+    archived_at: datetime | None = None
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
 
 class SystemConfig(SQLModel, table=True):
@@ -14,7 +30,7 @@ class SystemConfig(SQLModel, table=True):
 
     key: str = Field(primary_key=True)
     value: str = Field(nullable=False)
-    description: Optional[str] = None
+    description: str | None = None
     updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
 

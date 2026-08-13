@@ -1,12 +1,11 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlmodel import Field, SQLModel
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class User(SQLModel, table=True):
@@ -27,10 +26,10 @@ class Device(SQLModel, table=True):
     __tablename__ = "devices"
 
     id: str = Field(primary_key=True)
-    name: Optional[str] = None
-    device_type: Optional[str] = None
+    name: str | None = None
+    device_type: str | None = None
     api_key_hash: str = Field(nullable=False)
-    last_cursor: Optional[datetime] = None
+    last_cursor: datetime | None = None
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=_utcnow, nullable=False)

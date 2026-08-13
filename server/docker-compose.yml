@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -11,6 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifelog -d lifelog_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   redis:
     image: redis:7
@@ -26,8 +29,10 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
       REDIS_URL: redis://redis:6379
@@ -41,13 +46,24 @@ services:
       - .:/app
       - ./storage:/app/storage
     depends_on:
-      - db
-      - redis
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
       REDIS_URL: redis://redis:6379
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       HACK_CLUB_AI_API_KEY: ${HACK_CLUB_AI_API_KEY}
+
+  migrate:
+    build: .
+    command: alembic upgrade head
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
 
   web:
     build: ../web

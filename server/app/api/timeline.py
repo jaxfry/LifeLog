@@ -1,26 +1,40 @@
-from typing import Optional
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, or_, select
 
 from app.core.database import get_session
-from app.core.dependencies import get_current_user, Pagination
+from app.core.dependencies import Pagination, get_current_user
 from app.models.auth import User
 from app.models.processing import Session, TimelineEntry
 
 router = APIRouter()
 
 
+def _normalize_dt(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(UTC).replace(tzinfo=None)
+    return dt
+
+
 @router.get("/timeline")
 async def list_timeline_entries(
-    logical_date: Optional[str] = Query(None),
-    session_id: Optional[str] = Query(None),
-    category: Optional[str] = Query(None),
+    logical_date: str | None = Query(None),
+    session_id: str | None = Query(None),
+    category: str | None = Query(None),
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    q: str | None = None,
     pagination: Pagination = Depends(),
     current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_session),
 ):
+    start_date = _normalize_dt(start_date)
+    end_date = _normalize_dt(end_date)
+
     statement = select(TimelineEntry)
 
     if logical_date:
@@ -29,6 +43,18 @@ async def list_timeline_entries(
         statement = statement.where(TimelineEntry.session_id == session_id)
     if category:
         statement = statement.where(TimelineEntry.category == category)
+    if start_date:
+        statement = statement.where(TimelineEntry.start_time >= start_date)
+    if end_date:
+        statement = statement.where(TimelineEntry.end_time <= end_date)
+    if q:
+        statement = statement.where(
+            or_(
+                col(TimelineEntry.activity).ilike(f"%{q}%"),
+                col(TimelineEntry.notes).ilike(f"%{q}%"),
+                col(TimelineEntry.category).ilike(f"%{q}%"),
+            )
+        )
 
     statement = (
         statement

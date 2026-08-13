@@ -1,4 +1,4 @@
-from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "5.0"
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
-    LOG_FILE: Optional[str] = None
+    LOG_FILE: str | None = None
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://lifelog:lifelogpassword@localhost:5432/lifelog_db"
@@ -40,9 +40,13 @@ class Settings(BaseSettings):
     RATE_LIMIT_DEFAULT: str = "100/minute"
 
     # AI
-    HACK_CLUB_AI_API_KEY: Optional[str] = None
-    GEMINI_API_KEY: Optional[str] = None
+    OPENCODE_ZEN_API_KEY: str | None = None
+    OPENCODE_ZEN_BASE_URL: str = "https://opencode.ai/zen/v1"
+    OPENCODE_ZEN_MODEL: str = "deepseek-v4-flash-free"
+    HACK_CLUB_AI_API_KEY: str | None = None
+    GEMINI_API_KEY: str | None = None
     LITELLM_MODEL: str = "gemini/gemini-flash-latest"
+    TRANSCRIPTION_MODEL: str = "whisper-1"
     HACK_CLUB_AI_BASE_URL: str = "https://ai.hackclub.com/"
 
     # Ingestion
@@ -60,6 +64,13 @@ class Settings(BaseSettings):
     LLM_CACHE_ENABLED: bool = True
     LLM_CACHE_TTL_HOURS: int = 24
     LLM_CACHE_DIR: str = "storage/cache"
+
+    # Artifact intelligence
+    ARTIFACT_CHUNK_CHARS: int = 6000
+    ARTIFACT_CHUNK_OVERLAP_CHARS: int = 500
+    MEMORY_AUTO_ACCEPT_CONFIDENCE: float = 0.9
+    MAX_ARTIFACT_SIZE_MB: int = 1024
+    DEFAULT_REMINDER_LEAD_MINUTES: int = 1440
 
 
 settings = Settings()

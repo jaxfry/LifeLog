@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta, timezone
-from typing import List
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, col
+from sqlmodel import select
 
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -63,10 +62,10 @@ async def run_sessionizer(session: AsyncSession) -> int:
     return sessions_created
 
 
-def _group_into_sessions(events: List[Event]) -> List[List[Event]]:
+def _group_into_sessions(events: list[Event]) -> list[list[Event]]:
     gap_minutes = settings.SESSION_GAP_MINUTES
-    groups: List[List[Event]] = []
-    current: List[Event] = []
+    groups: list[list[Event]] = []
+    current: list[Event] = []
 
     for evt in events:
         if not current:

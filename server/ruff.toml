@@ -1,0 +1,49 @@
+# Ruff configuration for the LifeLog server.
+# See AGENTS.md for project conventions.
+target-version = "py312"
+line-length = 120
+
+# Alembic migrations/env are auto-generated; do not lint them.
+extend-exclude = ["alembic"]
+
+[lint]
+# E/F/W (pyflakes + pycodestyle) are the core set; I/UPC are import sorting.
+# The extended sets (B, DTZ) are mostly enabled but the codebase-specific
+# exceptions below are ignored per project conventions.
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "DTZ"]
+ignore = [
+    # FastAPI idiom: `Depends()` / `File()` / `Form()` in argument defaults
+    # is the documented project pattern (see AGENTS.md).
+    "B008",
+    # The codebase stores naive UTC datetimes by convention (AGENTS.md).
+    "DTZ001",
+    "DTZ005",
+    # Blind excepts are intentional resilience/graceful-degradation patterns
+    # (cache, health checks, provider fallbacks).
+    "BLE001",
+    "E722",
+    # Pre-existing blocking file IO in async paths (file/extensions upload);
+    # files are handled synchronously today by design.
+    "ASYNC230",
+    # `== True` / `== False` comparisons are the codebase-wide style
+    # (kept for SQLAlchemy boolean semantics consistency).
+    "E712",
+    # Import-before-module-level-constants ordering in conftest/devices.py
+    # is deliberate (env setup must precede app imports).
+    "E402",
+    # Raise-from inside exception handlers: codebase raises HTTPException
+    # without chaining by design (keeps client-facing detail messages clean).
+    "B904",
+    # Minor style nits tolerated across the codebase.
+    "RUF012",
+    "RUF015",
+    "SIM103",
+    "SIM105",
+    "SIM108",
+    "UP007",
+    "B006",
+    # Naive datetimes from strptime/utcnow in scripts & admin date parsing
+    # (consistent with the naive-UTC storage convention).
+    "DTZ003",
+    "DTZ007",
+]

@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, col
+from sqlmodel import select
 
 from app.core.logger import get_logger
 from app.models.ingest import Event

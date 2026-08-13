@@ -1,4 +1,5 @@
 import sys
+import re
 import requests
 import click
 from core.config import config_manager
@@ -42,9 +43,14 @@ def install():
         token = auth_response.json()["access_token"]
         
         # 2. Register Device
+        device_id = re.sub(r"[^a-z0-9-]", "-", device_name.lower())
+        device_id = re.sub(r"-+", "-", device_id).strip("-")
+        if not device_id:
+            device_id = "lifelog-device"
         payload = {
+            "id": device_id,
             "name": device_name,
-            "type": device_type
+            "device_type": device_type
         }
         headers = {"Authorization": f"Bearer {token}"}
         
@@ -57,7 +63,7 @@ def install():
         response.raise_for_status()
         data = response.json()
         
-        device_id = data["device_id"]
+        device_id = data["id"]
         api_key = data["api_key"]
         
         config_manager.save_config(

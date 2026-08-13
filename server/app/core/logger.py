@@ -1,9 +1,8 @@
 import logging
 import sys
-from typing import Optional
 
 
-def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None):
+def setup_logging(log_level: str = "INFO", log_file: str | None = None):
     handlers = [logging.StreamHandler(sys.stdout)]
 
     if log_file:
