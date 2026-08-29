@@ -58,7 +58,8 @@ async def list_resources(
     return result.scalars().all()
 ```
 - Always use `get_session` for DB sessions (from `app.core.database`)
-- Use `get_current_user` for protected endpoints, `verify_device` for device-auth
+- Use `get_current_user` for protected endpoints, `verify_device` for device-auth,
+  and `get_capture_actor` for endpoints intentionally accepting either auth mode
 - Rate limit with `@limiter.limit("N/minute")` — requires `request: Request` param
 - Exceptions: `raise HTTPException(status_code=status.HTTP_4XX, detail="message")`
 
@@ -97,6 +98,53 @@ class Model(SQLModel, table=True):
 
 ## Architecture
 
+### Product Model: Capabilities, Sources, and Life Areas
+
+The normative product model is [`docs/PRODUCT_MODEL.md`](docs/PRODUCT_MODEL.md).
+Design from the end-user experience inward. LifeLog is one application, one
+assistant, and one provenance-backed memory—not a collection of domain silos.
+
+- **Capabilities** are reusable base features such as photo capture, document
+  scanning, audio recording, OCR, transcription, retrieval, planning, and
+  notifications. Do not reimplement them in domain extensions.
+- **Sources** are narrow adapters for systems such as Canvas, ActivityWatch,
+  calendars, folders, or health providers. They own source authentication,
+  acquisition, cursors, and proprietary normalization only.
+- **Life Areas** are user-facing lenses and workflows such as School, Work, or
+  Health. They organize shared memory through context and may provide views,
+  vocabulary, cards, policies, and scoped assistant entry points. They never
+  own separate timelines, graphs, artifact stores, or assistants.
+
+Required design rules:
+
+1. Capture first and classify progressively; never make users understand Events,
+   predicates, or extensions to save a photo, recording, note, or file.
+2. Prefer source-specific adapters (`com.lifelog.canvas`) over broad domain
+   connectors (`com.lifelog.school`) that attempt to own an entire experience.
+3. A memory may belong to multiple contexts without copying it. Scoped views
+   affect retrieval/presentation and must enforce privacy, not fragment truth.
+4. Put a feature in the base when it repeats across life domains. Keep only
+   proprietary acquisition and normalization in source adapters.
+5. Preserve evidence, expose consequential ambiguity in one user-facing Inbox,
+   and make important memories inspectable and correctable.
+6. Use deterministic base services for calculations and actions. AI may select,
+   explain, and synthesize them but should not approximate totals or state
+   changes from a limited prompt window.
+
+Before adding an “extension” feature, classify it explicitly as a Capability,
+Source, or Life Area concern. If it mixes categories, split the responsibilities
+before implementation.
+
+### Intelligence Layer
+
+The normative assistant and future background-intelligence design is
+[`docs/INTELLIGENCE_LAYER.md`](docs/INTELLIGENCE_LAYER.md). The current agent is
+interactive and read-only: it uses bounded typed tools, owner-scoped LifeLog
+memory, and evidence citations. It must not use a fixed recency dump, generic
+agent memory, raw SQL, shell access, or implicit state changes. Background
+autonomy is deliberately deferred; late data is handled by deterministic,
+batched reconciliation before any future information-delta-gated model run.
+
 ### Layer Structure
 ```
 api/        → Thin route handlers, validation (Pydantic models inline)
@@ -123,6 +171,13 @@ loader/     → Extension loading/running
 | `config.py` | Extension, SystemConfig, Prompt |
 | `accounting.py` | AIUsage |
 | `files.py` | FileAttachment |
+| `kernel.py` | Entity, EntityAlias, Relation |
+| `retrieval.py` | SearchDocument, ProcessingFailure |
+| `sources.py` | SourceConnection, SourceSecret, SourceCheckpoint, SourceRecord |
+| `captures.py` | Capture, CaptureArtifact, UploadSession, ProcessingJob |
+| `evidence.py` | EvidenceDocument, EvidenceSpan |
+| `claims.py` | EntityMention, MemoryClaim, ClaimEvidence, FactEvidence, EntityResolutionDecision |
+| `intelligence.py` | DerivationRun, DerivationAttempt, DirtyScope, MemorySummary |
 
 DO NOT import from `app.models.data` — that file is deleted.
 
@@ -137,13 +192,36 @@ DO NOT import from `app.models.data` — that file is deleted.
 | `ai.py` | LiteLLM wrapper, caching, token counting |
 | `prompts.py` | Prompt template management |
 | `cache.py` | LLM response cache |
+| `artifacts.py` | OCR/transcription chunking and evidence-grounded memory proposals |
+| `kernel.py` | Entity/relation identity, history, traversal, and supersession |
+| `extension_runtime.py` | Connection-aware polling, durable checkpoints, and schedules |
+| `source_secrets.py` | Encrypt/decrypt per-connection credentials |
+| `jobs.py` | Versioned processing stages and progressive capture state |
+| `uploads.py` | Expiration and cleanup for resumable capture uploads |
+| `commitment_reconciliation.py` | Manifest commitment mappings and consequential source revision handling |
+| `extraction.py` | Deterministic and manifest-declared Event fact extraction |
+| `retrieval.py` | Unified lexical/semantic recall and graph-aware context |
+| `commitments.py` | Commitment lifecycle helpers |
+| `planning.py` | Deterministic commitment planning |
+| `evidence.py` | Versioned evidence documents/spans and compatibility chunk lineage |
+| `grounding.py` | Exact/fuzzy evidence alignment and grounding quality |
+| `claims.py` | Grounded mention/claim persistence and search projection |
+| `ontology.py` | Bounded core ontology and compatible manifest contributions |
+| `entity_resolution.py` | Conservative owner-scoped mention resolution and decisions |
+| `reconciliation.py` | Claim corroboration, conflict, fact support, and review |
+| `derivations.py` | Idempotent derived runs and append-only attempt history |
+| `dirty_scopes.py` | Coalesced bounded reconciliation invalidation |
+| `model_router.py` | Capability/role-based model deployment routing |
+| `query_planning.py` | Typed deterministic assistant query plans |
+| `intelligence.py` | Bounded read-only Pydantic AI assistant harness |
+| `tools.py` | Owner/policy-scoped deterministic assistant tools |
 
 ### Core (app/core/)
 | File | Responsibility |
 |---|---|
 | `config.py` | `Settings` class via pydantic-settings |
 | `database.py` | Engine, `async_session_factory`, `get_session`, `init_db`/`close_db` |
-| `dependencies.py` | `get_current_user`, `get_current_superuser`, `verify_device`, `Pagination` |
+| `dependencies.py` | User/device/capture actor authentication and `Pagination` |
 | `security.py` | Password hashing, JWT create/decode, API key hashing |
 | `logger.py` | `setup_logging()` / `get_logger()` |
 | `rate_limit.py` | `limiter` (slowapi) |

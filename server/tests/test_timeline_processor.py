@@ -1,5 +1,5 @@
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlmodel import select
@@ -109,3 +109,61 @@ async def test_generate_timeline_no_events_completes_session(session):
     # No events linked -> no Event rows exist at all in this test
     result = await session.execute(select(Event))
     assert len(result.scalars().all()) == 0
+
+
+@pytest.mark.asyncio
+async def test_generate_timeline_formats_event_in_source_timezone(session):
+    raw_log = RawLog(
+        device_id="vancouver-device",
+        extension_id="com.lifelog.aw",
+        payload={"data": "test"},
+        payload_hash="hash_timeline_timezone",
+        client_timezone="America/Vancouver",
+    )
+    session.add(raw_log)
+    db_session = Session(
+        start_time=datetime(2026, 8, 12, 16, 0),
+        end_time=datetime(2026, 8, 12, 16, 5),
+        status="pending",
+    )
+    session.add(db_session)
+    await session.flush()
+    session.add(
+        Event(
+            source_log_id=raw_log.id,
+            session_id=db_session.id,
+            event_type="app_usage",
+            start_time=datetime(2026, 8, 12, 16, 0),
+            end_time=datetime(2026, 8, 12, 16, 5),
+            data={"app": "Goodnotes", "title": "Calculus 12"},
+        )
+    )
+    await session.commit()
+    completion = AsyncMock(return_value="Studied calculus in the morning")
+
+    with patch("app.services.timeline.call_llm", completion):
+        await generate_timeline_for_session(session, db_session)
+
+    assert "[09:00-09:05]" in completion.await_args.kwargs["user_prompt"]
+
+
+@pytest.mark.asyncio
+async def test_generate_timeline_persists_structured_evidence(session):
+    db_session = await _create_session_with_event(session)
+    completion = AsyncMock(
+        return_value='{"title":"Coding session","summary":"Edited LifeLog in VS Code.",'
+        '"category":"work","tags":["lifelog"],"evidence_refs":["E1"],'
+        '"confidence":0.94,"inferences":[],"concepts":[]}'
+    )
+
+    with patch("app.services.timeline.call_llm", completion):
+        entry = await generate_timeline_for_session(session, db_session)
+
+    assert entry is not None
+    assert entry.activity == "Coding session"
+    assert entry.notes == "Edited LifeLog in VS Code."
+    assert entry.category == "work"
+    assert entry.tags == ["lifelog"]
+    assert len(entry.evidence_event_ids) == 1
+    assert entry.confidence == pytest.approx(0.94)
+    assert completion.await_args.kwargs["response_format"] == {"type": "json_object"}

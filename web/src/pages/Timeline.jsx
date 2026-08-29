@@ -200,6 +200,21 @@ const Timeline = () => {
                     {viewMode === 'chapters' ? item.summary : item.notes}
                   </p>
 
+                  {viewMode === 'detailed' && (item.category || item.tags?.length > 0) && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {item.category && (
+                        <span className="px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs capitalize">
+                          {item.category.replace('_', ' ')}
+                        </span>
+                      )}
+                      {item.tags?.map((tag) => (
+                        <span key={tag} className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                     <span className="flex items-center gap-1">
                       <Calendar size={14} />
@@ -210,7 +225,18 @@ const Timeline = () => {
                         → {formatDateTime(item.end_time, item.timezone)}
                       </span>
                     )}
+                    {viewMode === 'detailed' && item.evidence_event_ids?.length > 0 && (
+                      <span>{item.evidence_event_ids.length} evidence groups</span>
+                    )}
+                    {viewMode === 'detailed' && item.confidence != null && (
+                      <span>{Math.round(item.confidence * 100)}% confidence</span>
+                    )}
                   </div>
+                  {viewMode === 'detailed' && item.inferences?.length > 0 && (
+                    <p className="mt-3 text-sm text-purple-700">
+                      Possible interpretation: {item.inferences.join(' ')}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

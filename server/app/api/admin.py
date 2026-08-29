@@ -119,7 +119,12 @@ async def trigger_summary(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
-    summary = await generate_daily_summary(db_session, logical_date, force=force)
+    summary = await generate_daily_summary(
+        db_session,
+        logical_date,
+        owner_user_id=current_user.id,
+        force=force,
+    )
     return summary
 
 

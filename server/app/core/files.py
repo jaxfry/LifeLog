@@ -1,5 +1,6 @@
 import hashlib
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from fastapi import UploadFile
@@ -80,6 +81,7 @@ async def save_file(file: UploadFile) -> tuple[str, int, str]:
 async def create_attachment(
     session: AsyncSession,
     file: UploadFile,
+    owner_user_id: UUID,
     filename: str | None = None,
     mime_type: str | None = None,
     category: str | None = None,
@@ -88,6 +90,7 @@ async def create_attachment(
     timeline_id: UUID | None = None,
     description: str | None = None,
     source_extension_id: str | None = None,
+    user_metadata: dict[str, Any] | None = None,
 ) -> FileAttachment:
     """
     High-level function to handle upload and DB record creation.
@@ -109,6 +112,7 @@ async def create_attachment(
     technical_metadata = await extract_metadata(full_path, final_mime_type)
 
     attachment = FileAttachment(
+        owner_user_id=owner_user_id,
         filename=filename or file.filename or "unknown",
         mime_type=final_mime_type,
         size_bytes=size_bytes,
@@ -120,7 +124,8 @@ async def create_attachment(
         timeline_id=timeline_id,
         description=description,
         source_extension_id=source_extension_id,
-        technical_metadata=technical_metadata
+        technical_metadata=technical_metadata,
+        user_metadata=user_metadata or {},
     )
 
     session.add(attachment)

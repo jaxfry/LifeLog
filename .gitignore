@@ -270,3 +270,6 @@ state.json
 # Ensure Python bytecode is ignored
 *.pyc
 __pycache__/
+
+# Sample captured drafts (not source)
+ios/collected/

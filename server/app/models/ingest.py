@@ -18,13 +18,31 @@ class RawLog(SQLModel, table=True):
     __tablename__ = "raw_logs"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_user_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    ingest_key: str = Field(
+        default_factory=lambda: uuid.uuid4().hex,
+        unique=True,
+        index=True,
+        nullable=False,
+    )
     device_id: str = Field(index=True, nullable=False)
     extension_id: str = Field(index=True, nullable=False)
+    source_connection_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="source_connections.id",
+        index=True,
+    )
+    source_record_id: uuid.UUID | None = Field(default=None, foreign_key="source_records.id", index=True)
+    external_key: str | None = Field(default=None, index=True)
+    external_revision: str | None = None
+    source_updated_at: datetime | None = None
+    update_policy: str = Field(default="append", nullable=False)
     payload: dict[str, Any] = Field(default=None, sa_column=Column(JSONB))
     client_timestamp: datetime | None = None
     client_timezone: str | None = None
     logical_date: str | None = Field(default=None, index=True)
-    payload_hash: str = Field(index=True, unique=True, nullable=False)
+    payload_hash: str = Field(index=True, nullable=False)
+    semantic_key: str | None = Field(default=None, index=True)
     received_at: datetime = Field(default_factory=_utcnow, nullable=False)
     processing_status: str = Field(default="pending")
 
@@ -33,6 +51,7 @@ class Event(SQLModel, table=True):
     __tablename__ = "events"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_user_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", index=True)
     source_log_id: uuid.UUID = Field(
         foreign_key="raw_logs.id", nullable=False, index=True
     )

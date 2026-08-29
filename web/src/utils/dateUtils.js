@@ -6,11 +6,22 @@ export const formatDate = (date, formatStr = 'PPP') => {
   
   // Handle naive UTC strings from server by treating them as UTC
   if (typeof date === 'string') {
+    // A logical date is a calendar value, not an instant. Keep it at local
+    // midnight so users west of UTC do not see the previous day.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      parsedDate = parseISO(date);
+    }
     // Check if it has a timezone offset (Z, +HH:mm, -HH:mm, +HHmm, -HHmm)
     const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(date);
-    if (!hasTimezone) {
+    if (!hasTimezone && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       parsedDate = parseISO(date + 'Z');
     }
+  }
+
+  // API data can be incomplete while a record is being processed. date-fns
+  // throws for Invalid Date, which should never take down an entire page.
+  if (!(parsedDate instanceof Date) || Number.isNaN(parsedDate.getTime())) {
+    return '';
   }
   
   return format(parsedDate, formatStr);

@@ -36,7 +36,7 @@ async def test_device_registration_and_listing(mock_superuser, async_client: Asy
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_read_apis_empty(async_client: AsyncClient):
+async def test_read_apis_empty(async_client: AsyncClient, mock_user):
     # Get logs (might be empty or have data from other tests, just check status)
     response = await async_client.get("/api/v1/logs")
     assert response.status_code == 200

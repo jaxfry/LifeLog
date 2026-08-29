@@ -54,7 +54,7 @@ class DevicePublic(BaseModel):
 async def register_device(
     device_data: DeviceCreate,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(get_current_superuser),
+    current_user: User = Depends(get_current_superuser),
 ):
     existing = await session.get(Device, device_data.id)
     if existing:
@@ -68,6 +68,7 @@ async def register_device(
 
     device = Device(
         id=device_data.id,
+        user_id=current_user.id,
         name=device_data.name,
         device_type=device_data.device_type,
         api_key_hash=api_key_hash,

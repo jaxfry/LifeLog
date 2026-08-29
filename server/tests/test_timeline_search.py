@@ -17,6 +17,7 @@ async def test_timeline_search(async_client, session, mock_user):
 
     t1 = TimelineEntry(
         id=uuid4(),
+        owner_user_id=mock_user.id,
         start_time=n,
         end_time=n + timedelta(hours=1),
         activity="Gym workout",
@@ -25,6 +26,7 @@ async def test_timeline_search(async_client, session, mock_user):
     )
     t2 = TimelineEntry(
         id=uuid4(),
+        owner_user_id=mock_user.id,
         start_time=n - timedelta(hours=2),
         end_time=n - timedelta(hours=1),
         activity="Coding",
@@ -33,6 +35,7 @@ async def test_timeline_search(async_client, session, mock_user):
     )
     t3 = TimelineEntry(
         id=uuid4(),
+        owner_user_id=mock_user.id,
         start_time=n - timedelta(hours=4),
         end_time=n - timedelta(hours=3),
         activity="Reading",

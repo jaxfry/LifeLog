@@ -4,6 +4,12 @@ LifeLog extensions are source adapters. They connect LifeLog to a particular
 system, device, service, or capture workflow. They do not own durable memory or
 general intelligence infrastructure.
 
+This contract describes the **Source** part of LifeLog's product model. Base
+**Capabilities** and user-facing **Life Areas** are separate concepts; see
+[PRODUCT_MODEL.md](PRODUCT_MODEL.md). Prefer source-specific adapters such as
+Canvas or a folder watcher over a broad extension that attempts to own the
+entire School experience.
+
 ## Responsibility boundary
 
 | Concern | LifeLog base | Extension |
@@ -31,11 +37,38 @@ An extension manifest declares a subset of:
 Extensions declare `network`, `filesystem`, or `notifications` permissions.
 Unknown API versions and malformed IDs are rejected by the manifest contract.
 
-Collectors may include `scheduler_cron` and a `poller.py` exposing sync or async
-`poll(config) -> list[dict]`. The base schedules it, deduplicates returned
-envelopes, normalizes them, indexes them, and records durable failures. Pollers
+Collectors may provide a default `scheduler_cron` and a `poller.py` exposing
+sync or async `poll(runtime) -> PollResult`. Each user creates a separate
+`SourceConnection` with its own schedule, public config, encrypted secrets, and
+durable stream checkpoint. The runtime object has this shape:
+
+```json
+{
+  "connection_id": "uuid",
+  "config": {"base_url": "https://school.example"},
+  "secrets": {"access_token": "available only during invocation"},
+  "checkpoint": {"updated_after": "opaque source cursor"}
+}
+```
+
+Return records as typed envelopes with `payload` and, whenever the source
+supports them, `external_key`, `external_revision`, `source_updated_at`, and an
+`update_policy` of `append`, `replace`, or `snapshot`. Return the next checkpoint
+only for data represented by that page. LifeLog advances it after all returned
+records are durably ingested and processed, so replay is safe. Legacy list
+returns are supported as append-only records without checkpointing.
+
+The base owns connection scheduling, manual sync queuing, idempotency,
+revision reconciliation, normalization, indexing, and durable failures. Pollers
 are trusted installed code; manifest permissions are an auditable declaration,
 not an operating-system sandbox.
+
+For stable actionable fields, a manifest may also declare
+`commitment_mappings` with `event_type`, `title_path`, optional due/not-before/
+description paths, and confidence. The base owns revisions: when the same
+external record changes a deadline or other consequential field, LifeLog
+supersedes the old commitment, cancels stale reminders/plans, and asks the user
+to review the replacement.
 
 ## Deterministic fact mappings
 

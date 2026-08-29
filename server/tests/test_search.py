@@ -16,6 +16,7 @@ def _now():
 async def test_search_endpoint(async_client: AsyncClient, session, mock_superuser, mock_user):
     # Create a timeline entry with a specific keyword
     t1 = TimelineEntry(
+        owner_user_id=mock_user.id,
         start_time=_now(),
         end_time=_now(),
         activity="Coding in Python",
@@ -29,6 +30,7 @@ async def test_search_endpoint(async_client: AsyncClient, session, mock_superuse
     from app.models.files import FileAttachment
 
     f1 = FileAttachment(
+        owner_user_id=mock_user.id,
         filename="project-notes.txt",
         stored_path="ab/cd/hash123",
         mime_type="text/plain",
@@ -72,8 +74,12 @@ async def test_search_reports_actual_mode_and_graph_fact_shape(
     session,
     mock_user,
 ):
-    course = await create_entity(session, "course", "CS 101")
-    assignment = await create_entity(session, "assignment", "Graph Essay")
+    course = await create_entity(
+        session, "course", "CS 101", owner_user_id=mock_user.id
+    )
+    assignment = await create_entity(
+        session, "assignment", "Graph Essay", owner_user_id=mock_user.id
+    )
     await create_relation(
         session,
         subject_id=assignment.id,

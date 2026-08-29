@@ -23,6 +23,21 @@ class ProposalReview(BaseModel):
     decision: Literal["accept", "reject"]
 
 
+async def _owned_attachment(
+    session: AsyncSession,
+    file_id: UUID,
+    owner_user_id: UUID,
+) -> FileAttachment | None:
+    """Return an attachment only when the authenticated user owns its evidence."""
+    return (
+        await session.execute(
+            select(FileAttachment)
+            .where(FileAttachment.id == file_id)
+            .where(FileAttachment.owner_user_id == owner_user_id)
+        )
+    ).scalar_one_or_none()
+
+
 async def _enqueue_artifact(request: Request, attachment: FileAttachment) -> None:
     arq_pool = getattr(request.app.state, "arq_pool", None)
     if arq_pool is not None:
@@ -47,6 +62,7 @@ async def upload_file(
         attachment = await create_attachment(
             session=db_session,
             file=file,
+            owner_user_id=current_user.id,
             category=category,
             tags=tag_list,
             description=description,
@@ -75,10 +91,13 @@ async def device_upload_file(
     device: Device = Depends(verify_device),
 ) -> FileAttachment:
     """Device-authenticated capture path for `artifact_source` extensions."""
+    if device.user_id is None:
+        raise HTTPException(status_code=403, detail="Device is not assigned to a user")
     try:
         attachment = await create_attachment(
             session=db_session,
             file=file,
+            owner_user_id=device.user_id,
             category=category,
             tags=[tag.strip() for tag in tags.split(",")] if tags else [],
             description=description,
@@ -98,7 +117,7 @@ async def get_file_metadata(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> FileAttachment:
-    attachment = await db_session.get(FileAttachment, file_id)
+    attachment = await _owned_attachment(db_session, file_id, current_user.id)
     if not attachment:
         raise HTTPException(status_code=404, detail="File not found")
     return attachment
@@ -110,7 +129,7 @@ async def download_file(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> FileResponse:
-    attachment = await db_session.get(FileAttachment, file_id)
+    attachment = await _owned_attachment(db_session, file_id, current_user.id)
     if not attachment:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -133,7 +152,11 @@ async def list_files(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[FileAttachment]:
-    stmt = select(FileAttachment).order_by(col(FileAttachment.created_at).desc())
+    stmt = (
+        select(FileAttachment)
+        .where(FileAttachment.owner_user_id == current_user.id)
+        .order_by(col(FileAttachment.created_at).desc())
+    )
 
     if category:
         stmt = stmt.where(FileAttachment.category == category)
@@ -157,7 +180,7 @@ async def process_file(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> FileAttachment:
-    if await db_session.get(FileAttachment, file_id) is None:
+    if await _owned_attachment(db_session, file_id, current_user.id) is None:
         raise HTTPException(status_code=404, detail="File not found")
     try:
         attachment = await process_artifact(db_session, file_id, force=force)
@@ -165,6 +188,7 @@ async def process_file(
         await db_session.refresh(attachment)
         return attachment
     except ValueError as exc:
+        await db_session.commit()
         raise HTTPException(status_code=409, detail=str(exc))
     except RuntimeError as exc:
         await db_session.commit()
@@ -177,7 +201,7 @@ async def get_file_content(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[ContentChunk]:
-    if await db_session.get(FileAttachment, file_id) is None:
+    if await _owned_attachment(db_session, file_id, current_user.id) is None:
         raise HTTPException(status_code=404, detail="File not found")
     chunks = (
         await db_session.execute(
@@ -196,6 +220,8 @@ async def get_file_memory_proposals(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[MemoryProposal]:
+    if await _owned_attachment(db_session, file_id, current_user.id) is None:
+        raise HTTPException(status_code=404, detail="File not found")
     return (
         await db_session.execute(
             select(MemoryProposal)
@@ -212,6 +238,11 @@ async def review_proposal(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> MemoryProposal:
+    proposal = await db_session.get(MemoryProposal, proposal_id)
+    if proposal is None or await _owned_attachment(
+        db_session, proposal.file_id, current_user.id
+    ) is None:
+        raise HTTPException(status_code=404, detail="Memory proposal not found")
     try:
         proposal = await review_memory_proposal(db_session, proposal_id, body.decision)
         await db_session.commit()

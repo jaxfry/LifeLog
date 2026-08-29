@@ -17,6 +17,7 @@ class FileAttachment(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    owner_user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
 
     filename: str = Field(nullable=False)
     stored_path: str = Field(nullable=False)
@@ -114,6 +115,7 @@ class Commitment(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    owner_user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
     title: str = Field(nullable=False, index=True)
     description: str | None = None
     status: str = Field(default="suggested", nullable=False, index=True)
@@ -124,6 +126,9 @@ class Commitment(SQLModel, table=True):
     source_file_id: UUID | None = Field(default=None, foreign_key="file_attachments.id", index=True)
     source_chunk_id: UUID | None = Field(default=None, foreign_key="content_chunks.id")
     source_event_id: UUID | None = Field(default=None, foreign_key="events.id")
+    source_record_id: UUID | None = Field(default=None, foreign_key="source_records.id", index=True)
+    mapping_key: str | None = Field(default=None, index=True)
+    superseded_by: UUID | None = Field(default=None, foreign_key="commitments.id", index=True)
     data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
@@ -141,6 +146,7 @@ class Notification(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    owner_user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
     commitment_id: UUID | None = Field(default=None, foreign_key="commitments.id", index=True)
     channel: str = Field(default="in_app", nullable=False)
     title: str = Field(nullable=False)
@@ -162,6 +168,7 @@ class CommitmentProgress(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    owner_user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
     commitment_id: UUID = Field(foreign_key="commitments.id", nullable=False, index=True)
     event_id: UUID | None = Field(default=None, foreign_key="events.id", index=True)
     amount: float = Field(default=1.0)
@@ -185,6 +192,7 @@ class PlanBlock(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    owner_user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
     commitment_id: UUID = Field(foreign_key="commitments.id", nullable=False, index=True)
     start_at: datetime = Field(nullable=False, index=True)
     end_at: datetime = Field(nullable=False, index=True)

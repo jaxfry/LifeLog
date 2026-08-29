@@ -16,11 +16,17 @@ from alembic import context
 from app.models import (
     accounting,  # noqa
     auth,  # noqa
-    config,
+    captures,  # noqa
+    claims,  # noqa
+    config as config_models,  # noqa: F401
+    context as context_models,  # noqa: F401
+    evidence,  # noqa
     files,  # noqa
     ingest,  # noqa
+    intelligence,  # noqa
     kernel,  # noqa
     processing,  # noqa
+    sources,  # noqa
 )
 
 config = context.config
@@ -35,6 +41,18 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = SQLModel.metadata
+_MIGRATION_MANAGED_INDEXES = {
+    "ix_content_chunks_search",
+    "ix_search_documents_embedding_hnsw",
+    "ix_search_documents_fts",
+}
+
+
+def include_object(object_, name, type_, reflected, compare_to):
+    """Keep Alembic from proposing removal of intentional expression indexes."""
+    if type_ == "index" and reflected and name in _MIGRATION_MANAGED_INDEXES:
+        return False
+    return True
 
 
 def run_migrations_offline():
@@ -44,13 +62,18 @@ def run_migrations_offline():
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def do_run_migrations(connection: Connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

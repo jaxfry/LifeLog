@@ -4,7 +4,6 @@ import os
 import json
 import sys
 from datetime import datetime, timezone, timedelta
-from processor import normalize as normalize_events
 
 # Configuration from Environment Variables
 API_KEY = os.environ.get("LIFELOG_API_KEY")
@@ -135,10 +134,9 @@ def main():
             time_since_flush = time.time() - last_flush_time
             if len(event_buffer) >= 50 or time_since_flush > 30:
                 if event_buffer:
-                    normalized = normalize_events(event_buffer)
-                    output = {"events": normalized}
+                    output = {"events": event_buffer, "format": "activitywatch.raw.v1"}
                     print(json.dumps(output), flush=True)
-                    print(f"Flushed {len(event_buffer)} raw -> {len(normalized)} events.", file=sys.stderr)
+                    print(f"Flushed {len(event_buffer)} raw events.", file=sys.stderr)
                     event_buffer = []
                 
                 # Save state (checkpoint)

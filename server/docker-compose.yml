@@ -23,6 +23,7 @@ services:
   server:
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: ../.env
     volumes:
       - .:/app
       - ./storage:/app/storage
@@ -36,12 +37,11 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
       REDIS_URL: redis://redis:6379
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      HACK_CLUB_AI_API_KEY: ${HACK_CLUB_AI_API_KEY}
 
   worker:
     build: .
     command: arq app.workers.main.WorkerSettings --watch /app
+    env_file: ../.env
     volumes:
       - .:/app
       - ./storage:/app/storage
@@ -53,8 +53,6 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://lifelog:lifelogpassword@db:5432/lifelog_db
       REDIS_URL: redis://redis:6379
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      HACK_CLUB_AI_API_KEY: ${HACK_CLUB_AI_API_KEY}
 
   migrate:
     build: .

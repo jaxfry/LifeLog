@@ -48,24 +48,27 @@ async def test_run_processing_pipeline_creates_sessions(session):
 
 
 @pytest.mark.asyncio
-async def test_get_sessions_ready_for_ai(session):
+async def test_get_sessions_ready_for_ai(session, mock_user):
     s1 = Session(
         start_time=datetime(2024, 6, 1, 10, 0, 0),
         end_time=datetime(2024, 6, 1, 11, 0, 0),
         status="pending",
         processing_status="ready",
+        owner_user_id=mock_user.id,
     )
     s2 = Session(
         start_time=datetime(2024, 6, 1, 14, 0, 0),
         end_time=datetime(2024, 6, 1, 15, 0, 0),
         status="pending",
         processing_status="ready",
+        owner_user_id=mock_user.id,
     )
     s3 = Session(
         start_time=datetime(2024, 6, 1, 20, 0, 0),
         end_time=datetime(2024, 6, 1, 21, 0, 0),
         status="completed",
         processing_status="completed",
+        owner_user_id=mock_user.id,
     )
     session.add(s1)
     session.add(s2)
@@ -79,13 +82,14 @@ async def test_get_sessions_ready_for_ai(session):
 
 
 @pytest.mark.asyncio
-async def test_get_sessions_ready_for_ai_respects_limit(session):
+async def test_get_sessions_ready_for_ai_respects_limit(session, mock_user):
     sessions = [
         Session(
             start_time=datetime(2024, 6, 1, 10 + i, 0, 0),
             end_time=datetime(2024, 6, 1, 11 + i, 0, 0),
             status="pending",
             processing_status="ready",
+            owner_user_id=mock_user.id,
         )
         for i in range(5)
     ]

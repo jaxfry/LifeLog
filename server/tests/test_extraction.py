@@ -5,11 +5,30 @@ from unittest.mock import patch
 import pytest
 from sqlmodel import select
 
+from app.models.auth import Device, User
+from app.models.claims import ClaimEvidence, FactEvidence, MemoryClaim
 from app.models.config import Extension
 from app.models.ingest import Event, RawLog
-from app.models.kernel import Entity, Relation
+from app.models.kernel import Entity, Measurement, Relation
 from app.services.extraction import backfill_event_facts, extract_event_facts
 from app.workers.process import process_log
+
+
+@pytest.fixture(autouse=True)
+async def extraction_device_owner(session):
+    owner = User(username=f"extraction-{uuid.uuid4().hex[:8]}", hashed_password="x")
+    session.add(owner)
+    await session.flush()
+    session.add(
+        Device(
+            id="test_dev",
+            user_id=owner.id,
+            name="Extraction test device",
+            api_key_hash="x",
+        )
+    )
+    await session.commit()
+    return owner
 
 
 async def _make_event(
@@ -79,6 +98,11 @@ async def test_app_usage_extracts_facts(session):
     assert relation.data["source_log_id"] == str(event.source_log_id)
     assert relation.occurred_from == event.start_time
     assert relation.occurred_until is None
+    claim = (await session.execute(select(MemoryClaim))).scalars().one()
+    assert claim.reconciliation_status == "accepted"
+    assert claim.canonical_target_id == relation.id
+    assert (await session.execute(select(ClaimEvidence))).scalars().one().event_id == event.id
+    assert (await session.execute(select(FactEvidence))).scalars().one().claim_id == claim.id
 
 
 @pytest.mark.asyncio
@@ -388,3 +412,264 @@ async def test_memory_backfill_marks_events_that_produce_no_facts(session):
     assert second["events_processed"] == 0
     await session.refresh(event)
     assert event.memory_extraction_version == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_entity_mapping_resolves_identity_aliases_and_metadata(session):
+    session.add(
+        Extension(
+            id="com.lifelog.school",
+            version="1.1.0",
+            config={
+                "id": "com.lifelog.school",
+                "version": "1.1.0",
+                "entity_mappings": [
+                    {
+                        "event_type": "course_enrollment",
+                        "entity_ref": "course",
+                        "entity_type": "course",
+                        "name_path": "course.name",
+                        "identity_path": "course.external_id",
+                        "aliases_path": "course.aliases",
+                        "metadata_paths": {"code": "course.code", "term": "course.term"},
+                    }
+                ],
+            },
+        )
+    )
+    await session.commit()
+    event = await _make_event(
+        session,
+        "course_enrollment",
+        {
+            "course": {
+                "name": "Linear Algebra",
+                "external_id": "canvas:course:42",
+                "code": "MATH 210",
+                "term": "Spring 2026",
+                "aliases": ["LA", "MATH210"],
+            }
+        },
+        extension_id="com.lifelog.school",
+    )
+
+    assert await extract_event_facts(session, event) == (1, 0)
+    entity = await _entity_for(session, "course")
+    assert entity is not None
+    assert entity.name == "Linear Algebra"
+    assert entity.data["external_identity"] == "canvas:course:42"
+    assert entity.data["metadata"] == {"code": "MATH 210", "term": "Spring 2026"}
+    assert set(entity.data["aliases"]) == {"LA", "MATH210"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_relation_mapping_projects_entity_to_entity_relations(session):
+    session.add(
+        Extension(
+            id="com.lifelog.school",
+            version="1.2.0",
+            config={
+                "id": "com.lifelog.school",
+                "version": "1.2.0",
+                "entity_mappings": [
+                    {
+                        "event_type": "assignment",
+                        "entity_ref": "assignment",
+                        "entity_type": "assignment",
+                        "name_path": "title",
+                    },
+                    {
+                        "event_type": "assignment",
+                        "entity_ref": "course",
+                        "entity_type": "course",
+                        "name_path": "course.name",
+                    },
+                ],
+                "relation_mappings": [
+                    {
+                        "event_type": "assignment",
+                        "subject": "entity",
+                        "subject_entity_ref": "assignment",
+                        "predicate": "for_course",
+                        "object": "entity",
+                        "object_entity_ref": "course",
+                    },
+                    {
+                        "event_type": "assignment",
+                        "subject": "record",
+                        "predicate": "is_assignment",
+                        "object": "entity",
+                        "object_entity_ref": "assignment",
+                    },
+                ],
+            },
+        )
+    )
+    await session.commit()
+    event = await _make_event(
+        session,
+        "assignment",
+        {"title": "Essay 1", "course": {"name": "CS 101"}},
+        extension_id="com.lifelog.school",
+    )
+
+    entities, relations = await extract_event_facts(session, event)
+    assert entities == 2
+    assert relations == 2
+
+    result = await session.execute(select(Relation).where(Relation.source_event_id == event.id))
+    stored = list(result.scalars().all())
+    entity_subject = [r for r in stored if r.subject_type == "entity"]
+    event_subject = [r for r in stored if r.subject_type == "event"]
+    assert len(entity_subject) == 1
+    assert entity_subject[0].predicate == "for_course"
+    assert entity_subject[0].object_type == "entity"
+    assert entity_subject[0].extractor == "manifest:com.lifelog.school:relation:0"
+    assert len(event_subject) == 1
+    assert event_subject[0].predicate == "is_assignment"
+
+    assert await extract_event_facts(session, event) == (0, 0)
+    assert len((await session.execute(select(Relation))).scalars().all()) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_measurement_mapping_writes_numeric_facts(session):
+    session.add(
+        Extension(
+            id="com.lifelog.school",
+            version="1.3.0",
+            config={
+                "id": "com.lifelog.school",
+                "version": "1.3.0",
+                "entity_mappings": [
+                    {
+                        "event_type": "grade",
+                        "entity_ref": "course",
+                        "entity_type": "course",
+                        "name_path": "course.name",
+                    }
+                ],
+                "measurement_mappings": [
+                    {
+                        "event_type": "grade",
+                        "entity_ref": "course",
+                        "metric": "score",
+                        "value_path": "score",
+                        "unit_path": "score_unit",
+                    }
+                ],
+            },
+        )
+    )
+    await session.commit()
+    event = await _make_event(
+        session,
+        "grade",
+        {"course": {"name": "CS 101"}, "score": 92.5, "score_unit": "percent"},
+        extension_id="com.lifelog.school",
+    )
+
+    entities, relations = await extract_event_facts(session, event)
+    assert (entities, relations) == (1, 0)
+
+    measurements = (await session.execute(select(Measurement))).scalars().all()
+    assert len(measurements) == 1
+    assert measurements[0].metric == "score"
+    assert measurements[0].value == 92.5
+    assert measurements[0].unit == "percent"
+    assert measurements[0].source_event_id == event.id
+    assert measurements[0].extractor == "manifest:com.lifelog.school:measurement:0"
+
+    assert await extract_event_facts(session, event) == (0, 0)
+    assert len((await session.execute(select(Measurement))).scalars().all()) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_measurement_mapping_skips_non_numeric_values(session):
+    session.add(
+        Extension(
+            id="com.lifelog.school",
+            version="1.4.0",
+            config={
+                "id": "com.lifelog.school",
+                "version": "1.4.0",
+                "entity_mappings": [
+                    {
+                        "event_type": "grade",
+                        "entity_ref": "course",
+                        "entity_type": "course",
+                        "name_path": "course.name",
+                    }
+                ],
+                "measurement_mappings": [
+                    {
+                        "event_type": "grade",
+                        "entity_ref": "course",
+                        "metric": "score",
+                        "value_path": "score",
+                    }
+                ],
+            },
+        )
+    )
+    await session.commit()
+    event = await _make_event(
+        session,
+        "grade",
+        {"course": {"name": "CS 101"}, "score": "excused"},
+        extension_id="com.lifelog.school",
+    )
+
+    assert await extract_event_facts(session, event) == (1, 0)
+    assert (await session.execute(select(Measurement))).scalars().all() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_text_measurement_mapping_stores_string_values(session):
+    session.add(
+        Extension(
+            id="com.lifelog.school",
+            version="1.5.0",
+            config={
+                "id": "com.lifelog.school",
+                "version": "1.5.0",
+                "entity_mappings": [
+                    {
+                        "event_type": "health_log",
+                        "entity_ref": "self",
+                        "entity_type": "person",
+                        "name_path": "person.name",
+                    }
+                ],
+                "measurement_mappings": [
+                    {
+                        "event_type": "health_log",
+                        "entity_ref": "self",
+                        "metric": "mood",
+                        "value_path": "mood",
+                        "value_type": "text",
+                    }
+                ],
+            },
+        )
+    )
+    await session.commit()
+    event = await _make_event(
+        session,
+        "health_log",
+        {"person": {"name": "Me"}, "mood": "focused"},
+        extension_id="com.lifelog.school",
+    )
+
+    entities, relations = await extract_event_facts(session, event)
+    assert (entities, relations) == (1, 0)
+    measurements = (await session.execute(select(Measurement))).scalars().all()
+    assert len(measurements) == 1
+    assert measurements[0].value is None
+    assert measurements[0].value_text == "focused"
+    assert measurements[0].metric == "mood"

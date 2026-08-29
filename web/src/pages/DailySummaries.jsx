@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { dailySummaryAPI } from '../services/api';
 import { formatDate, formatDateForAPI } from '../utils/dateUtils';
-import { Calendar, Star, Smile, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Star, TrendingUp, ChevronLeft, ChevronRight, CircleAlert, Brain } from 'lucide-react';
 
 const DailySummaries = () => {
   // Default to yesterday in UTC to avoid showing today's summary prematurely
@@ -178,6 +178,30 @@ const DailySummaries = () => {
                     <span className="text-gray-700">{activity}</span>
                   </li>
                 ))}
+              </ul>
+            </div>
+          )}
+
+          {summary.open_loops && summary.open_loops.length > 0 && (
+            <div className="card border-amber-200 bg-amber-50">
+              <div className="flex items-center gap-2 mb-4">
+                <CircleAlert className="text-amber-600" size={20} />
+                <h3 className="text-xl font-semibold text-gray-900">Still Open</h3>
+              </div>
+              <ul className="space-y-2 list-disc pl-5 text-gray-700">
+                {summary.open_loops.map((item, index) => <li key={index}>{item}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {summary.inferences && summary.inferences.length > 0 && (
+            <div className="card border-purple-200 bg-purple-50">
+              <div className="flex items-center gap-2 mb-4">
+                <Brain className="text-purple-600" size={20} />
+                <h3 className="text-lg font-semibold text-gray-900">Possible Interpretations</h3>
+              </div>
+              <ul className="space-y-2 list-disc pl-5 text-gray-700">
+                {summary.inferences.map((item, index) => <li key={index}>{item}</li>)}
               </ul>
             </div>
           )}

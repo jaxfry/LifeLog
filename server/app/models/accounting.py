@@ -15,6 +15,7 @@ class AIUsage(SQLModel, table=True):
     __tablename__ = "ai_usage"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_user_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", index=True)
     timeline_entry_id: uuid.UUID | None = Field(
         default=None, foreign_key="timeline_entries.id"
     )

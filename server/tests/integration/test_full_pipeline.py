@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from sqlmodel import select
 
+from app.models.auth import Device
 from app.models.processing import Session, TimelineEntry
 from app.services.ingestion import ingest_log
 from app.services.sessionizer import run_sessionizer
@@ -11,7 +12,9 @@ from app.workers.process import process_log
 
 
 @pytest.mark.asyncio
-async def test_full_pipeline(session):
+async def test_full_pipeline(session, mock_user):
+    session.add(Device(id="device1", user_id=mock_user.id, api_key_hash="pipeline"))
+    await session.commit()
     # 1. Ingest Log
     payload = {"timestamp": "2023-01-01T12:00:00Z", "duration": 60, "app": "VS Code"}
     raw_log, created = await ingest_log(session, "device1", "com.lifelog.test", payload)

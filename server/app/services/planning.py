@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, time, timedelta
 
 from sqlalchemy import func
@@ -14,6 +15,7 @@ async def generate_plan(
     start_at: datetime,
     end_at: datetime,
     *,
+    owner_user_id: uuid.UUID,
     daily_capacity_minutes: int = 120,
     block_minutes: int = 45,
 ) -> list[PlanBlock]:
@@ -28,6 +30,7 @@ async def generate_plan(
     old_suggestions = (
         await session.execute(
             select(PlanBlock)
+            .where(PlanBlock.owner_user_id == owner_user_id)
             .where(PlanBlock.status == "suggested")
             .where(PlanBlock.start_at < end_at)
             .where(PlanBlock.end_at > start_at)
@@ -41,6 +44,7 @@ async def generate_plan(
     commitments = (
         await session.execute(
             select(Commitment)
+            .where(Commitment.owner_user_id == owner_user_id)
             .where(Commitment.status.in_(["suggested", "planned", "in_progress"]))
             .order_by(col(Commitment.due_at).asc().nulls_last(), col(Commitment.created_at).asc())
         )
@@ -48,6 +52,7 @@ async def generate_plan(
     accepted_blocks = (
         await session.execute(
             select(PlanBlock)
+            .where(PlanBlock.owner_user_id == owner_user_id)
             .where(PlanBlock.status.in_(["accepted", "completed"]))
             .where(PlanBlock.start_at < end_at)
             .where(PlanBlock.end_at > start_at)
@@ -96,6 +101,7 @@ async def generate_plan(
             if block_end <= cursor:
                 break
             block = PlanBlock(
+                owner_user_id=owner_user_id,
                 commitment_id=commitment.id,
                 start_at=cursor,
                 end_at=block_end,

@@ -185,27 +185,33 @@ async def async_client():
     # Clean up override
     app.dependency_overrides.pop(get_session, None)
 
-@pytest.fixture
-def mock_user():
+@pytest_asyncio.fixture
+async def mock_user(session):
     """Override get_current_user dependency with a regular (non-superuser) user."""
-    from app.core.dependencies import get_current_user
+    from app.core.dependencies import CaptureActor, get_capture_actor, get_current_user
     from app.main import app
     from app.models.auth import User
 
     user = User(id=uuid.uuid4(), username="regular", is_superuser=False, is_active=True, hashed_password="xxx")
+    session.add(user)
+    await session.commit()
     app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_capture_actor] = lambda: CaptureActor(user=user)
     yield user
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_capture_actor, None)
 
 
-@pytest.fixture
-def mock_superuser():
+@pytest_asyncio.fixture
+async def mock_superuser(session):
     """Override get_current_superuser dependency."""
     from app.core.dependencies import get_current_superuser
     from app.main import app
     from app.models.auth import User
 
     user = User(id=uuid.uuid4(), username="admin", is_superuser=True, is_active=True, hashed_password="xxx")
+    session.add(user)
+    await session.commit()
     app.dependency_overrides[get_current_superuser] = lambda: user
     yield user
     app.dependency_overrides.pop(get_current_superuser, None)
@@ -213,11 +219,20 @@ def mock_superuser():
 @pytest.fixture
 def mock_device_auth():
     """Override verify_api_key dependency."""
-    from app.core.dependencies import verify_device
+    from app.core.dependencies import CaptureActor, get_capture_actor, verify_device
     from app.main import app
-    from app.models.auth import Device
+    from app.models.auth import Device, User
 
-    device = Device(id="test-device-1", name="Test Device", device_type="test", api_key_hash="hash")
+    owner = User(username="device-owner", hashed_password="x")
+    device = Device(
+        id="test-device-1",
+        user_id=owner.id,
+        name="Test Device",
+        device_type="test",
+        api_key_hash="hash",
+    )
     app.dependency_overrides[verify_device] = lambda: device
+    app.dependency_overrides[get_capture_actor] = lambda: CaptureActor(user=owner, device=device)
     yield device
     app.dependency_overrides.pop(verify_device, None)
+    app.dependency_overrides.pop(get_capture_actor, None)

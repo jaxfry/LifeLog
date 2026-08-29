@@ -15,19 +15,27 @@ from app.core.logger import get_logger
 from app.loader.contracts import validate_extension_manifest
 from app.models.auth import User
 from app.models.config import Extension
+from app.services.source_secrets import redact_config
 
 logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("/extensions", response_model=list[Extension])
+@router.get("/extensions")
 async def list_extensions(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+) -> list[dict]:
     await sync_extensions_db(db_session)
     result = await db_session.execute(select(Extension).order_by(Extension.id))
-    return result.scalars().all()
+    extensions = result.scalars().all()
+    return [
+        {
+            **extension.model_dump(),
+            "config": redact_config(extension.config or {}),
+        }
+        for extension in extensions
+    ]
 
 
 @router.post("/extensions/upload")

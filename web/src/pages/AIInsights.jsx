@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { aiChatAPI } from '../services/api';
-import { Sparkles, Send, AlertCircle, MessageCircle, Loader } from 'lucide-react';
+import { aiChatAPI, lifeAreasAPI } from '../services/api';
+import { Sparkles, Send, AlertCircle, MessageCircle, Loader, Database, Wrench } from 'lucide-react';
+import MarkdownMessage from '../components/MarkdownMessage';
 
 const AIInsights = () => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [contextDays, setContextDays] = useState(7);
+  const [lifeAreaId, setLifeAreaId] = useState('');
+  const { data: lifeAreas = [] } = useQuery({ queryKey: ['life-areas'], queryFn: lifeAreasAPI.list });
 
   // Check AI health
   const { data: health } = useQuery({
@@ -16,14 +18,18 @@ const AIInsights = () => {
 
   // Chat mutation
   const chatMutation = useMutation({
-    mutationFn: ({ message, contextDays }) => aiChatAPI.sendMessage(message, contextDays),
-    onSuccess: (data, variables) => {
+    mutationFn: aiChatAPI.sendMessage,
+    onSuccess: (data) => {
       setMessages(prev => [
         ...prev,
-        { role: 'user', content: variables.message },
-        { role: 'assistant', content: data.response, contextUsed: data.context_used }
+        {
+          role: 'assistant',
+          content: data.response,
+          contextUsed: data.context_used,
+          citations: data.citations || [],
+          retrieval: data.retrieval || {},
+        }
       ]);
-      setInputMessage('');
     },
     onError: (error) => {
       setMessages(prev => [
@@ -38,10 +44,19 @@ const AIInsights = () => {
 
   const handleSend = () => {
     if (!inputMessage.trim()) return;
-    
+
+    const message = inputMessage.trim();
+    const history = messages
+      .filter(item => item.role === 'user' || item.role === 'assistant')
+      .slice(-12)
+      .map(({ role, content }) => ({ role, content }));
+    setMessages(prev => [...prev, { role: 'user', content: message }]);
+    setInputMessage('');
     chatMutation.mutate({
-      message: inputMessage,
-      contextDays
+      message,
+      history,
+      lifeAreaId: lifeAreaId || null,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     });
   };
 
@@ -53,11 +68,11 @@ const AIInsights = () => {
   };
 
   const suggestedQuestions = [
-    "What were my most productive activities this week?",
-    "How has my activity pattern changed over the past week?",
-    "What insights can you give me about my recent behavior?",
-    "Summarize my activities from yesterday",
-    "What are the trends in my daily activities?",
+    "What unfinished work do I have?",
+    "What did I work on yesterday?",
+    "How have my study habits changed over time?",
+    "What do my notes say about the topics I've been learning?",
+    "What should I focus on next?",
   ];
 
   const handleSuggestion = (question) => {
@@ -98,28 +113,26 @@ const AIInsights = () => {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">AI Insights</h1>
-            <p className="text-gray-600">Ask questions about your activity data</p>
+            <p className="text-gray-600">Ask across your lifetime. LifeLog finds the right memories automatically.</p>
           </div>
         </div>
       </div>
 
-      {/* Context Days Selector */}
-      <div className="mb-4">
-        <label className="text-sm font-medium text-gray-700 mr-3">
-          Context Window:
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label className="text-sm font-medium text-gray-700" htmlFor="chat-scope">
+          Scope
         </label>
         <select
-          value={contextDays}
-          onChange={(e) => setContextDays(Number(e.target.value))}
+          id="chat-scope"
+          value={lifeAreaId}
+          onChange={(e) => setLifeAreaId(e.target.value)}
           className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
         >
-          <option value={3}>Last 3 days</option>
-          <option value={7}>Last 7 days</option>
-          <option value={14}>Last 14 days</option>
-          <option value={30}>Last 30 days</option>
+          <option value="">Whole life</option>
+          {lifeAreas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
         </select>
-        <span className="ml-2 text-xs text-gray-500">
-          (AI will analyze your activities from this period)
+        <span className="text-xs text-gray-500">
+          Time ranges come from your question; only relevant, permitted memories are retrieved.
         </span>
       </div>
 
@@ -171,12 +184,33 @@ const AIInsights = () => {
                     <div className="flex items-center gap-2 mb-2">
                       <Sparkles className="text-purple-600" size={16} />
                       <span className="text-xs font-semibold text-purple-600">LifeLog AI</span>
-                      {message.contextUsed && (
-                        <span className="text-xs text-gray-500">(with your data)</span>
+                      {message.contextUsed && message.retrieval && (
+                        <span className="text-xs text-gray-500">
+                          {message.retrieval.scope} · {message.retrieval.time_scope} · {message.retrieval.mode}
+                        </span>
                       )}
                     </div>
                   )}
-                  <div className="whitespace-pre-wrap">{message.content}</div>
+                  {message.role === 'assistant' ? (
+                    <MarkdownMessage content={message.content} />
+                  ) : (
+                    <div className="whitespace-pre-wrap">{message.content}</div>
+                  )}
+                  {message.role === 'assistant' && message.citations?.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-2">
+                      {message.citations.map((citation) => (
+                        <span
+                          key={citation.id}
+                          title={citation.locator ? JSON.stringify(citation.locator) : undefined}
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs text-gray-600 border border-gray-200"
+                        >
+                          {citation.tool ? <Wrench size={12} /> : <Database size={12} />}
+                          <strong>[{citation.id}]</strong>
+                          {citation.filename || citation.title || citation.tool || citation.source_type}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -202,7 +236,7 @@ const AIInsights = () => {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask me anything about your activities..."
+            placeholder="Ask anything about your life, or name a time range naturally..."
             className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             rows={2}
             disabled={chatMutation.isPending}

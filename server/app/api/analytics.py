@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.database import get_session
-from app.models.auth import Device
-from app.models.config import Extension
+from app.core.dependencies import get_current_user
+from app.models.auth import Device, User
 from app.models.ingest import Event, RawLog
 from app.models.processing import Session, TimelineEntry
 
@@ -18,12 +18,31 @@ _DAY_COL = func.date(Session.start_time)
 
 
 @router.get("/stats")
-async def get_stats(db_session: AsyncSession = Depends(get_session)):
-    total_sessions = (await db_session.execute(select(func.count()).select_from(Session))).scalar_one()
-    total_events = (await db_session.execute(select(func.count()).select_from(Event))).scalar_one()
+async def get_stats(
+    current_user: User = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_session),
+):
+    total_sessions = (
+        await db_session.execute(
+            select(func.count()).select_from(Session).where(Session.owner_user_id == current_user.id)
+        )
+    ).scalar_one()
+    total_events = (
+        await db_session.execute(
+            select(func.count()).select_from(Event).where(Event.owner_user_id == current_user.id)
+        )
+    ).scalar_one()
 
-    min_date = (await db_session.execute(select(func.min(Session.start_time)))).scalar_one()
-    max_date = (await db_session.execute(select(func.max(Session.start_time)))).scalar_one()
+    min_date = (
+        await db_session.execute(
+            select(func.min(Session.start_time)).where(Session.owner_user_id == current_user.id)
+        )
+    ).scalar_one()
+    max_date = (
+        await db_session.execute(
+            select(func.max(Session.start_time)).where(Session.owner_user_id == current_user.id)
+        )
+    ).scalar_one()
 
     avg_sessions_per_day = 0
     if min_date and max_date:
@@ -43,6 +62,7 @@ async def get_stats(db_session: AsyncSession = Depends(get_session)):
 @router.get("/activity-volume")
 async def get_activity_volume(
     days: int = Query(7, ge=1, le=365),
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_session),
 ):
     end_date = datetime.now(UTC).replace(tzinfo=None)
@@ -53,7 +73,10 @@ async def get_activity_volume(
             _DAY_COL.label("date"),
             func.count(Session.id).label("count"),
         )
-        .where(Session.start_time >= start_date)
+        .where(
+            Session.owner_user_id == current_user.id,
+            Session.start_time >= start_date,
+        )
         .group_by(_DAY_COL)
         .order_by(_DAY_COL)
     )
@@ -73,28 +96,47 @@ async def get_activity_volume(
 
 
 @router.get("/status-distribution")
-async def get_status_distribution(db_session: AsyncSession = Depends(get_session)):
-    query = select(Session.status, func.count()).group_by(Session.status)
+async def get_status_distribution(
+    current_user: User = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_session),
+):
+    query = (
+        select(Session.status, func.count())
+        .where(Session.owner_user_id == current_user.id)
+        .group_by(Session.status)
+    )
     result = await db_session.execute(query)
     return [{"name": row[0], "value": row[1]} for row in result.all()]
 
 
 @router.get("/dashboard-metrics")
-async def get_dashboard_metrics(db_session: AsyncSession = Depends(get_session)):
+async def get_dashboard_metrics(
+    current_user: User = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_session),
+):
     total_events = (
         await db_session.execute(
-            select(func.count()).select_from(Event).where(Event.is_superseded == False)
+            select(func.count()).select_from(Event).where(
+                Event.owner_user_id == current_user.id,
+                Event.is_superseded == False,
+            )
         )
     ).scalar_one()
 
     active_collectors = (
         await db_session.execute(
-            select(func.count()).select_from(Extension).where(Extension.is_active == True)
+            select(func.count(func.distinct(RawLog.extension_id)))
+            .select_from(RawLog)
+            .where(RawLog.owner_user_id == current_user.id)
         )
     ).scalar_one()
 
     ai_processing = (
-        await db_session.execute(select(func.count()).select_from(TimelineEntry))
+        await db_session.execute(
+            select(func.count())
+            .select_from(TimelineEntry)
+            .where(TimelineEntry.owner_user_id == current_user.id)
+        )
     ).scalar_one()
 
     end_date = datetime.now(UTC).replace(tzinfo=None)
@@ -105,7 +147,10 @@ async def get_dashboard_metrics(db_session: AsyncSession = Depends(get_session))
             _DAY_COL.label("date"),
             func.count(Session.id).label("count"),
         )
-        .where(Session.start_time >= start_date)
+        .where(
+            Session.owner_user_id == current_user.id,
+            Session.start_time >= start_date,
+        )
         .group_by(_DAY_COL)
         .order_by(_DAY_COL)
     )
@@ -129,8 +174,13 @@ async def get_dashboard_metrics(db_session: AsyncSession = Depends(get_session))
 
 
 @router.get("/collector-stats")
-async def get_collector_stats(db_session: AsyncSession = Depends(get_session)):
-    devices_result = await db_session.execute(select(Device))
+async def get_collector_stats(
+    current_user: User = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_session),
+):
+    devices_result = await db_session.execute(
+        select(Device).where(Device.user_id == current_user.id)
+    )
     devices = devices_result.scalars().all()
 
     stats = []
@@ -140,6 +190,7 @@ async def get_collector_stats(db_session: AsyncSession = Depends(get_session)):
             await db_session.execute(
                 select(func.count()).select_from(RawLog).where(
                     RawLog.device_id == device.id,
+                    RawLog.owner_user_id == current_user.id,
                     RawLog.received_at >= recent_cutoff,
                 )
             )
@@ -149,7 +200,10 @@ async def get_collector_stats(db_session: AsyncSession = Depends(get_session)):
             await db_session.execute(
                 select(func.count(func.distinct(RawLog.extension_id)))
                 .select_from(RawLog)
-                .where(RawLog.device_id == device.id)
+                .where(
+                    RawLog.device_id == device.id,
+                    RawLog.owner_user_id == current_user.id,
+                )
             )
         ).scalar_one()
 

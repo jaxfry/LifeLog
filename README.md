@@ -72,7 +72,7 @@ LifeLog/
 
 ### Server
 
-1. Copy `.env.example` to `server/.env` and configure your environment variables
+1. Copy `.env.example` to `.env` at the repository root and configure it
 2. Install dependencies:
    ```bash
    cd server
@@ -129,8 +129,10 @@ npm run build
 
 ## Configuration
 
-Environment variables (in `server/.env`):
+Environment variables (in the repository-root `.env`):
 
+- `OPENROUTER_API_KEY`: Primary AI provider credential
+- `ASSISTANT_MODEL`: OpenRouter model slug (defaults to DeepSeek V4 Flash)
 - `GEMINI_API_KEY`: Google Gemini API key for AI features
 - `DATABASE_URL`: PostgreSQL connection string
 - `REDIS_URL`: Redis connection string

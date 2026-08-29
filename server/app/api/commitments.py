@@ -73,7 +73,11 @@ async def list_commitments(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[Commitment]:
-    statement = select(Commitment).order_by(col(Commitment.due_at).asc(), col(Commitment.created_at).desc())
+    statement = (
+        select(Commitment)
+        .where(Commitment.owner_user_id == current_user.id)
+        .order_by(col(Commitment.due_at).asc(), col(Commitment.created_at).desc())
+    )
     if status_filter:
         statement = statement.where(Commitment.status == status_filter)
     return (
@@ -88,6 +92,7 @@ async def create_commitment(
     current_user: User = Depends(get_current_user),
 ) -> Commitment:
     commitment = Commitment(
+        owner_user_id=current_user.id,
         title=body.title,
         description=body.description,
         status=body.status,
@@ -111,7 +116,7 @@ async def update_commitment(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> Commitment:
-    commitment = await db_session.get(Commitment, commitment_id)
+    commitment = await _owned_commitment(db_session, commitment_id, current_user.id)
     if commitment is None:
         raise HTTPException(status_code=404, detail="Commitment not found")
     updates = body.model_dump(exclude_unset=True)
@@ -138,6 +143,8 @@ async def list_commitment_progress(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[CommitmentProgress]:
+    if await _owned_commitment(db_session, commitment_id, current_user.id) is None:
+        raise HTTPException(status_code=404, detail="Commitment not found")
     return (
         await db_session.execute(
             select(CommitmentProgress)
@@ -154,7 +161,7 @@ async def record_commitment_progress(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> CommitmentProgress:
-    commitment = await db_session.get(Commitment, commitment_id)
+    commitment = await _owned_commitment(db_session, commitment_id, current_user.id)
     if commitment is None:
         raise HTTPException(status_code=404, detail="Commitment not found")
     if body.event_id is not None:
@@ -163,6 +170,7 @@ async def record_commitment_progress(
         if await db_session.get(Event, body.event_id) is None:
             raise HTTPException(status_code=400, detail="Event not found")
     progress = CommitmentProgress(
+        owner_user_id=current_user.id,
         commitment_id=commitment.id,
         event_id=body.event_id,
         amount=body.amount,
@@ -189,7 +197,10 @@ async def list_plan_blocks(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[PlanBlock]:
-    statement = select(PlanBlock).where(PlanBlock.status != "cancelled")
+    statement = select(PlanBlock).where(
+        PlanBlock.owner_user_id == current_user.id,
+        PlanBlock.status != "cancelled",
+    )
     if start_at is not None:
         statement = statement.where(PlanBlock.end_at > _normalize_dt(start_at))
     if end_at is not None:
@@ -211,6 +222,7 @@ async def generate_suggested_plan(
             db_session,
             _normalize_dt(body.start_at),
             _normalize_dt(body.end_at),
+            owner_user_id=current_user.id,
             daily_capacity_minutes=body.daily_capacity_minutes,
             block_minutes=body.block_minutes,
         )
@@ -227,7 +239,14 @@ async def update_plan_block(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> PlanBlock:
-    block = await db_session.get(PlanBlock, block_id)
+    block = (
+        await db_session.execute(
+            select(PlanBlock).where(
+                PlanBlock.id == block_id,
+                PlanBlock.owner_user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
     if block is None:
         raise HTTPException(status_code=404, detail="Plan block not found")
     block.status = body.status
@@ -245,7 +264,10 @@ async def list_notifications(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[Notification]:
-    statement = select(Notification).where(Notification.status == "pending")
+    statement = select(Notification).where(
+        Notification.owner_user_id == current_user.id,
+        Notification.status == "pending",
+    )
     if due_only:
         statement = statement.where(Notification.scheduled_for <= _utcnow())
     statement = statement.order_by(col(Notification.scheduled_for).asc())
@@ -260,7 +282,14 @@ async def dismiss_notification(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> Notification:
-    notification = await db_session.get(Notification, notification_id)
+    notification = (
+        await db_session.execute(
+            select(Notification).where(
+                Notification.id == notification_id,
+                Notification.owner_user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
     if notification is None:
         raise HTTPException(status_code=404, detail="Notification not found")
     notification.status = "dismissed"
@@ -283,6 +312,7 @@ async def _sync_notification(session: AsyncSession, commitment: Commitment) -> N
             return
         session.add(
             Notification(
+                owner_user_id=commitment.owner_user_id,
                 commitment_id=commitment.id,
                 title=commitment.title,
                 body=commitment.description,
@@ -290,6 +320,21 @@ async def _sync_notification(session: AsyncSession, commitment: Commitment) -> N
             )
         )
         await session.flush()
+
+
+async def _owned_commitment(
+    session: AsyncSession,
+    commitment_id: uuid.UUID,
+    owner_user_id: uuid.UUID,
+) -> Commitment | None:
+    return (
+        await session.execute(
+            select(Commitment).where(
+                Commitment.id == commitment_id,
+                Commitment.owner_user_id == owner_user_id,
+            )
+        )
+    ).scalar_one_or_none()
 
 
 def _normalize_dt(value: datetime | None) -> datetime | None:

@@ -142,7 +142,10 @@ const Dashboard = () => {
             <div className="flex items-center gap-2 mb-3">
               <Calendar className="text-gray-400" size={16} />
               <span className="text-sm font-medium text-gray-700">
-                {formatDate(new Date(latestSummary.date), 'EEEE, MMMM d, yyyy')}
+                {formatDate(
+                  latestSummary.logical_date || latestSummary.date,
+                  'EEEE, MMMM d, yyyy',
+                ) || 'Date unavailable'}
               </span>
             </div>
             
@@ -163,6 +166,15 @@ const Dashboard = () => {
                     </span>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {latestSummary.open_loops && latestSummary.open_loops.length > 0 && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <h3 className="text-sm font-semibold text-amber-900 mb-2">Still open</h3>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-amber-900">
+                  {latestSummary.open_loops.map((item, idx) => <li key={idx}>{item}</li>)}
+                </ul>
               </div>
             )}
 

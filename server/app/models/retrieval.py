@@ -22,6 +22,7 @@ class SearchDocument(SQLModel, table=True):
     )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_user_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", index=True)
     source_type: str = Field(nullable=False, index=True)
     source_id: uuid.UUID = Field(nullable=False, index=True)
     version: int = Field(default=1, nullable=False)

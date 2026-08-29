@@ -9,8 +9,13 @@ from app.models.ingest import Event, RawLog
 from app.models.kernel import Relation
 
 
-async def _seed_event(session, event_type: str = "app_usage") -> Event:
+async def _seed_event(
+    session,
+    owner_user_id: uuid.UUID,
+    event_type: str = "app_usage",
+) -> Event:
     raw_log = RawLog(
+        owner_user_id=owner_user_id,
         device_id="test_dev",
         extension_id="com.lifelog.aw",
         payload={"test": True},
@@ -20,6 +25,7 @@ async def _seed_event(session, event_type: str = "app_usage") -> Event:
     await session.flush()
 
     event = Event(
+        owner_user_id=owner_user_id,
         source_log_id=raw_log.id,
         event_type=event_type,
         start_time=datetime(2024, 1, 1, 10, 0, 0),
@@ -113,7 +119,7 @@ async def test_relation_crud_and_event_link(mock_user, async_client: AsyncClient
     )
     assert any(r["id"] == relation["id"] for r in response.json())
 
-    event = await _seed_event(session)
+    event = await _seed_event(session, mock_user.id)
     response = await async_client.post(
         f"/api/v1/kernel/events/{event.id}/relations",
         json={
@@ -214,7 +220,7 @@ async def test_merge_entities_via_api(mock_user, mock_superuser, async_client: A
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_supersede_event_retires_facts(mock_user, mock_superuser, async_client: AsyncClient, session):
-    event = await _seed_event(session)
+    event = await _seed_event(session, mock_user.id)
     place = await _create_entity(async_client, "place", "Office")
 
     response = await async_client.post(

@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import engine
 from app.core.logger import get_logger
+from app.services.extension_runtime import poll_extension, poll_source_connection
 from app.workers.files import task_process_file, task_process_file_batch
 from app.workers.process import process_log
 
@@ -41,6 +42,23 @@ async def task_normalize_log(ctx, log_id_str: str):
             logger.error(traceback.format_exc())
 
 
+async def task_poll_source(ctx, connection_id_str: str):
+    connection_id = UUID(connection_id_str)
+    logger.info("Worker: Polling source connection %s", connection_id)
+    return await poll_source_connection(connection_id)
+
+
+async def task_poll_extension(ctx, extension_id: str):
+    logger.info("Worker: Polling legacy extension %s", extension_id)
+    return await poll_extension(extension_id)
+
+
 class WorkerSettings:
-    functions = [task_normalize_log, task_process_file, task_process_file_batch]
+    functions = [
+        task_normalize_log,
+        task_poll_source,
+        task_poll_extension,
+        task_process_file,
+        task_process_file_batch,
+    ]
     redis_settings = RedisSettings.from_dsn(REDIS_URL)

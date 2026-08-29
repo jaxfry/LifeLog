@@ -1,0 +1,42 @@
+{
+  "day": "2026-08-12",
+  "timezone": "America/Vancouver",
+  "generated_raw_activitywatch_events": 2617,
+  "raw_batches_created": 11,
+  "idempotent_duplicate_verified": true,
+  "processing_statuses": {
+    "done": 11
+  },
+  "normalized_events": {
+    "browsing": 327,
+    "device_status": 12,
+    "app_usage": 2056
+  },
+  "normalized_event_total": 2395,
+  "sessions_created_this_run": 0,
+  "session_count": 12,
+  "activity_episode_count": 7,
+  "idle_period_count": 5,
+  "activity_episode_sizes": [
+    137,
+    313,
+    311,
+    505,
+    371,
+    598,
+    155
+  ],
+  "timeline_entries": 7,
+  "note_captures": 7,
+  "search_documents": 2456,
+  "embedded_search_documents": 61,
+  "current_graph_entities": 46,
+  "ai_calls": 11,
+  "ai_cost_usd": 0.0,
+  "observations": [
+    "Sub-five-second focus noise is intentionally filtered.",
+    "Window, browser, and AFK streams overlap like real ActivityWatch buckets.",
+    "Titles contain nulls, whitespace, app stalls, URL tracking parameters, and rapid switching.",
+    "Episodes follow AFK boundaries and elapsed time; AI receives aggregated evidence, not raw focus spam."
+  ]
+}

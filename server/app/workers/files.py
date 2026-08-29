@@ -24,6 +24,11 @@ async def task_process_file(ctx: dict | None, file_id_str: str) -> None:
             await session.commit()
         except Exception as exc:
             await session.rollback()
+            attachment = await session.get(FileAttachment, uuid.UUID(file_id_str))
+            if attachment is not None and attachment.processing_status != "failed":
+                attachment.processing_status = "failed"
+                attachment.processing_error = str(exc)[:2000]
+                session.add(attachment)
             await record_processing_failure(
                 session,
                 source_type="file_attachment",
@@ -52,6 +57,11 @@ async def task_process_file_batch(ctx: dict | None) -> None:
                 await session.commit()
             except Exception as exc:
                 await session.rollback()
+                failed_attachment = await session.get(FileAttachment, attachment.id)
+                if failed_attachment is not None and failed_attachment.processing_status != "failed":
+                    failed_attachment.processing_status = "failed"
+                    failed_attachment.processing_error = str(exc)[:2000]
+                    session.add(failed_attachment)
                 await record_processing_failure(
                     session,
                     source_type="file_attachment",

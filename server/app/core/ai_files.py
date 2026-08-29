@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logger import get_logger
 from app.services.ai import call_llm
+from app.services.model_router import ModelRole
 
 logger = get_logger(__name__)
 
@@ -101,6 +102,11 @@ async def analyze_file_content(
             db_session=db_session,
             system_prompt=system_prompt,
             user_prompt=content_parts,
+            role=(
+                ModelRole.VISION
+                if mime_type.startswith("image/")
+                else ModelRole.EXTRACTION
+            ),
         )
     except RuntimeError as e:
         error_str = str(e).lower()

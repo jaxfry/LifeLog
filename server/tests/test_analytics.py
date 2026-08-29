@@ -8,24 +8,36 @@ from app.models.processing import Session
 
 
 @pytest.mark.asyncio
-async def test_analytics_stats(async_client: AsyncClient, session):
+async def test_analytics_stats(async_client: AsyncClient, session, mock_user):
     # Create some dummy data: 2 sessions, 1 event
-    s1 = Session(start_time=datetime.now(), end_time=datetime.now() + timedelta(hours=1), status="processed")
+    s1 = Session(
+        owner_user_id=mock_user.id,
+        start_time=datetime.now(),
+        end_time=datetime.now() + timedelta(hours=1),
+        status="processed",
+    )
     s2 = Session(
         start_time=datetime.now() - timedelta(days=1),
         end_time=datetime.now() - timedelta(hours=23),
         status="pending",
+        owner_user_id=mock_user.id,
     )
     session.add(s1)
     session.add(s2)
 
     # Create a raw log first (needed for foreign key)
-    log = RawLog(device_id="test", extension_id="test", payload={}, payload_hash="hash_analytics_1")
+    log = RawLog(
+        owner_user_id=mock_user.id,
+        device_id="test",
+        extension_id="test",
+        payload={},
+        payload_hash="hash_analytics_1",
+    )
     session.add(log)
     await session.commit()
     await session.refresh(log)
 
-    e1 = Event(event_type="test", data={}, source_log_id=log.id, start_time=datetime.now())
+    e1 = Event(owner_user_id=mock_user.id, event_type="test", data={}, source_log_id=log.id, start_time=datetime.now())
     session.add(e1)
     await session.commit()
 
@@ -39,8 +51,8 @@ async def test_analytics_stats(async_client: AsyncClient, session):
 
 
 @pytest.mark.asyncio
-async def test_activity_volume(async_client: AsyncClient, session):
-    s1 = Session(start_time=datetime.now(), end_time=datetime.now() + timedelta(hours=1))
+async def test_activity_volume(async_client: AsyncClient, session, mock_user):
+    s1 = Session(owner_user_id=mock_user.id, start_time=datetime.now(), end_time=datetime.now() + timedelta(hours=1))
     session.add(s1)
     await session.commit()
 
@@ -60,8 +72,13 @@ async def test_activity_volume(async_client: AsyncClient, session):
 
 
 @pytest.mark.asyncio
-async def test_status_distribution(async_client: AsyncClient, session):
-    s1 = Session(start_time=datetime.now(), end_time=datetime.now() + timedelta(hours=1), status="completed")
+async def test_status_distribution(async_client: AsyncClient, session, mock_user):
+    s1 = Session(
+        owner_user_id=mock_user.id,
+        start_time=datetime.now(),
+        end_time=datetime.now() + timedelta(hours=1),
+        status="completed",
+    )
     session.add(s1)
     await session.commit()
 
@@ -74,16 +91,28 @@ async def test_status_distribution(async_client: AsyncClient, session):
 
 
 @pytest.mark.asyncio
-async def test_dashboard_metrics(async_client: AsyncClient, session):
-    log = RawLog(device_id="test", extension_id="test", payload={}, payload_hash="hash_dash_1")
+async def test_dashboard_metrics(async_client: AsyncClient, session, mock_user):
+    log = RawLog(
+        owner_user_id=mock_user.id,
+        device_id="test",
+        extension_id="test",
+        payload={},
+        payload_hash="hash_dash_1",
+    )
     session.add(log)
     await session.commit()
     await session.refresh(log)
 
-    event = Event(event_type="app_usage", data={}, source_log_id=log.id, start_time=datetime.now())
+    event = Event(
+        owner_user_id=mock_user.id,
+        event_type="app_usage",
+        data={},
+        source_log_id=log.id,
+        start_time=datetime.now(),
+    )
     session.add(event)
 
-    s1 = Session(start_time=datetime.now(), end_time=datetime.now() + timedelta(hours=1))
+    s1 = Session(owner_user_id=mock_user.id, start_time=datetime.now(), end_time=datetime.now() + timedelta(hours=1))
     session.add(s1)
     await session.commit()
 

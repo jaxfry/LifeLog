@@ -67,17 +67,67 @@ fragmenting intelligence, and provide evidence-grounded AI assistance.
 - Scheduled sync/async extension pollers, validated manifests/capabilities, and
   durable `ProcessingFailure` dead letters with retry/resolution APIs.
 
+### Phase 11: source instances, universal capture, and staged work — complete
+
+- Per-user `SourceConnection` instances separated from reusable installed
+  extension definitions, with encrypted secret storage and manual/cron sync.
+- Typed poll envelopes, durable post-processing checkpoints, stable external
+  record/revision identity, canonical idempotency, and replacement supersession.
+- Universal notes/photos/scans/audio/video/file captures with context/privacy
+  hints, multi-artifact membership, immediate note recall, and source lineage.
+- Offset-verified resumable uploads with status discovery, cancellation,
+  expiration, and temporary-storage cleanup.
+- Versioned `ProcessingJob` state for normalization, content extraction, and
+  memory enrichment, surfaced through progressive capture readiness.
+- Scheduled and manual acquisition enqueued through ARQ, redacted source
+  failures, owned-device capture, deterministic classification/review, and
+  dependency-aware stage cancellation.
+- Consequential commitment revision with stale plan/reminder cancellation and a
+  durable review notification.
+- User-facing Capture and Sources pages in the web application.
+
+### Phase 12: contextual life, privacy, and connector ergonomics — complete
+
+- User-owned Life Areas as many-to-many context over shared memory, with
+  declarative definitions and extension-contributed templates.
+- Explicit/recognized context propagation across capture, sources, events,
+  artifact chunks, graph facts, and commitments without record duplication.
+- Purpose-scoped privacy policies enforced consistently by hybrid recall,
+  artifact citations, graph context, Life Area views, and scoped AI chat.
+- One Inbox and decision service for classification ambiguity, evidence-backed
+  memory proposals, and consequential commitment revisions.
+- A small typed `lifelog_sdk` with stable revisions, paged polling contracts,
+  secret-safe contexts, normalizer validation, and connector contract tests.
+- User-facing Life Areas, scoped Capture/Sources/chat controls, and Inbox pages.
+
+### Phase 13: safe identity resolution and merging — complete
+
+- Entities are owner-isolated and may carry a source namespace plus stable
+  external identity; matching display names no longer create global identity.
+- Merge suggestions are bounded, pair-stable Inbox decisions and never cross
+  users or conflate distinct identities from the same source namespace.
+- Merge application uses deterministic row locking, preserves aliases,
+  non-conflicting metadata, explicit conflicts, context, and the stricter privacy
+  policy, and retires stale recall documents.
+- Every applied merge has decision lineage and a reversal snapshot. Reversal is
+  guarded against later survivor edits, superseding merges, and external identity
+  reuse instead of silently discarding newer knowledge.
+- Scoped measurements and duration aggregates resolve historical members through
+  the current entity family while enforcing owner, Life Area, and privacy policy.
+
 ## Verified baseline
 
-As of 2026-08-12:
+As of 2026-08-13:
 
-- Alembic revision `005` is the single head and applies cleanly from an empty
-  PostgreSQL database with the vector extension.
-- SQLite suite: 122 passed, with the PostgreSQL-only hybrid test skipped.
-- PostgreSQL/pgvector suite: 120 passed and 3 environment-specific tests skipped.
+- Alembic revision `009` is the single head and applies cleanly to an empty
+  PostgreSQL database. A controlled revision `008` upgrade verifies that an
+  existing single-user entity is assigned to that owner; multi-user upgrades do
+  not guess ownership.
+- SQLite suite: 187 passed, with the PostgreSQL-only hybrid test skipped.
+- PostgreSQL/pgvector suite: 185 passed and 3 environment-specific tests skipped.
 - A controlled PostgreSQL test exercises both real cosine retrieval and lexical
   rank fusion.
-- Ruff, Python compilation, offline migration generation, and diff whitespace
+- Alembic schema comparison, Ruff, the production web build, and diff whitespace
   checks pass.
 
 ## Remaining production work
@@ -87,13 +137,14 @@ hardening milestones.
 
 ### Operational scale
 
-- Enqueue records returned by server pollers through ARQ instead of normalizing
-  each one inline in the APScheduler job.
+- Split large returned source pages into bounded fan-out normalization jobs when
+  real connector volume demonstrates that per-connection ARQ jobs are too coarse.
 - Add metrics and alerting for queue age, failure stages, embedding backlog,
   retrieval latency, transcription/OCR cost, and notification delivery.
 - Exercise backup/restore, disaster recovery, storage retention, and large
   reindex operations against representative lifetime-sized data.
-- Define encrypted secrets/config storage and content-storage encryption policy.
+- Define content-storage encryption policy and external key-management/rotation
+  operations for source secrets.
 
 ### Retrieval quality
 
@@ -111,8 +162,8 @@ hardening milestones.
 - Decide on an isolation model for third-party extensions. Current installed
   extensions are managed-trust Python code; declared permissions are auditable
   but not sandbox enforcement.
-- Add cursor/checkpoint conventions for high-volume pollers and idempotent
-  notification-channel delivery receipts.
+- Add an isolation boundary and resource budgets for high-volume pollers, plus
+  idempotent notification-channel delivery receipts.
 - Build packaging/signing/upgrade rules before introducing an extension marketplace.
 
 ### Product validation

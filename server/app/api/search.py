@@ -1,6 +1,7 @@
 from datetime import datetime
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import or_, select
@@ -10,6 +11,7 @@ from app.core.dependencies import get_current_superuser, get_current_user
 from app.models.auth import User
 from app.models.files import ContentChunk, FileAttachment
 from app.models.processing import TimelineEntry
+from app.services.context import get_owned_area
 from app.services.retrieval import (
     backfill_search_documents,
     graph_context,
@@ -37,21 +39,37 @@ async def search(
     limit: int = Query(default=10, ge=1, le=100),
     source_type: list[str] | None = Query(default=None),
     include_graph: bool = True,
+    life_area_id: UUID | None = None,
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> dict:
+    if life_area_id is not None and await get_owned_area(db_session, life_area_id, current_user.id) is None:
+        raise HTTPException(status_code=404, detail="Life Area not found")
     hits = await retrieve(
         db_session,
         q,
         limit=limit,
         source_types=set(source_type) if source_type else None,
+        user_id=current_user.id,
+        area_id=life_area_id,
     )
-    graph = await graph_context(db_session, q, limit=limit) if include_graph else []
+    graph = (
+        await graph_context(
+            db_session,
+            q,
+            limit=limit,
+            user_id=current_user.id,
+            area_id=life_area_id,
+        )
+        if include_graph
+        else []
+    )
     # Compatibility projections also make newly-created, not-yet-indexed rows immediately searchable.
-    timeline = (
+    timeline = [] if life_area_id is not None else (
         await db_session.execute(
             select(TimelineEntry)
             .where(
+                TimelineEntry.owner_user_id == current_user.id,
                 or_(
                     TimelineEntry.activity.ilike(f"%{q}%"),
                     TimelineEntry.notes.ilike(f"%{q}%"),
@@ -61,10 +79,11 @@ async def search(
             .limit(limit)
         )
     ).scalars().all()
-    files = (
+    files = [] if life_area_id is not None else (
         await db_session.execute(
             select(FileAttachment)
             .where(
+                FileAttachment.owner_user_id == current_user.id,
                 or_(
                     FileAttachment.filename.ilike(f"%{q}%"),
                     FileAttachment.description.ilike(f"%{q}%"),
@@ -74,16 +93,21 @@ async def search(
             .limit(limit)
         )
     ).scalars().all()
-    chunks = (
+    chunks = [] if life_area_id is not None else (
         await db_session.execute(
             select(ContentChunk)
-            .where(ContentChunk.is_superseded == False, ContentChunk.content.ilike(f"%{q}%"))
+            .join(FileAttachment, FileAttachment.id == ContentChunk.file_id)
+            .where(
+                FileAttachment.owner_user_id == current_user.id,
+                ContentChunk.is_superseded == False,
+                ContentChunk.content.ilike(f"%{q}%"),
+            )
             .limit(limit)
         )
     ).scalars().all()
     return {
         "query": q,
-        "mode": "hybrid" if semantic_recall_available(db_session) else "lexical_graph",
+        "mode": "hybrid" if await semantic_recall_available(db_session) else "lexical_graph",
         "hits": [
             SearchHitResponse(
                 source_type=hit.source_type,

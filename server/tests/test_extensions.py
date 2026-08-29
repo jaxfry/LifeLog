@@ -7,6 +7,7 @@ import pytest
 from sqlmodel import select
 
 from app.core.extension_utils import sync_extensions_db
+from app.loader.runner import run_normalization
 from app.models.config import Extension
 from app.models.ingest import RawLog
 from app.services.extension_runtime import configure_extension_pollers
@@ -44,6 +45,44 @@ async def test_ingest_log_different_payload(async_client, session):
     log2, _ = await ingest_log(session, device_id, ext_id, {"data": "B"})
 
     assert log1.id != log2.id
+
+
+def test_activitywatch_server_normalizer_accepts_raw_batch_envelope():
+    events = run_normalization(
+        "com.lifelog.aw",
+        {
+            "format": "activitywatch.raw.v1",
+            "events": [
+                {
+                    "bucket_type": "currentwindow",
+                    "bucket_id": "aw-watcher-window_demo",
+                    "timestamp": "2026-08-12T16:00:00Z",
+                    "duration": 16.5,
+                    "data": {"app": "Goodnotes", "title": "Calculus 12"},
+                },
+                {
+                    "bucket_type": "currentwindow",
+                    "bucket_id": "aw-watcher-window_demo",
+                    "timestamp": "2026-08-12T16:00:17Z",
+                    "duration": 2.0,
+                    "data": {"app": "NotificationCenter", "title": ""},
+                },
+            ],
+        },
+    )
+
+    assert events == [
+        {
+            "type": "app_usage",
+            "data": {
+                "start_time": "2026-08-12T16:00:00Z",
+                "duration": 16.5,
+                "source": "activitywatch",
+                "app": "Goodnotes",
+                "title": "Calculus 12",
+            },
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -122,10 +161,13 @@ async def test_configure_extension_pollers_registers_manifest_cron(session, monk
 
     monkeypatch.setattr(extension_runtime, "async_session_factory", session_factory)
     scheduler = MagicMock()
-    assert await configure_extension_pollers(scheduler) == 1
+    pool = MagicMock()
+    assert await configure_extension_pollers(scheduler, pool) == 1
     kwargs = scheduler.add_job.call_args.kwargs
     assert kwargs["id"] == "extension-poller:com.lifelog.school"
     assert kwargs["max_instances"] == 1
+    assert scheduler.add_job.call_args.args[0] is extension_runtime.enqueue_legacy_extension_poll
+    assert kwargs["args"] == [pool, "com.lifelog.school"]
 
 
 @pytest.mark.asyncio

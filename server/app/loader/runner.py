@@ -4,6 +4,9 @@ import os
 import sys
 from typing import Any
 
+from app.loader.contracts import PollEnvelope, PollResult
+from lifelog_sdk.contracts import PollPage
+
 # Define extensions directory relative to this file
 # server/app/loader/runner.py -> server/extensions
 EXTENSIONS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../extensions"))
@@ -35,7 +38,7 @@ def run_normalization(extension_id: str, payload: dict[str, Any]) -> list[dict[s
     return module.normalize(payload)
 
 
-async def run_poller(extension_id: str, config: dict[str, Any]) -> list[dict[str, Any]]:
+async def run_poller(extension_id: str, config: dict[str, Any]) -> PollResult:
     """Run a trusted extension acquisition adapter; base owns persistence afterward."""
     module = _load_extension_module(extension_id, "poller.py")
     if not hasattr(module, "poll"):
@@ -43,6 +46,16 @@ async def run_poller(extension_id: str, config: dict[str, Any]) -> list[dict[str
     result = module.poll(config)
     if inspect.isawaitable(result):
         result = await result
-    if not isinstance(result, list) or not all(isinstance(item, dict) for item in result):
-        raise TypeError("poll() must return list[dict]")
-    return result
+    if isinstance(result, list):
+        # API v1 compatibility: a list is append-only and has no checkpoint.
+        return PollResult(
+            records=[
+                PollEnvelope.model_validate(
+                    item if "payload" in item else {"payload": item}
+                )
+                for item in result
+            ]
+        )
+    if isinstance(result, PollPage):
+        result = result.model_dump()
+    return PollResult.model_validate(result)

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -29,6 +30,69 @@ async def test_lexical_recall_survives_without_embedding_provider(session):
     hits = await retrieve(session, "chain rule")
     assert hits[0].source_id == source_id
     assert hits[0].reasons == ["lexical"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_recall_applies_explicit_temporal_scope(session):
+    old_id = uuid.uuid4()
+    current_id = uuid.uuid4()
+    for source_id, logical_date in ((old_id, "2026-08-11"), (current_id, "2026-08-12")):
+        await upsert_search_document(
+            session,
+            source_type="timeline",
+            source_id=source_id,
+            title="Calculus",
+            content="Calculus practice problems",
+            occurred_at=datetime.fromisoformat(f"{logical_date}T16:00:00"),
+            logical_date=logical_date,
+        )
+
+    hits = await retrieve(
+        session,
+        "calculus",
+        logical_from="2026-08-12",
+        logical_until="2026-08-13",
+        occurred_from=datetime(2026, 8, 12),
+        occurred_until=datetime(2026, 8, 13),
+    )
+
+    assert [hit.source_id for hit in hits] == [current_id]
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_agent_recall_fails_closed_without_matching_owner(session, mock_user):
+    owned_id = uuid.uuid4()
+    await upsert_search_document(
+        session,
+        source_type="capture",
+        source_id=owned_id,
+        content="private calculus note",
+        metadata={"owner_user_id": str(mock_user.id)},
+    )
+    await upsert_search_document(
+        session,
+        source_type="capture",
+        source_id=uuid.uuid4(),
+        content="private calculus note from someone else",
+        metadata={"owner_user_id": str(uuid.uuid4())},
+    )
+    await upsert_search_document(
+        session,
+        source_type="capture",
+        source_id=uuid.uuid4(),
+        content="unowned legacy calculus note",
+    )
+
+    hits = await retrieve(
+        session,
+        "calculus",
+        user_id=mock_user.id,
+        require_owner_metadata=True,
+    )
+
+    assert [hit.source_id for hit in hits] == [owned_id]
 
 
 @pytest.mark.asyncio
@@ -81,13 +145,17 @@ async def test_entity_is_indexed_on_write(session):
 @pytest.mark.integration
 async def test_reupsert_merges_projection_metadata(session):
     source_id = uuid.uuid4()
-    await upsert_search_document(
+    original = await upsert_search_document(
         session,
         source_type="event",
         source_id=source_id,
         content="First",
         metadata={"extension_id": "school"},
     )
+    original.embedding = [0.0] * 768
+    original.embedding_model = "test-model"
+    session.add(original)
+    await session.flush()
     document = await upsert_search_document(
         session,
         source_type="event",
@@ -96,6 +164,8 @@ async def test_reupsert_merges_projection_metadata(session):
         metadata={"event_type": "lesson"},
     )
     assert document.metadata_ == {"extension_id": "school", "event_type": "lesson"}
+    assert document.embedding is None
+    assert document.embedding_model is None
 
 
 @pytest.mark.asyncio

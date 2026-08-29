@@ -13,6 +13,7 @@ from app.api import (
     ai_chat,
     analytics,
     auth,
+    captures,
     client,
     commitments,
     data,
@@ -20,9 +21,12 @@ from app.api import (
     extensions,
     files,
     health,
+    inbox,
     ingest,
     kernel,
+    life_areas,
     search,
+    sources,
     summaries,
     timeline,
 )
@@ -56,13 +60,31 @@ async def _run_scheduled_timeline():
 
 
 async def _run_scheduled_summary():
-    """APScheduler job: generate daily summary for today."""
+    """APScheduler job: generate an isolated daily summary for each owner."""
     async with async_session_factory() as session:
+        from sqlmodel import select
+
+        from app.models.processing import TimelineEntry
         from app.services.summarizer import generate_daily_summary
 
         today = datetime.now(UTC).strftime("%Y-%m-%d")
-        await generate_daily_summary(session, today)
-        logger.info("Daily summary generated for %s", today)
+        owner_ids = (
+            await session.execute(
+                select(TimelineEntry.owner_user_id)
+                .where(
+                    TimelineEntry.logical_date == today,
+                    TimelineEntry.owner_user_id.is_not(None),
+                )
+                .distinct()
+            )
+        ).scalars().all()
+        for owner_user_id in owner_ids:
+            await generate_daily_summary(
+                session,
+                today,
+                owner_user_id=owner_user_id,
+            )
+        logger.info("Daily summaries generated for %s (%d owners)", today, len(owner_ids))
 
 
 async def _run_scheduled_embeddings():
@@ -74,6 +96,16 @@ async def _run_scheduled_embeddings():
         await session.commit()
         if count:
             logger.info("Generated embeddings for %d recall documents", count)
+
+
+async def _run_upload_cleanup():
+    """Expire abandoned resumable uploads and reclaim temporary storage."""
+    async with async_session_factory() as session:
+        from app.services.uploads import expire_upload_sessions
+
+        count = await expire_upload_sessions(session)
+        if count:
+            logger.info("Expired %d abandoned upload sessions", count)
 
 
 @asynccontextmanager
@@ -96,12 +128,13 @@ async def lifespan(app: FastAPI):
         from arq.connections import RedisSettings
 
         arq_pool = await create_pool(
-            RedisSettings.from_dsn(settings.REDIS_URL, retry_on_start=False),
+            RedisSettings.from_dsn(settings.REDIS_URL),
+            retry=0,
         )
         app.state.arq_pool = arq_pool
         logger.info("Connected to Redis")
     except Exception:
-        logger.warning("Redis unavailable — background workers disabled")
+        logger.exception("Redis unavailable — background workers disabled")
 
     scheduler = None
     try:
@@ -139,8 +172,17 @@ async def lifespan(app: FastAPI):
             max_instances=1,
             coalesce=True,
         )
+        scheduler.add_job(
+            _run_upload_cleanup,
+            "interval",
+            hours=1,
+            id="upload_cleanup",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
         from app.services.extension_runtime import configure_extension_pollers
-        poller_count = await configure_extension_pollers(scheduler)
+        poller_count = await configure_extension_pollers(scheduler, arq_pool)
         scheduler.start()
         app.state.scheduler = scheduler
         logger.info(
@@ -187,6 +229,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
+app.include_router(inbox.router, prefix="/api/v1", tags=["inbox"])
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(devices.router, prefix="/api/v1", tags=["devices"])
 app.include_router(ingest.router, prefix="/api/v1", tags=["ingestion"])
@@ -202,6 +245,9 @@ app.include_router(files.router, prefix="/api/v1/files", tags=["files"])
 app.include_router(client.router, prefix="/api/v1", tags=["client"])
 app.include_router(commitments.router, prefix="/api/v1", tags=["commitments"])
 app.include_router(kernel.router, prefix="/api/v1/kernel", tags=["kernel"])
+app.include_router(life_areas.router, prefix="/api/v1", tags=["life-areas"])
+app.include_router(captures.router, prefix="/api/v1", tags=["captures"])
+app.include_router(sources.router, prefix="/api/v1", tags=["sources"])
 
 if not settings.SECRET_KEY or settings.SECRET_KEY == "change-this-to-a-random-secret-key":
     if not settings.DEBUG:

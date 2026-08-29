@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from app.core.database import get_session
-from app.core.dependencies import Pagination
+from app.core.dependencies import Pagination, get_current_user
+from app.models.auth import User
 from app.models.ingest import Event, RawLog
 from app.models.processing import Session
 
@@ -26,12 +27,17 @@ async def get_sessions(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     status: str | None = None,
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_session),
 ):
     start_date = _normalize_dt(start_date)
     end_date = _normalize_dt(end_date)
 
-    stmt = select(Session).order_by(col(Session.start_time).desc())
+    stmt = (
+        select(Session)
+        .where(Session.owner_user_id == current_user.id)
+        .order_by(col(Session.start_time).desc())
+    )
 
     if start_date:
         stmt = stmt.where(Session.start_time >= start_date)
@@ -51,12 +57,17 @@ async def get_logs(
     extension_id: str | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_session),
 ):
     start_date = _normalize_dt(start_date)
     end_date = _normalize_dt(end_date)
 
-    stmt = select(RawLog).order_by(col(RawLog.received_at).desc())
+    stmt = (
+        select(RawLog)
+        .where(RawLog.owner_user_id == current_user.id)
+        .order_by(col(RawLog.received_at).desc())
+    )
 
     if extension_id:
         stmt = stmt.where(RawLog.extension_id == extension_id)
@@ -76,6 +87,7 @@ async def get_events(
     extension_id: str | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_session),
 ):
     start_date = _normalize_dt(start_date)
@@ -85,10 +97,13 @@ async def get_events(
         stmt = (
             select(Event)
             .join(RawLog)
-            .where(RawLog.extension_id == extension_id)
+            .where(
+                Event.owner_user_id == current_user.id,
+                RawLog.extension_id == extension_id,
+            )
         )
     else:
-        stmt = select(Event)
+        stmt = select(Event).where(Event.owner_user_id == current_user.id)
 
     stmt = stmt.where(Event.is_superseded == False)
     stmt = stmt.order_by(col(Event.created_at).desc())

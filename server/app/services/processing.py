@@ -67,6 +67,7 @@ async def get_sessions_ready_for_ai(
         select(Session)
         .where(Session.status == "pending")
         .where(Session.processing_status == "ready")
+        .where(Session.owner_user_id.is_not(None))
         .order_by(Session.start_time.asc())
         .limit(limit)
     )

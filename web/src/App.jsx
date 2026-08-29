@@ -14,6 +14,10 @@ import Extensions from './pages/Extensions';
 import DataExplorer from './pages/DataExplorer';
 import AIInsights from './pages/AIInsights';
 import Files from './pages/Files';
+import Captures from './pages/Captures';
+import Sources from './pages/Sources';
+import LifeAreas from './pages/LifeAreas';
+import Inbox from './pages/Inbox';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -82,6 +86,16 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/captures"
+              element={<ProtectedRoute><Layout><Captures /></Layout></ProtectedRoute>}
+            />
+            <Route
+              path="/sources"
+              element={<ProtectedRoute><Layout><Sources /></Layout></ProtectedRoute>}
+            />
+            <Route path="/life-areas" element={<ProtectedRoute><Layout><LifeAreas /></Layout></ProtectedRoute>} />
+            <Route path="/inbox" element={<ProtectedRoute><Layout><Inbox /></Layout></ProtectedRoute>} />
             <Route
               path="/files"
               element={

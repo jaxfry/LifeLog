@@ -26,6 +26,7 @@ class Device(SQLModel, table=True):
     __tablename__ = "devices"
 
     id: str = Field(primary_key=True)
+    user_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", index=True)
     name: str | None = None
     device_type: str | None = None
     api_key_hash: str = Field(nullable=False)
@@ -33,3 +34,14 @@ class Device(SQLModel, table=True):
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
+
+
+class RefreshToken(SQLModel, table=True):
+    __tablename__ = "refresh_tokens"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True, nullable=False)
+    token_hash: str = Field(index=True, nullable=False)
+    expires_at: datetime = Field(nullable=False)
+    revoked: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)

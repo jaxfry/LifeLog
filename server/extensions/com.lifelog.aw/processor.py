@@ -5,7 +5,9 @@ def normalize(payload: dict[str, Any] | list[dict[str, Any]]) -> list[dict[str, 
     """
     Normalizes the raw payload from the ActivityWatch collector.
     """
-    if isinstance(payload, list):
+    if isinstance(payload, dict) and isinstance(payload.get("events"), list):
+        raw_events = payload["events"]
+    elif isinstance(payload, list):
         raw_events = payload
     else:
         raw_events = [payload]
@@ -13,6 +15,10 @@ def normalize(payload: dict[str, Any] | list[dict[str, Any]]) -> list[dict[str, 
     normalized_events = []
 
     for raw_event in raw_events:
+        # Compatibility for clients that performed normalization locally.
+        if raw_event.get("type") and isinstance(raw_event.get("data"), dict):
+            normalized_events.append(raw_event)
+            continue
         # Filter out short events (noise)
         duration = raw_event.get("duration", 0)
         if duration < 5:

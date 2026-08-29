@@ -45,6 +45,10 @@ async def ingest(
             content={"status": "duplicate", "id": str(raw_log.id)},
         )
 
+    arq_pool = getattr(request.app.state, "arq_pool", None)
+    if arq_pool is not None:
+        await arq_pool.enqueue_job("task_normalize_log", str(raw_log.id))
+
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={"status": "created", "id": str(raw_log.id)},

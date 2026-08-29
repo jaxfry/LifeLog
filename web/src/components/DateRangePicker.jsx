@@ -1,17 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Calendar, X } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth, isAfter, isBefore, parseISO } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, isAfter, parseISO } from 'date-fns';
 
 const DateRangePicker = ({ startDate, endDate, onChange, className = '' }) => {
     const [localStart, setLocalStart] = useState(startDate || '');
     const [localEnd, setLocalEnd] = useState(endDate || '');
     const [error, setError] = useState('');
-
-    // Sync with props
-    useEffect(() => {
-        setLocalStart(startDate || '');
-        setLocalEnd(endDate || '');
-    }, [startDate, endDate]);
 
     const handleDateChange = (type, value) => {
         setError('');

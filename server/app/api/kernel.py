@@ -12,8 +12,9 @@ from app.core.database import get_session
 from app.core.dependencies import Pagination, get_current_superuser, get_current_user
 from app.models.auth import User
 from app.models.ingest import Event
-from app.models.kernel import Entity, Relation
+from app.models.kernel import Entity, EntityMerge, Relation
 from app.services import kernel as kernel_service
+from app.services.measurements import aggregate_measurements
 
 router = APIRouter()
 
@@ -88,7 +89,7 @@ async def list_entities(
 ):
     statement = (
         select(Entity)
-        .where(Entity.is_superseded == False)
+        .where(Entity.is_superseded == False, Entity.owner_user_id == current_user.id)
         .order_by(col(Entity.created_at).desc())
         .offset(pagination.offset)
         .limit(pagination.limit)
@@ -99,11 +100,13 @@ async def list_entities(
         statement = statement.where(Entity.name.ilike(f"%{q}%"))
     if predicate:
         related_ids = select(Relation.object_id).where(
+            Relation.owner_user_id == current_user.id,
             Relation.predicate == predicate,
             Relation.object_type == "entity",
             Relation.is_superseded == False,
         )
         subject_ids = select(Relation.subject_id).where(
+            Relation.owner_user_id == current_user.id,
             Relation.predicate == predicate,
             Relation.subject_type == "entity",
             Relation.is_superseded == False,
@@ -121,7 +124,9 @@ async def get_entity(
     current_user: User = Depends(get_current_user),
 ):
     entity = await kernel_service.get_current_entity(db_session, entity_id)
-    if entity is None:
+    if entity is None or (
+        entity.owner_user_id != current_user.id and not current_user.is_superuser
+    ):
         raise HTTPException(status_code=404, detail="Entity not found")
     return entity
 
@@ -132,6 +137,11 @@ async def get_entity_history(
     db_session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    entity = await db_session.get(Entity, entity_id)
+    if entity is None or (
+        entity.owner_user_id != current_user.id and not current_user.is_superuser
+    ):
+        raise HTTPException(status_code=404, detail="Entity not found")
     return await kernel_service.get_entity_history(db_session, entity_id)
 
 
@@ -148,6 +158,7 @@ async def create_entity(
             name=body.name,
             data=body.data,
             confidence=body.confidence,
+            owner_user_id=current_user.id,
         )
         await db_session.commit()
         await db_session.refresh(entity)
@@ -172,6 +183,11 @@ async def get_entity_graph(
         raise HTTPException(status_code=400, detail="depth must be between 1 and 3")
     if not 1 <= relation_limit <= 1000:
         raise HTTPException(status_code=400, detail="relation_limit must be between 1 and 1000")
+    root = await db_session.get(Entity, entity_id)
+    if root is None or (
+        root.owner_user_id != current_user.id and not current_user.is_superuser
+    ):
+        raise HTTPException(status_code=404, detail="Entity not found")
     entities, events, relations, truncated = await kernel_service.get_entity_graph(
         db_session,
         entity_id,
@@ -228,6 +244,21 @@ async def merge_entities(
     return survivor
 
 
+@router.post("/entities/merges/{merge_id}/reverse", response_model=EntityMerge)
+async def reverse_entity_merge(
+    merge_id: uuid.UUID,
+    db_session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_superuser),
+) -> EntityMerge:
+    try:
+        merge = await kernel_service.reverse_entity_merge(db_session, merge_id)
+        await db_session.commit()
+        await db_session.refresh(merge)
+        return merge
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.get("/relations", response_model=list[Relation])
 async def list_relations(
     subject_id: uuid.UUID | None = None,
@@ -240,6 +271,7 @@ async def list_relations(
 ):
     statement = (
         select(Relation)
+        .where(Relation.owner_user_id == current_user.id)
         .order_by(col(Relation.created_at).desc())
         .offset(pagination.offset)
         .limit(pagination.limit)
@@ -256,6 +288,27 @@ async def list_relations(
     result = await db_session.execute(statement)
     return result.scalars().all()
 
+@router.get("/aggregates/measurement")
+async def aggregate_measurement(
+    entity_id: uuid.UUID | None = None,
+    entity_type: str | None = None,
+    metric: str | None = None,
+    occurred_from: datetime | None = None,
+    occurred_until: datetime | None = None,
+    db_session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Numeric rollups, e.g. average exam score per course."""
+    return await aggregate_measurements(
+        db_session,
+        entity_id=entity_id,
+        entity_type=entity_type,
+        metric=metric,
+        occurred_from=_normalize_dt(occurred_from) if occurred_from else None,
+        occurred_until=_normalize_dt(occurred_until) if occurred_until else None,
+        user_id=current_user.id,
+    )
+
 
 @router.get("/aggregates/duration")
 async def aggregate_duration(
@@ -268,54 +321,15 @@ async def aggregate_duration(
     current_user: User = Depends(get_current_user),
 ) -> list[dict]:
     """Generic valid-time rollup, e.g. hours per course/project/application."""
-    statement = select(Relation).where(
-        Relation.is_superseded == False,
-        Relation.invalidated_at.is_(None),
-        Relation.occurred_from.is_not(None),
-        Relation.occurred_until.is_not(None),
+    return await kernel_service.aggregate_duration(
+        db_session,
+        entity_id=entity_id,
+        entity_type=entity_type,
+        predicate=predicate,
+        occurred_from=_normalize_dt(occurred_from) if occurred_from else None,
+        occurred_until=_normalize_dt(occurred_until) if occurred_until else None,
+        user_id=current_user.id,
     )
-    if entity_id:
-        statement = statement.where(or_(Relation.subject_id == entity_id, Relation.object_id == entity_id))
-    if predicate:
-        statement = statement.where(Relation.predicate == predicate)
-    if occurred_from:
-        statement = statement.where(Relation.occurred_until >= _normalize_dt(occurred_from))
-    if occurred_until:
-        statement = statement.where(Relation.occurred_from <= _normalize_dt(occurred_until))
-    relations = (await db_session.execute(statement.limit(50_000))).scalars().all()
-    ids = {
-        relation.object_id
-        for relation in relations
-        if relation.object_type == "entity"
-    } | {
-        relation.subject_id
-        for relation in relations
-        if relation.subject_type == "entity"
-    }
-    entities = {
-        item.id: item
-        for item in (await db_session.execute(select(Entity).where(col(Entity.id).in_(list(ids))))).scalars().all()
-    }
-    totals: dict[uuid.UUID, float] = {}
-    for relation in relations:
-        target_id = relation.object_id if relation.object_type == "entity" else relation.subject_id
-        entity = entities.get(target_id)
-        if entity is None or (entity_type and entity.entity_type != entity_type):
-            continue
-        start = max(relation.occurred_from, _normalize_dt(occurred_from)) if occurred_from else relation.occurred_from
-        end = min(relation.occurred_until, _normalize_dt(occurred_until)) if occurred_until else relation.occurred_until
-        if start is not None and end is not None and end > start:
-            totals[target_id] = totals.get(target_id, 0.0) + (end - start).total_seconds()
-    return [
-        {
-            "entity_id": entity_id,
-            "entity_type": entities[entity_id].entity_type,
-            "name": entities[entity_id].name,
-            "seconds": seconds,
-            "hours": seconds / 3600,
-        }
-        for entity_id, seconds in sorted(totals.items(), key=lambda item: item[1], reverse=True)
-    ]
 
 
 @router.post("/relations", response_model=Relation, status_code=201)
@@ -336,6 +350,7 @@ async def create_relation(
             occurred_until=_normalize_dt(body.occurred_until),
             confidence=body.confidence,
             data=body.data,
+            owner_user_id=current_user.id,
         )
         await db_session.commit()
         await db_session.refresh(relation)
@@ -383,6 +398,7 @@ async def link_event_relation(
             occurred_until=_normalize_dt(body.occurred_until),
             confidence=body.confidence,
             data=body.data,
+            owner_user_id=current_user.id,
         )
         await db_session.commit()
         await db_session.refresh(relation)

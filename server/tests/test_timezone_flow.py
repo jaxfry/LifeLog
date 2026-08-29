@@ -1,9 +1,12 @@
 import uuid
 from datetime import datetime
+from unittest.mock import AsyncMock
 
 import pytest
 
+from app.main import app
 from app.models.ingest import RawLog
+from app.workers.process import process_log
 
 
 @pytest.mark.asyncio
@@ -69,6 +72,86 @@ async def test_ingest_duplicate(async_client, session, mock_device_auth):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
+async def test_ingest_semantic_dedup_collapses_regenerated_ids(async_client, mock_device_auth):
+    signal = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "type": "motion",
+        "start_time": "2026-08-13T19:19:32Z",
+        "end_time": None,
+        "data": {"activity": "stationary", "confidence": "2", "source": "core_motion_activity"},
+    }
+    headers = {"X-API-Key": "dummy-key"}
+
+    first = await async_client.post(
+        "/api/v1/ingest",
+        json={"extension_id": "com.lifelog.ios", "payload": signal},
+        headers=headers,
+    )
+    assert first.status_code == 201
+
+    # Same (type, start, end, data), only the client-generated id differs:
+    # a re-buffered or live/backfill-overlapped write must collapse.
+    signal["id"] = "22222222-2222-2222-2222-222222222222"
+    second = await async_client.post(
+        "/api/v1/ingest",
+        json={"extension_id": "com.lifelog.ios", "payload": signal},
+        headers=headers,
+    )
+    assert second.status_code == 200
+    assert second.json()["status"] == "duplicate"
+    assert second.json()["id"] == first.json()["id"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_ingest_semantic_dedup_keeps_different_data(async_client, mock_device_auth):
+    signal = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "type": "motion",
+        "start_time": "2026-08-13T19:19:32Z",
+        "end_time": None,
+        "data": {"activity": "walking", "confidence": "2", "source": "core_motion_activity"},
+    }
+    headers = {"X-API-Key": "dummy-key"}
+    first = await async_client.post(
+        "/api/v1/ingest",
+        json={"extension_id": "com.lifelog.ios", "payload": signal},
+        headers=headers,
+    )
+    assert first.status_code == 201
+
+    signal["id"] = "22222222-2222-2222-2222-222222222222"
+    signal["data"]["activity"] = "running"
+    second = await async_client.post(
+        "/api/v1/ingest",
+        json={"extension_id": "com.lifelog.ios", "payload": signal},
+        headers=headers,
+    )
+    assert second.status_code == 201
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_ingest_enqueues_normalization(async_client, mock_device_auth):
+    pool = AsyncMock()
+    app.state.arq_pool = pool
+    try:
+        response = await async_client.post(
+            "/api/v1/ingest",
+            json={"extension_id": "test-ext", "payload": {"queued": True}},
+            headers={"X-API-Key": "dummy-key"},
+        )
+    finally:
+        del app.state.arq_pool
+
+    assert response.status_code == 201
+    pool.enqueue_job.assert_awaited_once_with(
+        "task_normalize_log", response.json()["id"]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
 async def test_ingest_requires_device_auth(async_client):
     response = await async_client.post(
         "/api/v1/ingest",
@@ -76,3 +159,34 @@ async def test_ingest_requires_device_auth(async_client):
         headers={"X-API-Key": "wrong-key"},
     )
     assert response.status_code in [401, 403]
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_processing_uses_client_timezone_and_activity_duration(
+    session, mock_device_auth
+):
+    from app.services.ingestion import ingest_log
+
+    log, _ = await ingest_log(
+        session,
+        device_id="tz-device",
+        extension_id="com.lifelog.aw",
+        client_timezone="America/Vancouver",
+        payload={
+            "events": [
+                {
+                    "bucket_type": "currentwindow",
+                    "bucket_id": "aw-watcher-window_mbp",
+                    "timestamp": "2026-08-13T05:30:00Z",
+                    "duration": 90.5,
+                    "data": {"app": "Code", "title": "LifeLog"},
+                }
+            ]
+        },
+    )
+    events = await process_log(session, log.id)
+
+    assert len(events) == 1
+    assert events[0].logical_date == "2026-08-12"
+    assert (events[0].end_time - events[0].start_time).total_seconds() == 90.5

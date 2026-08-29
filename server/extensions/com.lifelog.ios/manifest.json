@@ -1,0 +1,22 @@
+{
+  "id": "com.lifelog.ios",
+  "version": "1.0.0",
+  "api_version": "1",
+  "capabilities": ["normalizer"],
+  "permissions": [],
+  "event_types": [
+    "location",
+    "visit",
+    "motion",
+    "steps",
+    "health",
+    "calendar",
+    "reminder",
+    "connectivity",
+    "battery",
+    "power",
+    "photo_library",
+    "contact",
+    "bluetooth"
+  ]
+}

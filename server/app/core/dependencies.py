@@ -1,3 +1,6 @@
+import uuid
+from dataclasses import dataclass
+
 from fastapi import Depends, HTTPException, Query, Security, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +16,12 @@ oauth2_scheme = OAuth2PasswordBearer(
 api_key_header_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
+@dataclass(frozen=True)
+class CaptureActor:
+    user: User
+    device: Device | None = None
+
+
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_session),
@@ -26,8 +35,13 @@ async def get_current_user(
         raise credentials_exception
 
     payload = decode_access_token(token)
-    user_id: str | None = payload.get("sub")
-    if not user_id:
+    user_id_raw: str | None = payload.get("sub")
+    if not user_id_raw:
+        raise credentials_exception
+
+    try:
+        user_id = uuid.UUID(user_id_raw)
+    except (ValueError, TypeError):
         raise credentials_exception
 
     user = await session.get(User, user_id)
@@ -68,6 +82,28 @@ async def verify_device(
             detail="Invalid API key",
         )
     return device
+
+
+async def get_capture_actor(
+    token: str | None = Depends(oauth2_scheme),
+    api_key: str | None = Security(api_key_header_scheme),
+    session: AsyncSession = Depends(get_session),
+) -> CaptureActor:
+    """Authenticate universal capture through either a user token or an owned device key."""
+    if token:
+        return CaptureActor(user=await get_current_user(token, session))
+    if api_key:
+        device = await verify_device(api_key, session)
+        if device.user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Device is not assigned to a user",
+            )
+        user = await session.get(User, device.user_id)
+        if user is None or not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Device owner is inactive")
+        return CaptureActor(user=user, device=device)
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User token or device API key required")
 
 
 class Pagination:

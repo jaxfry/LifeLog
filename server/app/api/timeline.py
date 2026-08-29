@@ -35,7 +35,9 @@ async def list_timeline_entries(
     start_date = _normalize_dt(start_date)
     end_date = _normalize_dt(end_date)
 
-    statement = select(TimelineEntry)
+    statement = select(TimelineEntry).where(
+        TimelineEntry.owner_user_id == current_user.id
+    )
 
     if logical_date:
         statement = statement.where(TimelineEntry.logical_date == logical_date)
@@ -74,7 +76,14 @@ async def get_timeline_entry(
     current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_session),
 ):
-    entry = await db_session.get(TimelineEntry, entry_id)
+    entry = (
+        await db_session.execute(
+            select(TimelineEntry).where(
+                TimelineEntry.id == entry_id,
+                TimelineEntry.owner_user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
     if not entry:
         raise HTTPException(status_code=404, detail="Timeline entry not found")
     return entry
@@ -86,7 +95,14 @@ async def get_timeline_entries_by_session(
     current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_session),
 ):
-    session_obj = await db_session.get(Session, session_id)
+    session_obj = (
+        await db_session.execute(
+            select(Session).where(
+                Session.id == session_id,
+                Session.owner_user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
     if not session_obj:
         raise HTTPException(status_code=404, detail="Session not found")
 

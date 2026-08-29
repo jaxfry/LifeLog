@@ -33,12 +33,51 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let refreshPromise = null;
+
+const tryRefreshToken = async () => {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return false;
+
+  if (!refreshPromise) {
+    refreshPromise = api
+      .post('/token/refresh', { refresh_token: refreshToken })
+      .then((response) => {
+        localStorage.setItem('token', response.data.access_token);
+        if (response.data.refresh_token) {
+          localStorage.setItem('refresh_token', response.data.refresh_token);
+        }
+        return true;
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
+        return false;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+};
+
 // Handle auth errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
+      const original = error.config;
+      const isAuthEndpoint = original?.url?.includes('/token');
+      if (original && !original._retried && !isAuthEndpoint) {
+        original._retried = true;
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          original.headers.Authorization = `Bearer ${localStorage.getItem('token')}`;
+          return api(original);
+        }
+      }
       localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
       // Trigger a full page reload to /login to ensure clean state
       // This is acceptable for auth errors where we want to clear everything
       if (!window.location.pathname.includes('/login')) {
@@ -65,12 +104,16 @@ export const authAPI = {
     if (response.data.access_token) {
       localStorage.setItem('token', response.data.access_token);
     }
+    if (response.data.refresh_token) {
+      localStorage.setItem('refresh_token', response.data.refresh_token);
+    }
 
     return response.data;
   },
 
   logout: () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
   },
 };
 
@@ -241,12 +284,60 @@ export const extensionsAPI = {
   },
 };
 
+export const sourcesAPI = {
+  list: async () => (await api.get('/sources')).data,
+  create: async (source) => (await api.post('/sources', source)).data,
+  update: async (id, changes) => (await api.patch(`/sources/${id}`, changes)).data,
+  sync: async (id) => (await api.post(`/sources/${id}/sync`)).data,
+  disconnect: async (id) => api.delete(`/sources/${id}`),
+};
+
+export const lifeAreasAPI = {
+  list: async () => (await api.get('/life-areas')).data,
+  templates: async () => (await api.get('/life-area-templates')).data,
+  create: async (area) => (await api.post('/life-areas', area)).data,
+  update: async (id, changes) => (await api.patch(`/life-areas/${id}`, changes)).data,
+  memories: async (id) => (await api.get(`/life-areas/${id}/memories`)).data,
+};
+
+export const inboxAPI = {
+  list: async (status = 'pending') => (await api.get('/inbox', { params: { status } })).data,
+  decide: async (id, decision, value = {}) => (
+    await api.post(`/inbox/${id}/decision`, { decision, value })
+  ).data,
+};
+
+export const capturesAPI = {
+  list: async () => (await api.get('/captures')).data,
+  get: async (id) => (await api.get(`/captures/${id}`)).data,
+  createNote: async (note) => (await api.post('/captures/notes', note)).data,
+  createFiles: async ({ files, kind, intent, contextHints, lifeAreaIds = [], privacy = {} }) => {
+    const form = new FormData();
+    form.append('kind', kind);
+    form.append('captured_at', new Date().toISOString());
+    if (intent) form.append('intent', intent);
+    if (contextHints) form.append('context_hints', JSON.stringify(contextHints));
+    form.append('life_area_ids', JSON.stringify(lifeAreaIds));
+    form.append('privacy', JSON.stringify(privacy));
+    files.forEach((file) => form.append('files', file));
+    return (await api.post('/captures', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+  },
+  retry: async (id) => (await api.post(`/captures/${id}/retry`)).data,
+  confirmClassification: async (id, label) => (
+    await api.post(`/captures/${id}/classification`, { label })
+  ).data,
+};
+
 // AI Chat API
 export const aiChatAPI = {
-  sendMessage: async (message, contextDays = 7) => {
+  sendMessage: async ({ message, history = [], lifeAreaId = null, timezone = 'UTC' }) => {
     const response = await api.post('/ai/chat', {
       message,
-      context_days: contextDays
+      life_area_id: lifeAreaId,
+      history,
+      timezone,
     });
     return response.data;
   },

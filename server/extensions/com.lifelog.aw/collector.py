@@ -129,7 +129,12 @@ def main():
             time_since_flush = time.time() - last_flush_time
             if len(event_buffer) >= 50 or time_since_flush > 30:
                 if event_buffer:
-                    print(json.dumps(event_buffer), flush=True)
+                    print(
+                        json.dumps(
+                            {"events": event_buffer, "format": "activitywatch.raw.v1"}
+                        ),
+                        flush=True,
+                    )
                     print(f"Flushed {len(event_buffer)} events.", file=sys.stderr)
                     event_buffer = []
 

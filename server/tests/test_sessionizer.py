@@ -81,6 +81,65 @@ async def test_group_into_sessions_splits_across_dates():
     assert len(groups) == 2
 
 
+@pytest.mark.asyncio
+async def test_group_into_sessions_uses_recorded_local_logical_date():
+    events = [
+        Event(
+            event_type="app_usage",
+            start_time=datetime(2024, 1, 2, 7, 55, 0),
+            end_time=datetime(2024, 1, 2, 7, 59, 0),
+            logical_date="2024-01-01",
+        ),
+        Event(
+            event_type="app_usage",
+            start_time=datetime(2024, 1, 2, 8, 3, 0),
+            end_time=datetime(2024, 1, 2, 8, 8, 0),
+            logical_date="2024-01-01",
+        ),
+    ]
+
+    groups = _group_into_sessions(events)
+
+    assert len(groups) == 1
+
+
+@pytest.mark.asyncio
+async def test_group_into_sessions_splits_and_ignores_activity_during_long_afk():
+    events = [
+        Event(
+            event_type="app_usage",
+            start_time=datetime(2024, 1, 1, 10, 0),
+            end_time=datetime(2024, 1, 1, 10, 10),
+            data={"title": "Calculus"},
+        ),
+        Event(
+            event_type="device_status",
+            start_time=datetime(2024, 1, 1, 10, 10),
+            end_time=datetime(2024, 1, 1, 10, 40),
+            data={"status": "afk"},
+        ),
+        Event(
+            event_type="app_usage",
+            start_time=datetime(2024, 1, 1, 10, 20),
+            end_time=datetime(2024, 1, 1, 10, 21),
+            data={"title": "Stale foreground window"},
+        ),
+        Event(
+            event_type="app_usage",
+            start_time=datetime(2024, 1, 1, 10, 40),
+            end_time=datetime(2024, 1, 1, 10, 50),
+            data={"title": "Physics"},
+        ),
+    ]
+
+    groups = _group_into_sessions(events)
+
+    assert [[event.data["title"] for event in group] for group in groups] == [
+        ["Calculus"],
+        ["Physics"],
+    ]
+
+
 def _make_raw_log(session, extension_id: str = "test.ext") -> RawLog:
     rl = RawLog(
         device_id="test_dev",

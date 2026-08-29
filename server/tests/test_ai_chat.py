@@ -6,7 +6,16 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import AsyncClient
 
-from app.models.files import ContentChunk, FileAttachment
+from app.services.intelligence import IntelligenceResult
+
+
+def _result(response: str = "Hello", citations: list[dict] | None = None) -> IntelligenceResult:
+    return IntelligenceResult(
+        response=response,
+        citations=citations or [],
+        tools_used=[],
+        usage={"requests": 1, "tool_calls": 0, "input_tokens": 10, "output_tokens": 2},
+    )
 
 
 @pytest.mark.asyncio
@@ -29,34 +38,53 @@ async def test_ai_chat_requires_message(mock_user, async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_ai_chat_accepts_valid_request(mock_user, async_client: AsyncClient):
     """Test that chat endpoint accepts valid request structure."""
-    with patch("app.api.ai_chat.call_llm", AsyncMock(return_value="Hello")):
+    assistant = AsyncMock(return_value=_result())
+    with patch("app.api.ai_chat.run_interactive_assistant", assistant):
         response = await async_client.post("/api/v1/ai/chat", json={"message": "Hello", "context_days": 7})
     assert response.status_code == 200
+    assert response.json()["retrieval"]["time_scope"] == "chosen by assistant from the question"
+    assert assistant.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_ai_chat_supplies_history_as_continuity_not_evidence(
+    mock_user,
+    async_client: AsyncClient,
+):
+    assistant = AsyncMock(return_value=_result("A grounded follow-up"))
+    with patch("app.api.ai_chat.run_interactive_assistant", assistant):
+        response = await async_client.post(
+            "/api/v1/ai/chat",
+            json={
+                "message": "What about that topic?",
+                "history": [
+                    {"role": "user", "content": "Tell me about calculus"},
+                    {"role": "assistant", "content": "We discussed derivatives [S1]."},
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    assert assistant.await_args.kwargs["history"] == [
+        ("user", "Tell me about calculus"),
+        ("assistant", "We discussed derivatives [S1]."),
+    ]
 
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_ai_chat_returns_grounded_artifact_citations(mock_user, async_client: AsyncClient, session):
-    attachment = FileAttachment(
-        filename="lecture.txt",
-        stored_path="unused",
-        mime_type="text/plain",
-        content_hash="lecture-citation",
-        processing_status="ready",
+async def test_ai_chat_returns_grounded_citations(mock_user, async_client: AsyncClient):
+    citation = {
+        "id": "S1",
+        "source_type": "artifact_chunk",
+        "source_id": "evidence-id",
+        "title": "lecture.txt",
+        "content": "Photosynthesis converts light energy.",
+    }
+    assistant = AsyncMock(
+        return_value=_result("It converts light energy [S1].", [citation])
     )
-    session.add(attachment)
-    await session.flush()
-    session.add(
-        ContentChunk(
-            file_id=attachment.id,
-            sequence=0,
-            content="Photosynthesis converts light energy into chemical energy.",
-            content_type="transcript",
-        )
-    )
-    await session.commit()
-
-    with patch("app.api.ai_chat.call_llm", AsyncMock(return_value="It converts light energy [S1].")):
+    with patch("app.api.ai_chat.run_interactive_assistant", assistant):
         response = await async_client.post(
             "/api/v1/ai/chat",
             json={"message": "What does photosynthesis do?"},
@@ -64,5 +92,5 @@ async def test_ai_chat_returns_grounded_artifact_citations(mock_user, async_clie
 
     assert response.status_code == 200
     data = response.json()
-    assert data["citations"][0]["filename"] == "lecture.txt"
+    assert data["citations"][0]["title"] == "lecture.txt"
     assert data["citations"][0]["id"] == "S1"
