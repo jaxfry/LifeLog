@@ -13,6 +13,11 @@ ENV PYTHONUNBUFFERED 1
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# --- Pre-download embedding model ---
+# Download the sentence-transformers model at build time to avoid runtime failures
+# This ensures the model is available even without internet access at runtime
+RUN python3 -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+
 # --- Install our local application code ---
 # Copy the pyproject.toml and the src directory
 COPY pyproject.toml .

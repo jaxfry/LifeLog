@@ -168,6 +168,11 @@ async def update_device_config(
         else:
             current[k] = v
     dev.client_metadata = current
+    
+    # Mark the JSON column as modified to ensure SQLAlchemy detects the change
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(dev, 'client_metadata')
+    
     session.add(dev)
     await session.commit()
     await session.refresh(dev)
