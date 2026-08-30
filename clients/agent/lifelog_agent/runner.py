@@ -23,7 +23,13 @@ async def flush_queue(client: DeviceClient, queue: OfflineQueue, retry_mgr: Retr
     for rid, kind, payload in rows:
         try:
             if kind == "ingest":
-                await client.ingest(payload["source_actor_slug"], payload["data"])
+                # Pass through external_id if present for idempotency
+                await client.ingest(
+                    payload["source_actor_slug"],
+                    payload["data"],
+                    external_id=payload.get("external_id"),
+                    idempotency_key=payload.get("idempotency_key")
+                )
                 logger.debug(f"Sent queued item {rid}")
             sent_ids.append(rid)
         except Exception as e:

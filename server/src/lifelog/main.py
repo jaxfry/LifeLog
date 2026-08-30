@@ -10,6 +10,7 @@ from .api import (
     processing,
     auth,
     timeline,
+    timeline_blocks,
     devices,
     actor_routing,
     search,
@@ -21,6 +22,7 @@ from .actors import load_all_actors
 from .db import init_db
 from .core.config import settings
 from .core.extension_loader import init_extension_loader, get_extension_loader
+from .core.scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +62,23 @@ async def lifespan(app: FastAPI):
     loaded_extensions = await ext_loader.load_all_extensions()
     logger.info(f"Loaded {len(loaded_extensions)} dynamic extensions with auto-registration")
     
+    # Start background task scheduler for automated timeline generation
+    try:
+        await start_scheduler()
+        logger.info("Background task scheduler started")
+    except Exception as e:
+        logger.error(f"Failed to start scheduler: {e}")
+    
     logger.info("Application startup complete.")
     yield
     logger.info("Shutting down application.")
+    
+    # Stop background scheduler
+    try:
+        await stop_scheduler()
+        logger.info("Background task scheduler stopped")
+    except Exception as e:
+        logger.error(f"Failed to stop scheduler: {e}")
     
     # Clean up temporary extension files
     try:
@@ -84,6 +100,7 @@ api_v1_router = APIRouter(prefix=settings.API_V1_STR)
 # Client Data API - authenticated endpoints for client applications
 api_v1_router.include_router(auth.router, tags=["Authentication"])
 api_v1_router.include_router(timeline.router, tags=["Timeline"])
+api_v1_router.include_router(timeline_blocks.router, tags=["Timeline Blocks"])
 api_v1_router.include_router(search.router, tags=["Search"]) 
 api_v1_router.include_router(device_api.router)
 

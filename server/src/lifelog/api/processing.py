@@ -2,12 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlmodel.ext.asyncio.session import AsyncSession
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import logging
 
 from ..dependencies import get_session
 from pathlib import Path
-from datetime import datetime, timezone
 from ..services import ProcessingService, ProcessingRoutingService
 from ..core.actors import actor_registry
 from ..core.config import settings
@@ -19,6 +18,18 @@ router = APIRouter(
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Helper to schedule async background coroutines from FastAPI BackgroundTasks
+def schedule_async(coro_func, *args, **kwargs):
+    """Schedule an async callable to run on the current event loop.
+
+    BackgroundTasks expects a sync callable. This wrapper schedules the
+    provided async function on the running loop without blocking the request.
+    """
+    import asyncio
+    loop = asyncio.get_event_loop()
+    loop.create_task(coro_func(*args, **kwargs))
 
 
 # ============================================================================
@@ -432,3 +443,461 @@ async def reprocess_actor(
             "end": end_date.isoformat() if end_date else None
         } if (start_date or end_date) else None
     )
+
+
+# ============================================================================
+# BATCH PROCESSING ENDPOINTS
+# ============================================================================
+
+
+class BatchProcessRequest(BaseModel):
+    """Request to batch process unprocessed raw logs."""
+    limit: int = 100
+    source_actor_slug: Optional[str] = None
+    since: Optional[datetime] = None
+
+
+class BatchProcessResponse(BaseModel):
+    """Response after batch processing."""
+    status: str
+    message: str
+    processed: int
+    failed: int
+    skipped: int
+
+
+@router.post("/batch-process", response_model=BatchProcessResponse, status_code=status.HTTP_202_ACCEPTED)
+async def batch_process_raw_logs(
+    request: BatchProcessRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)
+):
+    """
+    Process unprocessed raw logs in batches.
+    
+    This endpoint finds raw logs that haven't been processed yet and processes
+    them in batches to avoid connection pool exhaustion. It's designed to be
+    called periodically (e.g., via cron) or manually when ingestion is paused.
+    
+    **Parameters**:
+    - `limit`: Maximum number of raw logs to process (default: 100)
+    - `source_actor_slug`: Only process logs from this source (optional)
+    - `since`: Only process logs ingested after this time (optional)
+    
+    **Features**:
+    - Processes logs in small batches with separate sessions
+    - Limits concurrent processing to prevent pool exhaustion
+    - Returns immediately, processes in background
+    - Safe to call repeatedly (skips already-processed logs)
+    """
+    from sqlmodel import select
+    from .. import models
+    
+    # Build query for unprocessed raw logs
+    stmt = select(models.RawLog.id).order_by(models.RawLog.ingested_at)  # type: ignore
+    
+    # Filter by source actor if specified
+    if request.source_actor_slug:
+        actor_stmt = select(models.Actor).where(models.Actor.slug == request.source_actor_slug)
+        actor = (await session.exec(actor_stmt)).first()
+        if actor and actor.id:
+            stmt = stmt.where(models.RawLog.source_actor_id == actor.id)
+    
+    # Filter by time if specified
+    if request.since:
+        stmt = stmt.where(models.RawLog.ingested_at >= request.since)
+    
+    # Get raw log IDs (limit to requested amount)
+    stmt = stmt.limit(request.limit)
+    result = await session.exec(stmt)
+    raw_log_ids = list(result.all())
+    
+    if not raw_log_ids:
+        return BatchProcessResponse(
+            status="completed",
+            message="No raw logs found to process",
+            processed=0,
+            failed=0,
+            skipped=0
+        )
+    
+    # Background task to process in batches
+    async def _batch_process():
+        from ..db import async_session
+        import asyncio
+
+        processed = 0
+        failed = 0
+        skipped = 0
+        batch_size = 10  # Process 10 at a time to avoid pool exhaustion
+
+        logger.warning(f"[batch] Starting batch processing of {len(raw_log_ids)} raw logs")
+
+        for i in range(0, len(raw_log_ids), batch_size):
+            batch = raw_log_ids[i:i + batch_size]
+            logger.warning(
+                f"[batch] Processing batch {i // batch_size + 1}/{(len(raw_log_ids) - 1) // batch_size + 1} ({len(batch)} logs)"
+            )
+
+            # Process each log in the batch with its own session
+            for raw_log_id_val in batch:
+                if not raw_log_id_val:
+                    skipped += 1
+                    continue
+
+                raw_log_id = int(raw_log_id_val)  # Ensure it's an int
+
+                try:
+                    async with async_session() as bg_session:
+                        # Load raw log with source actor
+                        raw_log = await ProcessingService.get_raw_log_with_source_actor(bg_session, raw_log_id)
+                        if not raw_log:
+                            skipped += 1
+                            continue
+
+                        # Check if already processed (has successful processing log)
+                        from ..constants import ProcessingStatus
+                        check_stmt = (
+                            select(models.ActorProcessingLog)
+                            .where(
+                                models.ActorProcessingLog.raw_log_id == raw_log_id,
+                                models.ActorProcessingLog.status == ProcessingStatus.SUCCESS.value,
+                            )
+                            .limit(1)
+                        )
+                        existing = (await bg_session.exec(check_stmt)).first()
+                        if existing:
+                            logger.debug(f"Raw log {raw_log_id} already processed, skipping")
+                            skipped += 1
+                            continue
+
+                        # Resolve processor
+                        source_actor_slug = raw_log.source_actor.slug
+                        processor_slug = await ProcessingRoutingService.resolve_processor_slug(
+                            bg_session, source_actor_slug
+                        )
+
+                        if not processor_slug:
+                            logger.debug(f"No processor mapped for {source_actor_slug}, skipping")
+                            skipped += 1
+                            continue
+
+                        # Get actor class
+                        ActorClass = actor_registry.get_actor_class(processor_slug)
+                        if not ActorClass:
+                            logger.warning(f"Actor {processor_slug} not registered, skipping")
+                            skipped += 1
+                            continue
+
+                        # Process the log
+                        try:
+                            actor_instance = ActorClass()
+                            await actor_instance.run(data=raw_log)
+                            processed += 1
+                            logger.warning(f"[batch] Successfully processed raw_log {raw_log_id}")
+                            
+                            # Record processing success in the batch session
+                            # (Actors may also write their own logs, but this ensures consistency)
+                            try:
+                                # Get the processor actor model
+                                proc_stmt = select(models.Actor).where(models.Actor.slug == processor_slug).limit(1)
+                                proc_actor = (await bg_session.exec(proc_stmt)).first()
+                                if proc_actor and proc_actor.id is not None:
+                                    processing_log = models.ActorProcessingLog(
+                                        actor_id=proc_actor.id,
+                                        actor_version_at_processing=proc_actor.version,
+                                        raw_log_id=raw_log_id,
+                                        status=ProcessingStatus.SUCCESS.value,
+                                        details={"batch_id": "manual", "source": "batch_processor"},
+                                    )
+                                    bg_session.add(processing_log)
+                                    await bg_session.commit()
+                            except Exception as log_err:
+                                logger.warning(f"Failed to write processing log for raw_log {raw_log_id}: {log_err}")
+                        except Exception as e:
+                            failed += 1
+                            logger.error(f"Failed to process raw_log {raw_log_id}: {e}", exc_info=True)
+                            
+                            # Record processing failure
+                            try:
+                                proc_stmt = select(models.Actor).where(models.Actor.slug == processor_slug).limit(1)
+                                proc_actor = (await bg_session.exec(proc_stmt)).first()
+                                if proc_actor and proc_actor.id is not None:
+                                    processing_log = models.ActorProcessingLog(
+                                        actor_id=proc_actor.id,
+                                        actor_version_at_processing=proc_actor.version,
+                                        raw_log_id=raw_log_id,
+                                        status=ProcessingStatus.FAILURE.value,
+                                        details={"error": str(e), "source": "batch_processor"},
+                                    )
+                                    bg_session.add(processing_log)
+                                    await bg_session.commit()
+                            except Exception as log_err:
+                                logger.warning(f"Failed to write failure log for raw_log {raw_log_id}: {log_err}")
+
+                except Exception as e:
+                    failed += 1
+                    logger.error(f"Error processing raw_log {raw_log_id}: {e}", exc_info=True)
+
+            # Small delay between batches to allow pool to recover
+            if i + batch_size < len(raw_log_ids):
+                await asyncio.sleep(0.5)
+
+        logger.warning(f"[batch] Complete: {processed} processed, {failed} failed, {skipped} skipped")
+    
+    # Schedule async batch processing on the current event loop
+    import asyncio as _asyncio
+    _asyncio.create_task(_batch_process())
+    
+    return BatchProcessResponse(
+        status="queued",
+        message=f"Batch processing queued for up to {len(raw_log_ids)} raw logs",
+        processed=0,
+        failed=0,
+        skipped=0
+    )
+
+
+@router.post("/batch-process/all-unprocessed", response_model=BatchProcessResponse, status_code=status.HTTP_202_ACCEPTED)
+async def batch_process_all_unprocessed(
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)
+):
+    """
+    Convenience endpoint to process all unprocessed raw logs.
+    
+    Processes in batches of 100 to avoid overwhelming the system.
+    Safe to call multiple times.
+    """
+    request = BatchProcessRequest(limit=100)
+    return await batch_process_raw_logs(request, background_tasks, session, current_user)
+
+
+# ============================================================================
+# BATCH STATUS ENDPOINTS
+# ============================================================================
+
+
+class BatchStatusResponse(BaseModel):
+    total_raw_logs: int
+    processed_success_total: int
+    pending_estimate: int
+    processed_last_10_min: int
+    failures_last_10_min: int
+    recent_logs: list[dict]
+
+
+@router.get("/batch-process/status", response_model=BatchStatusResponse)
+async def get_batch_status(
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)
+):
+    """
+    Get a quick snapshot of batch processing progress and recent activity.
+
+    - total_raw_logs: total number of raw logs ingested
+    - processed_success_total: number of raw logs with a SUCCESS processing log
+    - pending_estimate: total_raw_logs - processed_success_total
+    - processed_last_10_min: SUCCESS logs in last 10 minutes
+    - failures_last_10_min: FAILURE logs in last 10 minutes
+    - recent_logs: last 20 processing logs (status, raw_log_id, actor_slug, when)
+    """
+    from sqlmodel import select
+    from sqlalchemy import func, desc
+    from .. import models
+    from ..constants import ProcessingStatus
+    from datetime import datetime, timezone, timedelta
+
+    # Total raw logs (use select_from to avoid Optional typing issues)
+    total_stmt = select(func.count()).select_from(models.RawLog)
+    total_raw_logs = int((await session.exec(total_stmt)).one())
+
+    # Raw logs with SUCCESS (approximate; counts rows, typically one per raw_log)
+    success_count_stmt = (
+        select(func.count())
+        .select_from(models.ActorProcessingLog)
+        .where(
+            models.ActorProcessingLog.status == ProcessingStatus.SUCCESS.value,
+            models.ActorProcessingLog.raw_log_id.is_not(None)  # type: ignore[attr-defined]
+        )
+    )
+    processed_success_total = int((await session.exec(success_count_stmt)).one())
+
+    pending_estimate = max(0, total_raw_logs - processed_success_total)
+
+    # Recent window
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(minutes=10)
+
+    processed_last_stmt = (
+        select(func.count())
+        .select_from(models.ActorProcessingLog)
+        .where(
+            models.ActorProcessingLog.status == ProcessingStatus.SUCCESS.value,
+            models.ActorProcessingLog.processed_at >= window_start
+        )
+    )
+    processed_last_10_min = int((await session.exec(processed_last_stmt)).one())
+
+    failures_last_stmt = (
+        select(func.count())
+        .select_from(models.ActorProcessingLog)
+        .where(
+            models.ActorProcessingLog.status == ProcessingStatus.FAILURE.value,
+            models.ActorProcessingLog.processed_at >= window_start
+        )
+    )
+    failures_last_10_min = int((await session.exec(failures_last_stmt)).one())
+
+    # Recent logs (without join to avoid typing issues)
+    recent_stmt = (
+        select(
+            models.ActorProcessingLog.raw_log_id,
+            models.ActorProcessingLog.status,
+            models.ActorProcessingLog.processed_at,
+            models.ActorProcessingLog.actor_id,
+        )
+        .limit(20)
+    )
+    recent_rows = (await session.exec(recent_stmt)).all()
+    recent_logs = [
+        {
+            "raw_log_id": row[0],
+            "status": row[1],
+            "processed_at": row[2].isoformat() if row[2] else None,
+            "actor_id": row[3],
+        }
+        for row in recent_rows
+    ]
+
+    return BatchStatusResponse(
+        total_raw_logs=total_raw_logs,
+        processed_success_total=processed_success_total,
+        pending_estimate=pending_estimate,
+        processed_last_10_min=processed_last_10_min,
+        failures_last_10_min=failures_last_10_min,
+        recent_logs=recent_logs,
+    )
+
+# ============================================================================
+# TIMELINE GENERATION ENDPOINTS
+# ============================================================================
+
+
+class GenerateTimelineRequest(BaseModel):
+    """Request to generate timeline blocks for a period."""
+    start_time: datetime
+    end_time: datetime
+    model: Optional[str] = None
+    force_regenerate: bool = False
+    max_characters_per_chunk: int = 4000
+
+
+class GenerateTimelineResponse(BaseModel):
+    """Response after generating timeline blocks."""
+    status: str
+    message: str
+    blocks_created: int
+    chunks_processed: int
+    period: dict
+
+
+@router.post("/generate-timeline", response_model=GenerateTimelineResponse, status_code=status.HTTP_202_ACCEPTED)
+async def generate_timeline(
+    request: GenerateTimelineRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)
+):
+    """
+    Generate timeline blocks for a specified time period.
+    
+    This endpoint uses the timeline-enricher actor to:
+    1. Chunk events intelligently with budget enforcement
+    2. Generate AI-enriched timeline blocks via LLM
+    3. Optionally supersede existing blocks (if force_regenerate=true)
+    
+    Timeline blocks combine multiple raw events into concise, human-readable
+    summaries with context, making it easier to understand what happened.
+    
+    **Note**: This operation is queued as a background task. For large periods,
+    it may take several minutes.
+    """
+    from sqlmodel import select
+    from .. import models
+    from ..core.actors import actor_registry
+    
+    # Find timeline-enricher actor
+    actor_stmt = select(models.Actor).where(models.Actor.slug == "timeline-enricher")
+    actor = (await session.exec(actor_stmt)).first()
+    if not actor:
+        raise HTTPException(status_code=404, detail="timeline-enricher actor not found")
+    
+    # Prepare data for actor
+    actor_data = {
+        "start_time": request.start_time,
+        "end_time": request.end_time,
+        "model": request.model,
+        "force_regenerate": request.force_regenerate,
+        "budget": {
+            "max_characters": request.max_characters_per_chunk
+        }
+    }
+    
+    # Check if actor is registered in code
+    ActorClass = actor_registry.get_actor_class("timeline-enricher")
+    if not ActorClass:
+        raise HTTPException(
+            status_code=500,
+            detail="timeline-enricher code not loaded. Ensure the enrichers module is imported."
+        )
+    
+    # Run in background
+    async def _generate_timeline():
+        try:
+            actor_instance = ActorClass()
+            result = await actor_instance.run(actor_data)
+            logger.info(f"Timeline generation completed: {result}")
+        except Exception as e:
+            logger.error(f"Timeline generation failed: {e}", exc_info=True)
+    
+    # Schedule async timeline generation on the current event loop
+    import asyncio as _asyncio
+    _asyncio.create_task(_generate_timeline())
+    
+    return GenerateTimelineResponse(
+        status="queued",
+        message=f"Timeline generation queued for {request.start_time.date()} to {request.end_time.date()}",
+        blocks_created=0,
+        chunks_processed=0,
+        period={
+            "start": request.start_time.isoformat(),
+            "end": request.end_time.isoformat()
+        }
+    )
+
+
+@router.post("/generate-timeline/yesterday", response_model=GenerateTimelineResponse, status_code=status.HTTP_202_ACCEPTED)
+async def generate_timeline_yesterday(
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+    current_user: str = Depends(require_auth)
+):
+    """
+    Convenience endpoint to generate timeline blocks for yesterday.
+    
+    This is the most common use case for automated daily timeline generation.
+    """
+    from datetime import timezone
+    end_time = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_time = end_time - timedelta(days=1)
+    
+    request = GenerateTimelineRequest(
+        start_time=start_time,
+        end_time=end_time,
+        force_regenerate=False
+    )
+    
+    return await generate_timeline(request, background_tasks, session, current_user)

@@ -22,8 +22,17 @@ elif DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL
     DATABASE_URL = "postgresql+asyncpg://" + DATABASE_URL[len("postgresql://"):]
 
 # The engine is the single point of entry to our database
-# We create an async engine now. `echo=True` logs SQL queries.
-engine = create_async_engine(DATABASE_URL, echo=True)
+# We create an async engine now. Disable echo in production for performance.
+# Configure connection pool to handle concurrent background tasks
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=False,  # Disable SQL logging to reduce overhead
+    pool_size=20,  # Increase from default 5 to handle background tasks
+    max_overflow=40,  # Increase from default 10
+    pool_timeout=60,  # Increase timeout from default 30
+    pool_pre_ping=True,  # Verify connections before using them
+    pool_recycle=3600,  # Recycle connections after 1 hour to prevent stale connections
+)
 
 # Central async session factory for the app. Using expire_on_commit=False avoids
 # attribute refreshes after commits (which can trigger IO in unexpected places).

@@ -76,6 +76,20 @@ class SynthesisEventLink(SQLModel, table=True):
         primary_key=True
     )
 
+
+class TimelineBlockEventLink(SQLModel, table=True):
+    """Association table linking TimelineBlocks to Events they summarize."""
+    timeline_block_id: Optional[int] = Field(
+        default=None,
+        foreign_key="timelineblock.id",
+        primary_key=True
+    )
+    event_id: Optional[int] = Field(
+        default=None,
+        foreign_key="event.id",
+        primary_key=True
+    )
+
 # =================================================================
 # EXTENSION MANAGEMENT - Plugin system and actor definitions
 # =================================================================
@@ -317,6 +331,37 @@ class Device(SQLModel, table=True):
     )
     client_metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
+
+class SyncCursor(SQLModel, table=True):
+    """
+    Tracks sync watermarks for each device-extension-source combination.
+    Allows agents and collectors to resume from their last successful sync point,
+    preventing replay of old data on reinstall or restart.
+    """
+    __table_args__ = (
+        UniqueConstraint(
+            "device_id", "source_actor_id", "cursor_key",
+            name="uq_synccursor_device_source_key"
+        ),
+    )
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    device_id: int = Field(foreign_key="device.id", nullable=False, index=True)
+    source_actor_id: int = Field(foreign_key="actor.id", nullable=False, index=True)
+    cursor_key: str = Field(
+        nullable=False,
+        description="Cursor identifier (e.g., 'last_sync', 'bucket_name', etc.)"
+    )
+    cursor_value: str = Field(
+        nullable=False,
+        description="Cursor value (e.g., timestamp ISO string, event ID, offset)"
+    )
+    last_updated: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="When this cursor was last updated"
+    )
+
 # =================================================================
 # DATA INGESTION - Raw data capture and processing pipeline
 # =================================================================
@@ -325,10 +370,37 @@ class RawLog(SQLModel, table=True):
     """
     Represents raw, unprocessed data ingested from external sources.
     This is the entry point for all data into the LifeLog system.
+    
+    Idempotency: Uses (source_actor_id, device_id, external_id) unique constraint
+    or fingerprint-based deduplication to prevent duplicate ingestion.
     """
+    __table_args__ = (
+        UniqueConstraint(
+            "source_actor_id", "device_id", "external_id", 
+            name="uq_rawlog_source_device_external"
+        ),
+        UniqueConstraint(
+            "source_actor_id", "device_id", "fingerprint",
+            name="uq_rawlog_source_device_fingerprint"
+        ),
+    )
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     source_actor_id: int = Field(foreign_key="actor.id", nullable=False)
     device_id: Optional[int] = Field(default=None, foreign_key="device.id")
+    
+    # Idempotency fields
+    external_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="External/source event ID for idempotency (e.g., ActivityWatch event ID)"
+    )
+    fingerprint: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="Computed hash of normalized data for deduplication when external_id unavailable"
+    )
+    
     raw_data: dict = Field(sa_column=Column(JSON, nullable=False))
     ingested_at: datetime = Field(
         default_factory=utcnow,
@@ -368,9 +440,27 @@ class Event(SQLModel, table=True):
     """
     Represents a processed event derived from raw logs.
     Events have time bounds and can be superseded by newer versions.
+    
+    Idempotency: Uses (processor_actor_id, source_raw_log_id) or fingerprint
+    to prevent duplicate processing of the same raw data.
     """
+    __table_args__ = (
+        UniqueConstraint(
+            "processor_actor_id", "external_id",
+            name="uq_event_processor_external"
+        ),
+    )
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     processor_actor_id: int = Field(foreign_key="actor.id", nullable=False)
+    
+    # Idempotency field
+    external_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="Stable identifier for this event (e.g., hash of source + timestamp)"
+    )
+    
     start_time: datetime = Field(
         default=...,  # required
         sa_column=Column(sa.DateTime(timezone=True), nullable=False),
@@ -394,6 +484,10 @@ class Event(SQLModel, table=True):
     synthesis_reports: List["SynthesisReport"] = Relationship(
         back_populates="events", 
         link_model=SynthesisEventLink
+    )
+    timeline_blocks: List["TimelineBlock"] = Relationship(
+        back_populates="events",
+        link_model=TimelineBlockEventLink
     )
 
 
@@ -432,6 +526,98 @@ class EventMetadata(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=utcnow,
         sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+    )
+
+
+class TimelineBlock(SQLModel, table=True):
+    """
+    Enrichment artifact: AI-generated timeline blocks that summarize groups of events.
+    
+    Timeline blocks combine multiple raw events into concise, human-readable summaries
+    with context. They track the model version used for generation and can be superseded
+    when models/prompts improve.
+    
+    Idempotency: Uses (actor_id, start_time, end_time) to prevent duplicate timeline blocks
+    for the same time period by the same enricher.
+    """
+    __table_args__ = (
+        UniqueConstraint(
+            "actor_id", "start_time", "end_time",
+            name="uq_timelineblock_actor_timerange"
+        ),
+    )
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    actor_id: int = Field(
+        foreign_key="actor.id",
+        nullable=False,
+        description="The enricher actor that generated this timeline block"
+    )
+    start_time: datetime = Field(
+        default=...,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="Start of the time period covered by this block"
+    )
+    end_time: datetime = Field(
+        default=...,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="End of the time period covered by this block"
+    )
+    title: str = Field(
+        nullable=False,
+        description="Short title summarizing the main activity"
+    )
+    summary: str = Field(
+        nullable=False,
+        description="Human-readable narrative combining context from multiple events"
+    )
+    tags: Optional[List[str]] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Metadata tags for search and categorization"
+    )
+    block_data: dict = Field(
+        sa_column=Column(JSON, nullable=False),
+        description="Full structured data including locations, activities, etc."
+    )
+    character_count: int = Field(
+        nullable=False,
+        description="Total character count of input events (for budget tracking)"
+    )
+    token_count: Optional[int] = Field(
+        default=None,
+        description="Total token count (if available from LLM)"
+    )
+    model_version: str = Field(
+        nullable=False,
+        description="LLM model identifier used for generation (e.g., 'gpt-4', 'llama-3')"
+    )
+    prompt_template_id: Optional[int] = Field(
+        default=None,
+        foreign_key="prompttemplate.id",
+        description="Prompt template used for generation"
+    )
+    ai_usage_log_id: Optional[int] = Field(
+        default=None,
+        foreign_key="aiusagelog.id",
+        unique=True,
+        description="Link to AI usage/cost tracking"
+    )
+    created_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+        description="When this block was generated"
+    )
+    superseded_by_block_id: Optional[int] = Field(
+        default=None,
+        foreign_key="timelineblock.id",
+        description="If this block was regenerated with a new model/prompt"
+    )
+    
+    # Relationships
+    events: List["Event"] = Relationship(
+        back_populates="timeline_blocks",
+        link_model=TimelineBlockEventLink
     )
 
 # =================================================================

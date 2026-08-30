@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '20251023_01_timestamptz_migration'
+revision = '20251023_01'
 down_revision = 'b872d2e04e4a'
 branch_labels = None
 depends_on = None

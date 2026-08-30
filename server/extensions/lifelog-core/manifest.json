@@ -1,0 +1,25 @@
+{
+  "slug": "lifelog-core",
+  "name": "LifeLog Core",
+  "version": "1.0.0",
+  "description": "Built-in core actors for LifeLog system functionality",
+  "server_side": {
+    "actors": [
+      {
+        "slug": "timeline-enricher",
+        "type": "ENRICHER",
+        "version": "1.0.0",
+        "description": "Generates enriched timeline blocks from events using LLM"
+      },
+      {
+        "slug": "test-processor",
+        "type": "PROCESSOR",
+        "version": "1.0.0",
+        "description": "Example processor for test-source data"
+      }
+    ],
+    "event_types": [],
+    "prompt_templates": []
+  },
+  "client_side": null
+}

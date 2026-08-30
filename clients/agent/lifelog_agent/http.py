@@ -34,11 +34,64 @@ class DeviceClient:
         r.raise_for_status()
         return r.json()
 
-    async def ingest(self, source_actor_slug: str, data: Dict[str, Any]) -> Dict[str, Any]:
-        # Ingestion uses X-Device-Key header as well
-        r = await self._client.post(
-            "/ingest/",
-            json={"source_actor_slug": source_actor_slug, "data": data},
+    async def ingest(
+        self, 
+        source_actor_slug: str, 
+        data: Dict[str, Any],
+        external_id: Optional[str] = None,
+        idempotency_key: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Ingest data with optional idempotency support.
+        
+        Args:
+            source_actor_slug: Source actor slug
+            data: Raw data payload
+            external_id: Optional external event ID for idempotency
+            idempotency_key: Optional idempotency key
+        """
+        payload = {
+            "source_actor_slug": source_actor_slug,
+            "data": data
+        }
+        if external_id:
+            payload["external_id"] = external_id
+        if idempotency_key:
+            payload["idempotency_key"] = idempotency_key
+            
+        r = await self._client.post("/ingest/", json=payload)
+        r.raise_for_status()
+        return r.json()
+    
+    async def get_cursor(self, source_actor_slug: str, cursor_key: str) -> Optional[str]:
+        """
+        Get the current cursor value for a source actor.
+        Returns None if cursor doesn't exist.
+        """
+        try:
+            r = await self._client.get(
+                f"/api/v1/device/cursor/{source_actor_slug}/{cursor_key}"
+            )
+            r.raise_for_status()
+            data = r.json()
+            return data.get("cursor_value")
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return None
+            raise
+    
+    async def update_cursor(
+        self, 
+        source_actor_slug: str, 
+        cursor_key: str, 
+        cursor_value: str
+    ) -> Dict[str, Any]:
+        """
+        Update the cursor value for a source actor.
+        """
+        r = await self._client.put(
+            f"/api/v1/device/cursor/{source_actor_slug}/{cursor_key}",
+            json={"cursor_value": cursor_value}
         )
         r.raise_for_status()
         return r.json()

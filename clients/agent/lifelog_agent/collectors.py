@@ -85,7 +85,14 @@ class CollectorSupervisor:
             kind = msg.get("type")
             if kind == "raw_log":
                 data = msg.get("data") or {}
-                self.queue.enqueue("ingest", {"source_actor_slug": source_actor_slug, "data": data})
+                external_id = msg.get("external_id")  # Collectors can provide external_id
+                payload = {
+                    "source_actor_slug": source_actor_slug, 
+                    "data": data
+                }
+                if external_id:
+                    payload["external_id"] = external_id
+                self.queue.enqueue("ingest", payload)
             else:
                 # status or unknown
                 # could log to a file later

@@ -172,3 +172,109 @@ async def update_device_config(
     await session.commit()
     await session.refresh(dev)
     return dev.client_metadata
+
+
+@router.get("/cursor/{source_actor_slug}/{cursor_key}")
+async def get_sync_cursor(
+    source_actor_slug: str,
+    cursor_key: str,
+    session: AsyncSession = Depends(get_session),
+    device = Depends(device_auth_dependency),
+):
+    """
+    Get the sync cursor for a specific source actor and cursor key.
+    Returns the cursor value or 404 if not found.
+    
+    This allows agents to resume from their last successful sync point.
+    """
+    # Find source actor
+    actor_stmt = select(models.Actor).where(models.Actor.slug == source_actor_slug)
+    actor = (await session.exec(actor_stmt)).first()
+    if not actor or actor.id is None:
+        raise HTTPException(status_code=404, detail=f"Source actor '{source_actor_slug}' not found")
+    
+    # Find cursor
+    cursor_stmt = (
+        select(models.SyncCursor)
+        .where(models.SyncCursor.device_id == device.id)
+        .where(models.SyncCursor.source_actor_id == actor.id)
+        .where(models.SyncCursor.cursor_key == cursor_key)
+    )
+    cursor = (await session.exec(cursor_stmt)).first()
+    
+    if not cursor:
+        raise HTTPException(status_code=404, detail="Cursor not found")
+    
+    return {
+        "cursor_key": cursor.cursor_key,
+        "cursor_value": cursor.cursor_value,
+        "last_updated": cursor.last_updated.isoformat()
+    }
+
+
+@router.put("/cursor/{source_actor_slug}/{cursor_key}")
+async def update_sync_cursor(
+    source_actor_slug: str,
+    cursor_key: str,
+    payload: Dict[str, str],
+    session: AsyncSession = Depends(get_session),
+    device = Depends(device_auth_dependency),
+):
+    """
+    Update or create a sync cursor for a specific source actor and cursor key.
+    
+    Payload should contain:
+    {
+        "cursor_value": "2024-11-16T12:34:56Z"  # or any string value
+    }
+    
+    This allows agents to checkpoint their progress server-side.
+    """
+    cursor_value = payload.get("cursor_value")
+    if not cursor_value:
+        raise HTTPException(status_code=400, detail="cursor_value is required")
+    
+    # Find source actor
+    actor_stmt = select(models.Actor).where(models.Actor.slug == source_actor_slug)
+    actor = (await session.exec(actor_stmt)).first()
+    if not actor or actor.id is None:
+        raise HTTPException(status_code=404, detail=f"Source actor '{source_actor_slug}' not found")
+    
+    # Use PostgreSQL UPSERT for atomic cursor update
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from datetime import datetime, timezone
+    
+    values = {
+        "device_id": device.id,
+        "source_actor_id": actor.id,
+        "cursor_key": cursor_key,
+        "cursor_value": cursor_value,
+        "last_updated": datetime.now(timezone.utc)
+    }
+    
+    stmt = pg_insert(models.SyncCursor).values(**values)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=['device_id', 'source_actor_id', 'cursor_key'],
+        set_={
+            "cursor_value": cursor_value,
+            "last_updated": datetime.now(timezone.utc)
+        }
+    )
+    
+    await session.execute(stmt)
+    await session.commit()
+    
+    # Fetch the updated cursor
+    cursor_stmt = (
+        select(models.SyncCursor)
+        .where(models.SyncCursor.device_id == device.id)
+        .where(models.SyncCursor.source_actor_id == actor.id)
+        .where(models.SyncCursor.cursor_key == cursor_key)
+    )
+    cursor = (await session.exec(cursor_stmt)).first()
+    
+    return {
+        "cursor_key": cursor.cursor_key,
+        "cursor_value": cursor.cursor_value,
+        "last_updated": cursor.last_updated.isoformat()
+    }
