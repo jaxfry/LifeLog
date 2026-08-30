@@ -1,0 +1,41 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Restart Docker Compose (recreate server)",
+			"type": "shell",
+			"command": "docker compose up -d --build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Restart Docker Compose (recreate server)",
+			"type": "shell",
+			"command": "docker compose up -d --build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Restart Docker Compose (recreate server)",
+			"type": "shell",
+			"command": "docker compose up -d --build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Restart Docker Compose (recreate server)",
+			"type": "shell",
+			"command": "docker compose up -d --build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

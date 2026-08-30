@@ -1,0 +1,13 @@
+{
+  "name": "@lifelog/server",
+  "private": true,
+  "scripts": {
+    "dev": "uvicorn lifelog.main:app --host 0.0.0.0 --reload --app-dir src",
+    "lint": "ruff check . && ruff format . --check",
+    "format": "ruff format .",
+    "db:migrate": "dotenv-run -f ../.env.local -- alembic revision --autogenerate",
+    "db:upgrade": "dotenv-run -f ../.env.local -- alembic upgrade head",
+    "db:downgrade": "dotenv-run -f ../.env.local -- alembic downgrade -1",
+    "db:seed": "dotenv-run -f ../.env.local -- python3 scripts/seed_dummy_data.py"
+  }
+}

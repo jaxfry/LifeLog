@@ -1,0 +1,67 @@
+# Docker Compose configuration for LifeLog DEVELOPMENT (PLEASE DO NOT USE IN PRODUCTION)
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: lifelog_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - lifelog_data:/var/lib/postgresql/data
+    env_file:
+      - .env.docker
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama
+    container_name: lifelog_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-v1.34.29
+    container_name: lifelog_litellm_proxy
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env.docker
+      - .env.litellm
+    depends_on:
+      - ollama
+    command: >
+      --model ollama/nomic-embed-text
+      --model gpt-4-turbo
+      --api_base ollama:11434
+      --host 0.0.0.0
+      --port 4000
+      --num_workers 4
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+    container_name: lifelog_server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server/src:/app/src
+      - ./server/extensions:/app/extensions
+      - ./server/extensions_store:/app/extensions_store
+      - ./server/trusted_keys:/app/trusted_keys
+      - ./server/migrations:/app/migrations
+      - ./server/alembic.ini:/app/alembic.ini
+    env_file:
+      - .env.docker
+    depends_on:
+      - db
+      - litellm
+    command: ["uvicorn", "lifelog.main:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "src"]
+
+volumes:
+  lifelog_data:
+    driver: local
+  ollama_data:
+    driver: local

@@ -1,0 +1,52 @@
+{
+  "slug": "activitywatch-connector",
+  "name": "ActivityWatch Connector",
+  "version": "1.0.1",
+  "description": "Collects ActivityWatch window events and turns them into LifeLog computer-activity events",
+  "author": "LifeLog",
+  "server_side": {
+    "actors": [
+      { "slug": "activitywatch-source", "type": "SOURCE", "version": "1.0.1", "description": "Source actor for ActivityWatch data ingestion (passive reference)" },
+      { "slug": "aw-processor", "type": "PROCESSOR", "version": "1.0.1", "description": "Processes ActivityWatch raw logs into computer-activity timeline events" }
+    ],
+    "event_types": [
+      { "slug": "computer-activity", "description": "Computer usage activity event (window focus)" }
+    ]
+  },
+  "client_side": {
+    "platforms": {
+      "macos": {
+        "collectors": [
+          {
+            "slug": "activitywatch-source",
+            "entrypoint": "collectors/aw_collector.py",
+            "settings_schema": {
+              "type": "object",
+              "properties": {
+                "aw_base_url": {"type": "string", "default": "http://127.0.0.1:5600"},
+                "buckets": {"type": "array", "items": {"type": "string"}, "default": []},
+                "interval_sec": {"type": "integer", "default": 15}
+              }
+            }
+          }
+        ]
+      },
+      "windows": {
+        "collectors": [
+          {
+            "slug": "activitywatch-source",
+            "entrypoint": "collectors/aw_collector.py"
+          }
+        ]
+      },
+      "linux": {
+        "collectors": [
+          {
+            "slug": "activitywatch-source",
+            "entrypoint": "collectors/aw_collector.py"
+          }
+        ]
+      }
+    }
+  }
+}
