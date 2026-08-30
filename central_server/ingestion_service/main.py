@@ -2,10 +2,12 @@ import logging
 import datetime
 import os
 import json
+import hmac
 import aio_pika
 from aio_pika import Message, DeliveryMode
 from aio_pika.exceptions import AMQPException
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any
 from dotenv import load_dotenv
 
@@ -23,6 +25,30 @@ RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
 RABBITMQ_QUEUE = os.getenv("RABBITMQ_QUEUE", "lifelog_events_queue")
 RABBITMQ_USER = os.getenv("RABBITMQ_USER", "user")
 RABBITMQ_PASS = os.getenv("RABBITMQ_PASS", "password")
+
+# Ingestion shared-secret (must be set via environment variable)
+_INGESTION_AUTH_TOKEN: str = os.getenv("INGESTION_AUTH_TOKEN", "")
+
+_http_bearer = HTTPBearer()
+
+def _verify_ingestion_token(credentials: HTTPAuthorizationCredentials = Security(_http_bearer)) -> None:
+    """Validate the Bearer token sent by local daemons.
+
+    Uses constant-time comparison to prevent timing-based token enumeration.
+    The service refuses to accept *any* request if INGESTION_AUTH_TOKEN has not
+    been configured in the environment.
+    """
+    if not _INGESTION_AUTH_TOKEN:
+        logger.error(
+            "INGESTION_AUTH_TOKEN is not set. "
+            "All ingest requests will be rejected until this is configured."
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Ingestion service is not configured correctly. Contact the administrator."
+        )
+    if not hmac.compare_digest(credentials.credentials, _INGESTION_AUTH_TOKEN):
+        raise HTTPException(status_code=401, detail="Invalid or missing ingestion token.")
 
 app = FastAPI(
     title="Data Ingestion Service",
@@ -68,7 +94,7 @@ async def publish_to_rabbitmq(payload: LogPayload) -> bool:
         return False
 
 @app.post("/api/v1/ingest")
-async def ingest_data(payload: LogPayload) -> Dict[str, Any]:
+async def ingest_data(payload: LogPayload, _: None = Security(_verify_ingestion_token)) -> Dict[str, Any]:
     """
     Receives data from local daemons.
     - Validates the incoming JSON payload against the LogPayload model.

@@ -5,6 +5,7 @@ This replaces the multi-user authentication system with a single-user approach
 while maintaining security through password protection and JWT tokens.
 """
 
+import hmac
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status
@@ -49,14 +50,15 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 def authenticate_user(username: str, password: str) -> bool:
-    """Authenticate the single user against configured credentials"""
-    if username != settings.LIFELOG_USERNAME:
-        return False
-    
-    if password != settings.LIFELOG_PASSWORD:
-        return False
-    
-    return True
+    """Authenticate the single user against configured credentials.
+
+    Both comparisons use :func:`hmac.compare_digest` to prevent timing-based
+    attacks that could reveal valid usernames or passwords through response-time
+    differences.
+    """
+    username_ok = hmac.compare_digest(username, settings.LIFELOG_USERNAME)
+    password_ok = hmac.compare_digest(password, settings.LIFELOG_PASSWORD)
+    return username_ok and password_ok
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> str:
     """Get the current authenticated user (returns username since we only have one user)"""
