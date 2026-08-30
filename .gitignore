@@ -172,6 +172,12 @@ poetry.toml
 
 # LifeLog runtime data (content-addressed user uploads are not source code)
 server/storage/uploads/
+server/storage/upload_sessions/
+server/storage/cache/
+ios/collected/
+*.db
+*.sqlite
+*.sqlite3
 
 # LSP config files
 pyrightconfig.json
